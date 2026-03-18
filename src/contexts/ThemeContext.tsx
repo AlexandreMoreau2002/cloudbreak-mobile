@@ -1,16 +1,15 @@
 import { useColorScheme } from 'react-native';
-import { createContext, useContext } from 'react';
-
-import { Typography } from '../constants/typography';
-import { Radius, Spacing } from '../constants/spacing';
-import { Colors, type ColorScheme, type ThemeColors } from '../constants/colors';
+import { Typography } from '@/constants/typography';
+import { Radius, Spacing } from '@/constants/spacing';
+import { useMemo, createContext, useContext } from 'react';
+import { Colors, type ColorScheme, type ThemeColors } from '@/constants/colors';
 
 interface ThemeContextValue {
   colors: ThemeColors;
+  scheme: ColorScheme;
+  radius: typeof Radius;
   spacing: typeof Spacing;
   typography: typeof Typography;
-  radius: typeof Radius;
-  scheme: ColorScheme;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -19,13 +18,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
   const scheme: ColorScheme = systemScheme === 'dark' ? 'dark' : 'light';
 
-  const value: ThemeContextValue = {
+  const value = useMemo<ThemeContextValue>(() => ({
     colors: Colors[scheme],
     spacing: Spacing,
     typography: Typography,
     radius: Radius,
     scheme,
-  };
+  }), [scheme]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

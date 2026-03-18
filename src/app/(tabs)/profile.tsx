@@ -1,18 +1,27 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import i18n from '@/utils/i18n';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const { colors, typography } = useTheme();
+  const { signOut } = useAuth();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={{ color: colors.textPrimary, fontSize: typography.fontSize.lg, fontFamily: typography.fontFamily.semiBold }}>
-        Profil — à venir
+        {i18n.t('profile.comingSoon')}
       </Text>
+      <TouchableOpacity style={[styles.button, { borderColor: colors.border }]} onPress={signOut}>
+        <Text style={{ color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm }}>
+          {i18n.t('profile.signOut')}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 32 },
+  button: { borderWidth: 1, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24 },
 });

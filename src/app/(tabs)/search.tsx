@@ -1,5 +1,6 @@
+import i18n from '@/utils/i18n';
+import { useTheme } from '@/contexts/ThemeContext';
 import { StyleSheet, Text, View } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
 
 export default function SearchScreen() {
   const { colors, typography } = useTheme();
@@ -7,7 +8,7 @@ export default function SearchScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={{ color: colors.textPrimary, fontSize: typography.fontSize.lg, fontFamily: typography.fontFamily.semiBold }}>
-        Recherche — à venir
+        {i18n.t('search.comingSoon')}
       </Text>
     </View>
   );

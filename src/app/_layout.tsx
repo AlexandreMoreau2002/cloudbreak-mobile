@@ -1,3 +1,7 @@
+import { useEffect } from 'react';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useRouter, useSegments, SplashScreen, Stack } from 'expo-router';
 import {
   JosefinSans_300Light,
   JosefinSans_400Regular,
@@ -5,11 +9,26 @@ import {
   JosefinSans_700Bold,
   useFonts,
 } from '@expo-google-fonts/josefin-sans';
-import { useEffect } from 'react';
-import { SplashScreen, Stack } from 'expo-router';
-import { ThemeProvider } from '../contexts/ThemeContext';
 
 SplashScreen.preventAutoHideAsync();
+
+function AuthGuard() {
+  const router = useRouter();
+  const segments = useSegments();
+  const { session, loading } = useAuth();
+
+  useEffect(() => {
+    if (loading) return;
+    const inAuthGroup = segments[0] === '(auth)';
+    if (!session && !inAuthGroup) {
+      router.replace('/(auth)/login');
+    } else if (session && inAuthGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [session, loading, segments, router]);
+
+  return null;
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -27,7 +46,10 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <AuthProvider>
+        <AuthGuard />
+        <Stack screenOptions={{ headerShown: false }} />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

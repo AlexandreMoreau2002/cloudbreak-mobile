@@ -29,10 +29,21 @@ npm run android        # émulateur Android
 ## Qualité & Tests
 
 ```bash
-npx tsc --noEmit       # vérification TypeScript — 0 erreur attendue
-npm run lint           # ESLint
-npm test               # Jest
-npm run build:check    # build check iOS + Android + Web (export statique)
+npm run validate       # ✅ tout valider d'un coup — à lancer avant chaque commit
+```
+
+Cette commande enchaîne dans l'ordre :
+1. `npx tsc --noEmit` — 0 erreur TypeScript
+2. `npm run lint` — 0 warning ESLint
+3. `npm test -- --coverage` — tous les tests passent, coverage 100%
+4. `npm run build:check` — le bundle iOS compile sans erreur
+
+Commandes individuelles si besoin :
+```bash
+npx tsc --noEmit       # TypeScript uniquement
+npm run lint           # ESLint uniquement
+npm test               # Jest uniquement
+npm run build:check    # build check uniquement
 ```
 
 ## Structure
