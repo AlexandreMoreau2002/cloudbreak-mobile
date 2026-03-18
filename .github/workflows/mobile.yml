@@ -19,7 +19,7 @@ jobs:
       - run: npm ci
       - name: TypeScript
         run: npx tsc --noEmit
-      - name: Bundle check (iOS)
+      - name: Bundle check
         run: npm run build:check
 
   lint:
