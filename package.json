@@ -9,10 +9,15 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest --passWithNoTests --coverage",
-    "build:check": "expo export --platform ios"
+    "build:check": "expo export --platform ios",
+    "validate": "npx tsc --noEmit && npm run lint && npm test -- --coverage && npm run build:check"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "src/locales/"
+    ]
   },
   "dependencies": {
     "@expo-google-fonts/josefin-sans": "^0.4.2",

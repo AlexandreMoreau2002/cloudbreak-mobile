@@ -16,9 +16,22 @@ export default {
     retry: 'Retry',
     noData: 'Data unavailable',
   },
+  home: {
+    comingSoon: 'Coming soon',
+  },
+  search: {
+    comingSoon: 'Search — coming soon',
+  },
+  favorites: {
+    comingSoon: 'Favorites — coming soon',
+  },
+  profile: {
+    comingSoon: 'Profile — coming soon',
+    signOut: 'Sign out',
+  },
   auth: {
     eyebrow: 'SEA OF CLOUDS',
-    subtitle: 'Predicts the probability of a sea of clouds\nfrom your summit',
+    subtitle: 'Predicts the probability of a sea of clouds\nfor your favorite summit',
     email: 'Email',
     password: 'Password',
     login: 'Sign in',

@@ -1,7 +1,7 @@
+import i18n from '@/utils/i18n';
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import i18n from '../utils/i18n';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Mode = 'login' | 'signup';
 

@@ -1,15 +1,15 @@
-import { useMemo, createContext, useContext } from 'react';
 import { useColorScheme } from 'react-native';
-import { Typography } from '../constants/typography';
-import { Radius, Spacing } from '../constants/spacing';
-import { Colors, type ColorScheme, type ThemeColors } from '../constants/colors';
+import { Typography } from '@/constants/typography';
+import { Radius, Spacing } from '@/constants/spacing';
+import { useMemo, createContext, useContext } from 'react';
+import { Colors, type ColorScheme, type ThemeColors } from '@/constants/colors';
 
 interface ThemeContextValue {
   colors: ThemeColors;
+  scheme: ColorScheme;
+  radius: typeof Radius;
   spacing: typeof Spacing;
   typography: typeof Typography;
-  radius: typeof Radius;
-  scheme: ColorScheme;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);

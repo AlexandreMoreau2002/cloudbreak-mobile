@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter, useSegments, SplashScreen, Stack } from 'expo-router';
-import { ThemeProvider } from '../contexts/ThemeContext';
-import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import {
   JosefinSans_300Light,
   JosefinSans_400Regular,
@@ -13,9 +13,9 @@ import {
 SplashScreen.preventAutoHideAsync();
 
 function AuthGuard() {
-  const { session, loading } = useAuth();
-  const segments = useSegments();
   const router = useRouter();
+  const segments = useSegments();
+  const { session, loading } = useAuth();
 
   useEffect(() => {
     if (loading) return;

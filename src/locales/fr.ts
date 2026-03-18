@@ -16,9 +16,22 @@ export default {
     retry: 'Réessayer',
     noData: 'Données non disponibles',
   },
+  home: {
+    comingSoon: 'À venir',
+  },
+  search: {
+    comingSoon: 'Recherche — à venir',
+  },
+  favorites: {
+    comingSoon: 'Favoris — à venir',
+  },
+  profile: {
+    comingSoon: 'Profil — à venir',
+    signOut: 'Se déconnecter',
+  },
   auth: {
-    eyebrow: 'SEA OF CLOUDS',
-    subtitle: 'Prédit la probabilité de mer de nuage\ndepuis votre sommet',
+    eyebrow: 'Mer de nuage',
+    subtitle: 'Prédit la probabilité de mer de nuage\nde votre sommet préféré',
     email: 'Email',
     password: 'Mot de passe',
     login: 'Se connecter',

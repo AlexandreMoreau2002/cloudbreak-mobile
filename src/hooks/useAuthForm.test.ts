@@ -1,6 +1,6 @@
-import { renderHook, act } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { useAuthForm } from './useAuthForm';
+import { renderHook, act } from '@testing-library/react-native';
 
 const mockSignIn = jest.fn();
 const mockSignUp = jest.fn();

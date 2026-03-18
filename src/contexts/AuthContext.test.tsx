@@ -1,25 +1,25 @@
 import React from 'react';
+import { AuthProvider, useAuth } from './AuthContext';
 import { Text, TouchableOpacity } from 'react-native';
 import { render, waitFor, fireEvent } from '@testing-library/react-native';
-import { AuthProvider, useAuth } from './AuthContext';
 
 const mockUnsubscribe = jest.fn();
 const mockGetSession = jest.fn().mockResolvedValue({ data: { session: null } });
 const mockOnAuthStateChange = jest.fn().mockReturnValue({
   data: { subscription: { unsubscribe: mockUnsubscribe } },
 });
+const mockSignOut = jest.fn().mockResolvedValue(undefined);
 const mockSignIn = jest.fn().mockResolvedValue({ error: null });
 const mockSignUp = jest.fn().mockResolvedValue({ error: null });
-const mockSignOut = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('../services/supabaseClient', () => ({
   supabase: {
     auth: {
-      get getSession() { return mockGetSession; },
-      get onAuthStateChange() { return mockOnAuthStateChange; },
-      get signInWithPassword() { return mockSignIn; },
       get signUp() { return mockSignUp; },
       get signOut() { return mockSignOut; },
+      get getSession() { return mockGetSession; },
+      get signInWithPassword() { return mockSignIn; },
+      get onAuthStateChange() { return mockOnAuthStateChange; },
     },
   },
 }));

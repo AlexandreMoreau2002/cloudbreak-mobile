@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import i18n from '@/utils/i18n';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function FavoritesScreen() {
   const { colors, typography } = useTheme();
@@ -7,7 +8,7 @@ export default function FavoritesScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={{ color: colors.textPrimary, fontSize: typography.fontSize.lg, fontFamily: typography.fontFamily.semiBold }}>
-        Favoris — à venir
+        {i18n.t('favorites.comingSoon')}
       </Text>
     </View>
   );

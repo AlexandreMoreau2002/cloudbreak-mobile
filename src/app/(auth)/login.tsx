@@ -1,7 +1,7 @@
+import i18n from '@/utils/i18n';
+import { useAuthForm } from '@/hooks/useAuthForm';
+import { useTheme } from '@/contexts/ThemeContext';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import i18n from '../../utils/i18n';
-import { useTheme } from '../../contexts/ThemeContext';
-import { useAuthForm } from '../../hooks/useAuthForm';
 
 export default function LoginScreen() {
   const { colors, typography, spacing, radius } = useTheme();

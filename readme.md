@@ -19,19 +19,31 @@ npm install
 ## Lancer en dev
 
 ```bash
-npx expo run:ios       # première fois (ou après ajout d'un module natif) — compile + lance le simulateur
-npm start              # fois suivantes — Metro bundler uniquement (le build natif est déjà installé)
+npm start              # dev server + QR code (Expo Go)
+npm run ios            # simulateur iOS
+npm run android        # émulateur Android
 ```
 
-> **Important** : l'app utilise des modules natifs (`AsyncStorage`, `expo-linear-gradient`...) incompatibles avec Expo Go. Il faut obligatoirement `npx expo run:ios` pour compiler le development build la première fois, ou après chaque ajout de module natif. Ensuite `npm start` suffit.
+> Expo Go doit être à jour sur le téléphone pour correspondre à la version SDK du projet.
 
 ## Qualité & Tests
 
 ```bash
-npx tsc --noEmit       # vérification TypeScript — 0 erreur attendue
-npm run lint           # ESLint
-npm test               # Jest
-npm run build:check    # build check iOS + Android + Web (export statique)
+npm run validate       # ✅ tout valider d'un coup — à lancer avant chaque commit
+```
+
+Cette commande enchaîne dans l'ordre :
+1. `npx tsc --noEmit` — 0 erreur TypeScript
+2. `npm run lint` — 0 warning ESLint
+3. `npm test -- --coverage` — tous les tests passent, coverage 100%
+4. `npm run build:check` — le bundle iOS compile sans erreur
+
+Commandes individuelles si besoin :
+```bash
+npx tsc --noEmit       # TypeScript uniquement
+npm run lint           # ESLint uniquement
+npm test               # Jest uniquement
+npm run build:check    # build check uniquement
 ```
 
 ## Structure
@@ -39,29 +51,22 @@ npm run build:check    # build check iOS + Android + Web (export statique)
 ```
 src/
 ├── app/
-│   ├── _layout.tsx          # Root layout : fonts + ThemeProvider + AuthProvider + AuthGuard
+│   ├── _layout.tsx          # Root layout : fonts + ThemeProvider
 │   ├── index.tsx            # Redirect → /(tabs)
-│   ├── (auth)/
-│   │   ├── _layout.tsx      # Layout routes non-auth (pas de guard)
-│   │   └── login.tsx        # Écran login / inscription
 │   └── (tabs)/
 │       ├── _layout.tsx      # Tab bar (4 onglets)
 │       ├── index.tsx        # Accueil
 │       ├── search.tsx       # Recherche
 │       ├── favorites.tsx    # Favoris
-│       └── profile.tsx      # Profil + bouton déconnexion
+│       └── profile.tsx      # Profil
 ├── components/              # Composants réutilisables
 ├── contexts/
-│   ├── ThemeContext.tsx     # ThemeProvider + useTheme()
-│   └── AuthContext.tsx      # AuthProvider + useAuth() — session Supabase
+│   └── ThemeContext.tsx     # ThemeProvider + useTheme()
 ├── hooks/                   # Hooks métier (useScore, usePeaks...)
 ├── locales/
 │   ├── fr.ts                # Traductions français
 │   └── en.ts                # Traductions anglais
-├── services/
-│   ├── apiClient.ts         # Client HTTP backend
-│   ├── cacheService.ts      # Cache offline
-│   └── supabaseClient.ts    # Client Supabase (AsyncStorage)
+├── services/                # apiClient, cacheService
 ├── constants/
 │   ├── colors.ts            # Palette light/dark + scores
 │   ├── typography.ts        # Josefin Sans, échelle 1.25×
@@ -93,4 +98,3 @@ Les fichiers de traduction sont dans `src/locales/`. Pour ajouter une langue :
 ## Documentation features
 
 - [Setup squelette Expo](docs/story-1-3-setup-mobile.md)
-- [Authentification Supabase](docs/story-2-1-auth-supabase.md)
