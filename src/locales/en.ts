@@ -16,4 +16,17 @@ export default {
     retry: 'Retry',
     noData: 'Data unavailable',
   },
+  auth: {
+    eyebrow: 'SEA OF CLOUDS',
+    subtitle: 'Predicts the probability of a sea of clouds\nfrom your summit',
+    email: 'Email',
+    password: 'Password',
+    login: 'Sign in',
+    signup: 'Create account',
+    loading: 'Loading…',
+    noAccount: 'No account yet?',
+    hasAccount: 'Already have an account?',
+    error: 'Error',
+    emptyFields: 'Please fill in all fields',
+  },
 };

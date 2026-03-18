@@ -19,12 +19,11 @@ npm install
 ## Lancer en dev
 
 ```bash
-npm start              # dev server + QR code (Expo Go)
-npm run ios            # simulateur iOS
-npm run android        # émulateur Android
+npx expo run:ios       # première fois (ou après ajout d'un module natif) — compile + lance le simulateur
+npm start              # fois suivantes — Metro bundler uniquement (le build natif est déjà installé)
 ```
 
-> Expo Go doit être à jour sur le téléphone pour correspondre à la version SDK du projet.
+> **Important** : l'app utilise des modules natifs (`AsyncStorage`, `expo-linear-gradient`...) incompatibles avec Expo Go. Il faut obligatoirement `npx expo run:ios` pour compiler le development build la première fois, ou après chaque ajout de module natif. Ensuite `npm start` suffit.
 
 ## Qualité & Tests
 
@@ -40,22 +39,29 @@ npm run build:check    # build check iOS + Android + Web (export statique)
 ```
 src/
 ├── app/
-│   ├── _layout.tsx          # Root layout : fonts + ThemeProvider
+│   ├── _layout.tsx          # Root layout : fonts + ThemeProvider + AuthProvider + AuthGuard
 │   ├── index.tsx            # Redirect → /(tabs)
+│   ├── (auth)/
+│   │   ├── _layout.tsx      # Layout routes non-auth (pas de guard)
+│   │   └── login.tsx        # Écran login / inscription
 │   └── (tabs)/
 │       ├── _layout.tsx      # Tab bar (4 onglets)
 │       ├── index.tsx        # Accueil
 │       ├── search.tsx       # Recherche
 │       ├── favorites.tsx    # Favoris
-│       └── profile.tsx      # Profil
+│       └── profile.tsx      # Profil + bouton déconnexion
 ├── components/              # Composants réutilisables
 ├── contexts/
-│   └── ThemeContext.tsx     # ThemeProvider + useTheme()
+│   ├── ThemeContext.tsx     # ThemeProvider + useTheme()
+│   └── AuthContext.tsx      # AuthProvider + useAuth() — session Supabase
 ├── hooks/                   # Hooks métier (useScore, usePeaks...)
 ├── locales/
 │   ├── fr.ts                # Traductions français
 │   └── en.ts                # Traductions anglais
-├── services/                # apiClient, cacheService
+├── services/
+│   ├── apiClient.ts         # Client HTTP backend
+│   ├── cacheService.ts      # Cache offline
+│   └── supabaseClient.ts    # Client Supabase (AsyncStorage)
 ├── constants/
 │   ├── colors.ts            # Palette light/dark + scores
 │   ├── typography.ts        # Josefin Sans, échelle 1.25×
@@ -87,3 +93,4 @@ Les fichiers de traduction sont dans `src/locales/`. Pour ajouter une langue :
 ## Documentation features
 
 - [Setup squelette Expo](docs/story-1-3-setup-mobile.md)
+- [Authentification Supabase](docs/story-2-1-auth-supabase.md)
