@@ -1,56 +1,89 @@
-# Welcome to your Expo app 👋
+# cloudbreak-mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App mobile Cloudbreak — prédit la probabilité de mer de nuage depuis un sommet donné, à une date et heure précises.
 
-## Get started
+## Stack
 
-1. Install dependencies
+- **Expo SDK 55** + **React Native 0.83**
+- **Expo Router** — navigation file-based
+- **TypeScript 5.9**
+- **Josefin Sans** — police principale
+- **i18n-js** + **expo-localization** — traductions FR/EN
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Setup (première fois)
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Lancer en dev
 
-### Other setup steps
+```bash
+npm start              # dev server + QR code (Expo Go)
+npm run ios            # simulateur iOS
+npm run android        # émulateur Android
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+> Expo Go doit être à jour sur le téléphone pour correspondre à la version SDK du projet.
 
-## Learn more
+## Qualité & Tests
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+npx tsc --noEmit       # vérification TypeScript — 0 erreur attendue
+npm run lint           # ESLint
+npm test               # Jest
+npm run build:check    # build check iOS + Android + Web (export statique)
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Structure
 
-## Join the community
+```
+src/
+├── app/
+│   ├── _layout.tsx          # Root layout : fonts + ThemeProvider
+│   ├── index.tsx            # Redirect → /(tabs)
+│   └── (tabs)/
+│       ├── _layout.tsx      # Tab bar (4 onglets)
+│       ├── index.tsx        # Accueil
+│       ├── search.tsx       # Recherche
+│       ├── favorites.tsx    # Favoris
+│       └── profile.tsx      # Profil
+├── components/              # Composants réutilisables
+├── contexts/
+│   └── ThemeContext.tsx     # ThemeProvider + useTheme()
+├── hooks/                   # Hooks métier (useScore, usePeaks...)
+├── locales/
+│   ├── fr.ts                # Traductions français
+│   └── en.ts                # Traductions anglais
+├── services/                # apiClient, cacheService
+├── constants/
+│   ├── colors.ts            # Palette light/dark + scores
+│   ├── typography.ts        # Josefin Sans, échelle 1.25×
+│   ├── spacing.ts           # Grille 4px + radius
+│   └── flags.ts             # Feature flags
+└── utils/
+    └── i18n.ts              # Instance i18n configurée
+```
 
-Join our community of developers creating universal apps.
+## Design system
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+| Token | Valeur |
+|-------|--------|
+| Background light | `#EFE8DC` |
+| Background dark | `#1A1A1A` |
+| Accent | `#B28C6E` |
+| Font | Josefin Sans (300 / 400 / 600 / 700) |
+| Grille | 4px — xs=4, sm=8, md=16, lg=24, xl=32 |
+| Base font | 14px, échelle ×1.25 |
+
+Le thème s'adapte automatiquement au mode système (light/dark) via `useTheme()`.
+
+## Traductions
+
+Les fichiers de traduction sont dans `src/locales/`. Pour ajouter une langue :
+1. Créer `src/locales/es.ts` (par exemple)
+2. L'importer dans `src/utils/i18n.ts`
+
+## Documentation features
+
+- [Setup squelette Expo](docs/story-1-3-setup-mobile.md)
