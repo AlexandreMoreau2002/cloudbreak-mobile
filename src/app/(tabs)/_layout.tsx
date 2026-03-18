@@ -1,5 +1,5 @@
-import { Tabs } from 'expo-router';
 import i18n from '@/utils/i18n';
+import { Tabs } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabsLayout() {

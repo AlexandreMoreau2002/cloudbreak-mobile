@@ -1,5 +1,5 @@
-import { getLocales } from 'expo-localization';
 import { I18n } from 'i18n-js';
+import { getLocales } from 'expo-localization';
 
 import en from '@/locales/en';
 import fr from '@/locales/fr';

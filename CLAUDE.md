@@ -12,9 +12,9 @@ Les imports sont triés par longueur de ligne croissante, séparés en deux bloc
 
 ```ts
 // ✅ Correct
+import i18n from '@/utils/i18n';
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import i18n from '@/utils/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ❌ Incorrect — ordre aléatoire
@@ -31,15 +31,13 @@ Le `tsconfig.json` définit `@/*` → `src/*`. Toujours utiliser cet alias pour 
 ```ts
 // ✅
 import i18n from '@/utils/i18n';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // ❌
-import i18n from '../utils/i18n';
 import { useTheme } from '../../contexts/ThemeContext';
+import i18n from '../utils/i18n';
 ```
-
-Exception : imports relatifs dans le **même dossier** (`./MonComposant`) restent acceptables.
 
 ## Internationalisation (i18n)
 

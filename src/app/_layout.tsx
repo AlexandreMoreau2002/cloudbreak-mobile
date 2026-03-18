@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useRouter, useSegments, SplashScreen, Stack } from 'expo-router';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { useRouter, useSegments, SplashScreen, Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import {
   JosefinSans_300Light,
