@@ -1,5 +1,4 @@
 import { StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 /**
  * Silhouette décorative montagne + mer de nuage — fond transparent pour l'écran login.
@@ -8,12 +7,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 export function MountainBackground({ opacity = 0.12 }: { opacity?: number }) {
   return (
     <View style={[StyleSheet.absoluteFillObject, { opacity }]} pointerEvents="none">
-      {/* Ciel gradient */}
-      <LinearGradient
-        colors={['transparent', 'transparent']}
-        style={StyleSheet.absoluteFillObject}
-      />
-
       {/* Montagne arrière-plan (grande, droite) */}
       <View style={styles.mountainBack} />
 

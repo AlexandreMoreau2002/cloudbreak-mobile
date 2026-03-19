@@ -18,11 +18,11 @@ const mockAuthForm = {
   handleSubmit: mockHandleSubmit,
 };
 
-jest.mock('../../hooks/useAuthForm', () => ({
+jest.mock('@/hooks/useAuthForm', () => ({
   useAuthForm: () => mockAuthForm,
 }));
 
-jest.mock('../../contexts/ThemeContext', () => ({
+jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
     colors: {
       background: '#EFE8DC',
@@ -42,7 +42,7 @@ jest.mock('../../contexts/ThemeContext', () => ({
   }),
 }));
 
-jest.mock('../../utils/i18n', () => ({
+jest.mock('@/utils/i18n', () => ({
   __esModule: true,
   default: { t: (key: string) => key },
 }));

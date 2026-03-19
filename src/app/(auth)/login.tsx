@@ -16,6 +16,7 @@ export default function LoginScreen() {
         <Text style={[styles.eyebrow, { color: colors.accent, fontFamily: typography.fontFamily.light }]}>
           {i18n.t('auth.eyebrow')}
         </Text>
+        {/* Brand name — intentionally not translated */}
         <Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold }]}>
           Cloudbreak
         </Text>

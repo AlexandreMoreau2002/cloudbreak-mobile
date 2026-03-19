@@ -28,6 +28,8 @@ export default {
   profile: {
     comingSoon: 'Profile — coming soon',
     signOut: 'Sign out',
+    darkMode: '🌙 Dark mode',
+    lightMode: '☀️ Light mode',
   },
   auth: {
     eyebrow: 'SEA OF CLOUDS',
