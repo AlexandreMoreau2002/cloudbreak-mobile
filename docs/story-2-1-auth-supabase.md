@@ -47,8 +47,12 @@ Les credentials Supabase sont lus depuis `app.config.ts` via `Constants.expoConf
 
 ### Supabase — configuration dev
 
-- **Confirm email désactivé** : Authentication → Providers → Email → "Confirm email" → OFF
-- À réactiver avant la release 1.0.0
+> ⚠️ **Dette de configuration — à corriger avant release 1.0.0**
+
+- **Confirm email désactivé** : Authentication → Providers → Email → "Confirm email" → **OFF**
+- Désactivé intentionnellement en développement pour fluidifier les tests (pas besoin de confirmer chaque email)
+- **À réactiver impérativement avant la release App Store** : Authentication → Providers → Email → "Confirm email" → ON
+- Sans cette étape, n'importe qui peut créer un compte avec un email invalide
 
 ## Comment tester
 

@@ -44,14 +44,20 @@ mobile/src/
 
 ### ThemeContext
 
-`useTheme()` expose : `colors`, `spacing`, `typography`, `radius`, `scheme`.
+`useTheme()` expose : `colors`, `spacing`, `typography`, `radius`, `scheme`, `toggleScheme`.
 
-Adapte automatiquement le thème au mode système (light/dark).
+- Adapte automatiquement le thème au mode système (light/dark) via `useColorScheme()`
+- `toggleScheme()` permet un override manuel en mémoire (pas de persistance — reset au relancement)
+- `app.config.ts` doit inclure `userInterfaceStyle: 'automatic'` pour que iOS transmette le mode système
+
+> Voir [`docs/hors-sprint-ui-foundations.md`](hors-sprint-ui-foundations.md) pour le détail de l'implémentation.
 
 ### i18n
 
 Langues supportées : `fr` (défaut), `en`.
 Accès via `t('key')` importé de `src/utils/i18n.ts`.
+
+> Règle stricte : aucun texte visible par l'utilisateur en dur dans les composants — toujours passer par `i18n.t()`.
 
 ---
 

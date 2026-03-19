@@ -87,7 +87,7 @@ src/
 | Grille | 4px — xs=4, sm=8, md=16, lg=24, xl=32 |
 | Base font | 14px, échelle ×1.25 |
 
-Le thème s'adapte automatiquement au mode système (light/dark) via `useTheme()`.
+Le thème s'adapte automatiquement au mode système (light/dark) via `useTheme()`. Un toggle manuel est disponible sur la page Profil. Pas de persistance — l'app suit toujours le réglage système au lancement.
 
 ## Traductions
 
@@ -98,3 +98,12 @@ Les fichiers de traduction sont dans `src/locales/`. Pour ajouter une langue :
 ## Documentation features
 
 - [Setup squelette Expo](docs/story-1-3-setup-mobile.md)
+- [Authentification Supabase](docs/story-2-1-auth-supabase.md)
+- [Hors-sprint — Thème, navigation, login](docs/hors-sprint-ui-foundations.md)
+
+## Dette technique connue
+
+| Item | Fichier | Action |
+|------|---------|--------|
+| Supabase "Confirm email" désactivé | Supabase dashboard | Réactiver avant release 1.0.0 |
+| `MountainBackground` visuellement insuffisant | `src/components/MountainBackground.tsx` | Rework visuel avant release 1.0.0 |
