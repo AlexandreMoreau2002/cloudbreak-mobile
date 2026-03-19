@@ -1,6 +1,7 @@
 import i18n from '@/utils/i18n';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { useTheme } from '@/contexts/ThemeContext';
+import { MountainBackground } from '@/components/MountainBackground';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {
@@ -9,6 +10,8 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <MountainBackground opacity={0.25} />
+
       <View style={styles.header}>
         <Text style={[styles.eyebrow, { color: colors.accent, fontFamily: typography.fontFamily.light }]}>
           {i18n.t('auth.eyebrow')}
@@ -20,6 +23,7 @@ export default function LoginScreen() {
           {i18n.t('auth.subtitle')}
         </Text>
       </View>
+
       <View style={[styles.form, { gap: spacing.sm }]}>
         <TextInput
           style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary, fontFamily: typography.fontFamily.regular }]}
