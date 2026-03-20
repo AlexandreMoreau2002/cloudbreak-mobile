@@ -1,70 +1,106 @@
 # CLAUDE.md — Mobile
 
-## Organisation des imports — règle STRICTE
+Règles spécifiques au sous-repo `cloudbreak-mobile`.
+Les règles globales (architecture, git flow, modèle de données) sont dans le `CLAUDE.md` racine.
 
-**Chaque fichier doit respecter ces deux règles sans exception.**
+---
 
-### 1. Ordre en escalier : du plus court au plus long
+## Commandes
 
-Les imports sont triés par longueur de ligne croissante, séparés en deux blocs :
-1. Librairies externes (react, react-native, expo-*, @supabase/*, etc.)
-2. Imports internes (`@/`)
+```bash
+# Première fois ou après ajout de module natif
+npx expo run:ios        # compile le build natif + lance Metro
+
+# Fois suivantes (build déjà installé sur le simulateur)
+npm start               # Metro uniquement
+
+npm run validate        # tsc + lint + test --coverage + build:check — obligatoire avant commit
+npm run lint            # ESLint
+npx tsc --noEmit        # TypeScript
+npm test                # Jest
+npm test -- --watch     # mode watch
+npm test -- --coverage  # avec couverture
+npm run build:check     # expo export (vérifie que le bundle compile)
+```
+
+> Ne pas utiliser Expo Go — l'app a des modules natifs incompatibles.
+
+---
+
+## Imports — règle STRICTE
+
+Ordre en escalier : longueur croissante, externes puis internes.
 
 ```ts
 // ✅ Correct
+import { Tabs } from 'expo-router';
 import i18n from '@/utils/i18n';
-import { useState } from 'react';
-import { Alert } from 'react-native';
-import { useAuth } from '@/contexts/AuthContext';
-
-// ❌ Incorrect — ordre aléatoire
-import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
-import i18n from '@/utils/i18n';
-import { Alert } from 'react-native';
-```
-
-### 2. Alias `@/` obligatoire — jamais de `../` ou `../../`
-
-Le `tsconfig.json` définit `@/*` → `src/*`. Toujours utiliser cet alias pour les imports internes :
-
-```ts
-// ✅
-import i18n from '@/utils/i18n';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
-// ❌
+// ❌ Incorrect
 import { useTheme } from '../../contexts/ThemeContext';
-import i18n from '../utils/i18n';
 ```
+
+Alias @/ obligatoire — jamais de chemins relatifs ../ ou ../../.
+
+---
+
+## Règles de code
+
+Ne jamais faire :
+- Appels réseau dans les composants — uniquement dans les hooks
+- try/catch dans les composants — uniquement dans les hooks
+- Strings UI hardcodées — utiliser i18n.t('clé')
+- Données sensibles dans AsyncStorage — utiliser expo-secure-store
+
+Toujours faire :
+- AsyncState<T> pour tout état asynchrone : idle | loading | success | error
+- Vérifier le cache offline avant tout appel réseau
+- if (DEBUG) console.debug(...) aux points clés
+
+---
 
 ## Internationalisation (i18n)
 
-**Aucun texte en dur dans les composants.** Toutes les strings visibles par l'utilisateur passent par `i18n.t()` :
+Clés définies dans src/locales/fr.ts et src/locales/en.ts — ajouter dans les deux avant usage.
 
-```ts
-// ✅
-<Text>{i18n.t('profile.signOut')}</Text>
+---
 
-// ❌
-<Text>Se déconnecter</Text>
+## Mode debug
+
+```typescript
+// src/constants/devConfig.ts
+export const DEBUG = __DEV__ && true;
+
+if (DEBUG) console.debug('[useScore] state', { peakId, state });
+if (DEBUG) console.debug('[apiFetch] request', { url, params });
+if (DEBUG) console.debug('[cache] result', { key, hit, age });
 ```
 
-Les clés sont définies dans `src/locales/fr.ts` et `src/locales/en.ts`. Ajouter la clé dans les deux fichiers avant de l'utiliser.
+---
 
-## Workflow de développement
+## Tests — règles
 
-**Toujours lancer `npm run validate` avant de commiter.** Cette commande valide tout d'un coup :
+- 100% coverage sur les fichiers avec logique métier
+- 1 fichier de test co-localisé par fichier source
+- Tests de feature dans src/__tests__/features/
+- npm run validate doit passer avant chaque commit
 
-```bash
-npm run validate
-# enchaîne : tsc → lint → test --coverage → build:check
-```
+---
 
-Ne jamais commiter si `npm run validate` échoue.
+## Documentation — règles
 
-**Règles :**
-- Le coverage doit rester à **100%** — tout nouveau fichier source a son fichier de test
-- 0 erreur TypeScript, 0 warning lint avant de commiter
-- Si `build:check` échoue, le bug est bloquant (le bundle ne compile pas en prod)
+| Document | Quand |
+|----------|-------|
+| docs/story-{epic}-{num}-{slug}.md | Chaque story |
+| docs/product-audit.md | Après chaque story |
+| docs/security.md | Si auth, storage, données utilisateur |
+| README.md | Si installation ou structure changent |
+
+---
+
+## Agents à utiliser
+
+Après chaque story :
+- cloudbreak-dev-reviewer — patterns, ACs, doc
+- cloudbreak-security — si auth, SecureStore, StoreKit

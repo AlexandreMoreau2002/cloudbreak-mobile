@@ -19,12 +19,14 @@ npm install
 ## Lancer en dev
 
 ```bash
-npm start              # dev server + QR code (Expo Go)
-npm run ios            # simulateur iOS
-npm run android        # émulateur Android
+# Première fois ou après ajout de module natif
+npx expo run:ios       # compile le build natif + lance Metro
+
+# Fois suivantes (build déjà installé sur le simulateur)
+npm start              # Metro uniquement
 ```
 
-> Expo Go doit être à jour sur le téléphone pour correspondre à la version SDK du projet.
+> Ne pas utiliser Expo Go — l'app a des modules natifs incompatibles (AsyncStorage, expo-linear-gradient).
 
 ## Qualité & Tests
 
@@ -66,15 +68,40 @@ src/
 ├── locales/
 │   ├── fr.ts                # Traductions français
 │   └── en.ts                # Traductions anglais
-├── services/                # apiClient, cacheService
+├── services/
+│   ├── fetchService.ts      # API_BASE + apiFetch<T>() + re-exports types
+│   ├── mockData/            # Données statiques pour dev offline
+│   │   ├── types.ts
+│   │   ├── user.ts
+│   │   ├── peaks.ts
+│   │   └── score.ts
+│   └── api/                 # Couche par domaine métier
+│       ├── score.ts         # fetchScore()
+│       ├── peaks.ts         # searchPeaks(), fetchPeakBySlug()
+│       ├── user.ts          # fetchUserSubscription(), updateNotificationPreferences(), updatePushToken(), addFavorite()
+│       └── validations.ts   # postTerrainValidation()
 ├── constants/
 │   ├── colors.ts            # Palette light/dark + scores
 │   ├── typography.ts        # Josefin Sans, échelle 1.25×
 │   ├── spacing.ts           # Grille 4px + radius
-│   └── flags.ts             # Feature flags
+│   └── devConfig.ts         # MOCK_API, DEBUG (via EXPO_PUBLIC_*)
 └── utils/
     └── i18n.ts              # Instance i18n configurée
 ```
+
+## Mode mock (dev offline)
+
+Le backend et Supabase ne sont pas requis pour développer le mobile.
+
+```bash
+# .env.local
+EXPO_PUBLIC_MOCK_API=true   # active les données mockées
+EXPO_PUBLIC_API_URL=http://localhost:8000
+```
+
+Avec `MOCK_API=true`, tous les appels réseau sont remplacés par des données statiques. Les fonctions mock sont définies dans `src/services/api/` (score.ts, peaks.ts, user.ts, validations.ts) et retournent les données de `src/services/mockData/` : sommets, scores (high/medium/low), user, abonnement. Changer la variable et relancer Metro pour basculer.
+
+---
 
 ## Design system
 
