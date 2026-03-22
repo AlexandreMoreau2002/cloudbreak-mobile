@@ -22,10 +22,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const scheme: ColorScheme = override ?? (systemScheme === 'dark' ? 'dark' : 'light');
 
   const toggleScheme = useCallback(() => {
-    setOverride(prev => prev === 'light' || prev === null
-      ? (systemScheme === 'dark' ? 'light' : 'dark')
-      : 'light'
-    );
+    setOverride(prev => {
+      const current: ColorScheme = prev ?? (systemScheme === 'dark' ? 'dark' : 'light');
+      return current === 'dark' ? 'light' : 'dark';
+    });
   }, [systemScheme]);
 
   const value = useMemo<ThemeContextValue>(() => ({

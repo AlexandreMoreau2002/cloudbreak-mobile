@@ -66,6 +66,18 @@ describe('ThemeContext', () => {
     expect(getByTestId('scheme').props.children).toBe('light');
   });
 
+  it('toggleScheme depuis dark (système) rebascule bien vers dark au second toggle', () => {
+    mockUseColorScheme.mockReturnValue('dark');
+    const { getByTestId } = render(
+      <ThemeProvider><TestConsumer /></ThemeProvider>
+    );
+    expect(getByTestId('scheme').props.children).toBe('dark');
+    fireEvent.press(getByTestId('toggle'));
+    expect(getByTestId('scheme').props.children).toBe('light');
+    fireEvent.press(getByTestId('toggle'));
+    expect(getByTestId('scheme').props.children).toBe('dark');
+  });
+
   it('useTheme lance une erreur hors ThemeProvider', () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => render(<TestConsumer />)).toThrow('useTheme must be used within ThemeProvider');
