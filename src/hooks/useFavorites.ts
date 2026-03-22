@@ -9,13 +9,7 @@ import { DEBUG } from '@/constants/devConfig';
 import { fetchFavorites, removeFavorite as apiRemoveFavorite } from '@/services/api/peaks';
 import { addFavorite as apiAddFavorite } from '@/services/api/user';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Peak } from '@/services/mockData/types';
-
-export interface AsyncState<T> {
-  status: 'idle' | 'loading' | 'success' | 'error';
-  data?: T;
-  error?: string;
-}
+import type { AsyncState, Peak } from '@/services/mockData/types';
 
 export function useFavorites() {
   const { session } = useAuth();

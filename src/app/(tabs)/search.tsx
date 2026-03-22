@@ -1,8 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import i18n from '@/utils/i18n';
-import { useTheme } from '@/contexts/ThemeContext';
-import { usePeakSearch } from '@/hooks/usePeakSearch';
-import { useFavorites } from '@/hooks/useFavorites';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,6 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import i18n from '@/utils/i18n';
+import { useTheme } from '@/contexts/ThemeContext';
+import { usePeakSearch } from '@/hooks/usePeakSearch';
+import { useFavorites } from '@/hooks/useFavorites';
 import type { Peak } from '@/services/mockData/types';
 
 export default function SearchScreen() {

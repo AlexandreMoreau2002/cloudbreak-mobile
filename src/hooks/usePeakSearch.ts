@@ -8,13 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DEBUG } from '@/constants/devConfig';
 import { searchPeaks } from '@/services/api/peaks';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Peak } from '@/services/mockData/types';
-
-export interface AsyncState<T> {
-  status: 'idle' | 'loading' | 'success' | 'error';
-  data?: T;
-  error?: string;
-}
+import type { AsyncState, Peak } from '@/services/mockData/types';
 
 const DEBOUNCE_MS = 300;
 

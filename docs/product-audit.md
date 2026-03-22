@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-03-20_
+_Dernière mise à jour : 2026-03-22_
 
 ---
 
@@ -16,13 +16,16 @@ _Dernière mise à jour : 2026-03-20_
 | AuthContext + AuthGuard | ✅ |
 | i18n (fr) | ✅ |
 | CI GitHub Actions (lint + tsc + jest + build check) | ✅ |
+| Recherche de sommets autocomplete (story 3.3) | ✅ |
+| Favoris — ajout, suppression, liste (story 3.3) | ✅ |
+| Toggle favori depuis la recherche (story 3.3) | ✅ |
+| Tri favoris en premier dans la recherche (story 3.3) | ✅ |
 
 ## Ce qui n'existe pas encore
 
 - Écran principal ScoreCard (story 3.4)
 - Hook useScore + appel backend score
-- Recherche de sommets (story 3.3)
-- Favoris
+- Navigation sommet → ScoreCard (story 3.4)
 - Cache offline AsyncStorage
 - Paywall / freemium (epic 4)
 - Notifications push (epic 5)
@@ -34,5 +37,4 @@ _Dernière mise à jour : 2026-03-20_
 ## Prochaines étapes
 
 1. **Story 3.4** — Écran principal ScoreCard + affichage verdict
-2. **Story 3.3** — Recherche sommet (connecté à l'endpoint backend)
-3. **Story 3.5** — Détail conditions météo + fenêtre temporelle
+2. **Story 3.5** — Détail conditions météo + fenêtre temporelle
