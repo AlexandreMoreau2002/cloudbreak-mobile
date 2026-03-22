@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text } from 'react-native';
-import { ThemeProvider, useTheme } from './ThemeContext';
 import { render, fireEvent } from '@testing-library/react-native';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 
 const mockUseColorScheme = jest.fn().mockReturnValue('light');
 

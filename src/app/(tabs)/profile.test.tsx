@@ -1,6 +1,6 @@
 import React from 'react';
-import ProfileScreen from './profile';
 import { render, fireEvent } from '@testing-library/react-native';
+import ProfileScreen from '@/app/(tabs)/profile';
 
 jest.mock('@/utils/i18n', () => ({
   __esModule: true,

@@ -5,8 +5,8 @@
  *   import { fetchScore } from '@/services/api/score';
  */
 import { MOCK_API, DEBUG } from '@/constants/devConfig';
-import { getMockScore } from '@/services/mockData/score';
 import { apiFetch, _delay } from '@/services/fetchService';
+import { getMockScore } from '@/services/mockData/score';
 import type { ScoreResponse } from '@/services/mockData/types';
 
 export async function fetchScore(

@@ -1,6 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import SearchScreen from './search';
+import SearchScreen from '@/app/(tabs)/search';
 
 let mockPeakSearch = {
   state: { status: 'idle' } as { status: string; data?: unknown[] },

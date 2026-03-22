@@ -5,8 +5,8 @@
  *   import { fetchUserSubscription, addFavorite } from '@/services/api/user';
  */
 import { MOCK_API, DEBUG } from '@/constants/devConfig';
-import { MOCK_SUBSCRIPTION } from '@/services/mockData/user';
 import { apiFetch, _delay } from '@/services/fetchService';
+import { MOCK_SUBSCRIPTION } from '@/services/mockData/user';
 import type { FavoriteResponse, MockSubscription, NotificationPreferences } from '@/services/mockData/types';
 
 export async function fetchUserSubscription(token: string): Promise<MockSubscription> {

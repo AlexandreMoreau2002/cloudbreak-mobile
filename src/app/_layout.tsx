@@ -1,6 +1,4 @@
 import { useEffect } from 'react';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 import {
   JosefinSans_300Light,
@@ -9,6 +7,8 @@ import {
   JosefinSans_700Bold,
   useFonts,
 } from '@expo-google-fonts/josefin-sans';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 

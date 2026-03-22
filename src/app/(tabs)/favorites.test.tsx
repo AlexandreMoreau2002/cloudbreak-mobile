@@ -1,6 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import FavoritesScreen from './favorites';
+import FavoritesScreen from '@/app/(tabs)/favorites';
 
 let mockState: { status: string; data?: unknown[]; error?: string } = {
   status: 'success',

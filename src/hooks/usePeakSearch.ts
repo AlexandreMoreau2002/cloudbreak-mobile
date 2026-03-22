@@ -5,8 +5,8 @@
  *   const { state, query, setQuery } = usePeakSearch();
  */
 import { useEffect, useRef, useState } from 'react';
-import { searchPeaks } from '@/services/api/peaks';
 import { DEBUG } from '@/constants/devConfig';
+import { searchPeaks } from '@/services/api/peaks';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AsyncState, Peak } from '@/services/mockData/types';
 

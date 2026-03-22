@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { usePeakSearch } from './usePeakSearch';
+import { usePeakSearch } from '@/hooks/usePeakSearch';
 
 const mockSearchPeaks = jest.fn();
 

@@ -1,6 +1,6 @@
-import { supabase } from '@/services/supabaseClient';
-import { Session, AuthError } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState } from 'react';
+import { Session, AuthError } from '@supabase/supabase-js';
+import { supabase } from '@/services/supabaseClient';
 
 interface AuthState {
   loading: boolean;
