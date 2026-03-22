@@ -1,6 +1,4 @@
 import { useCallback } from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
 import {
   ActivityIndicator,
   FlatList,
@@ -9,9 +7,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import i18n from '@/utils/i18n';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Peak } from '@/services/mockData/types';
 
 export default function FavoritesScreen() {

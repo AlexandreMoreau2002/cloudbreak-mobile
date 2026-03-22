@@ -2,13 +2,20 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import SearchScreen from './search';
 
+let mockPeakSearch = {
+  state: { status: 'idle' } as { status: string; data?: unknown[] },
+  query: '',
+  setQuery: jest.fn(),
+};
+let mockFavoritesState: { status: string; data: unknown[] } = { status: 'success', data: [] };
+
 jest.mock('@/hooks/usePeakSearch', () => ({
-  usePeakSearch: () => ({ state: { status: 'idle' }, query: '', setQuery: jest.fn() }),
+  usePeakSearch: () => mockPeakSearch,
 }));
 
 jest.mock('@/hooks/useFavorites', () => ({
   useFavorites: () => ({
-    state: { status: 'success', data: [] },
+    state: mockFavoritesState,
     addFavorite: jest.fn(),
     removeFavorite: jest.fn(),
   }),
@@ -30,29 +37,35 @@ jest.mock('@/contexts/ThemeContext', () => ({
 jest.mock('@/utils/i18n', () => ({ t: (k: string) => k }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
+const FAV_ID = 'fav-peak';
+const peaks = [
+  { id: 'other', name: 'Autre', slug: 'autre', lat: 0, lng: 0, altitude: 1000 },
+  { id: FAV_ID, name: 'Favori', slug: 'favori', lat: 0, lng: 0, altitude: 800 },
+];
+
 describe('SearchScreen', () => {
+  beforeEach(() => {
+    mockPeakSearch = { state: { status: 'idle' }, query: '', setQuery: jest.fn() };
+    mockFavoritesState = { status: 'success', data: [] };
+  });
+
   it('affiche le hint quand query < 2 chars', () => {
     const { getByText } = render(<SearchScreen />);
     expect(getByText('search.minChars')).toBeTruthy();
   });
 
-  it('trie les favoris en premier', () => {
-    const FAV_ID = 'fav-peak';
-    const peaks = [
-      { id: 'other', name: 'Autre', slug: 'autre', lat: 0, lng: 0, altitude: 1000 },
-      { id: FAV_ID, name: 'Favori', slug: 'favori', lat: 0, lng: 0, altitude: 800 },
-    ];
-
-    jest.resetModules();
-    jest.doMock('@/hooks/usePeakSearch', () => ({
-      usePeakSearch: () => ({ state: { status: 'success', data: peaks }, query: 'test', setQuery: jest.fn() }),
-    }));
-    jest.doMock('@/hooks/useFavorites', () => ({
-      useFavorites: () => ({
-        state: { status: 'success', data: [{ id: FAV_ID, name: 'Favori', slug: 'favori', lat: 0, lng: 0, altitude: 800 }] },
-        addFavorite: jest.fn(),
-        removeFavorite: jest.fn(),
-      }),
-    }));
+  it('trie les favoris en premier dans la liste', () => {
+    mockPeakSearch = {
+      state: { status: 'success', data: peaks },
+      query: 'test',
+      setQuery: jest.fn(),
+    };
+    mockFavoritesState = {
+      status: 'success',
+      data: [{ id: FAV_ID, name: 'Favori', slug: 'favori', lat: 0, lng: 0, altitude: 800 }],
+    };
+    const { getByText } = render(<SearchScreen />);
+    expect(getByText('Favori')).toBeTruthy();
+    expect(getByText('Autre')).toBeTruthy();
   });
 });

@@ -2,13 +2,18 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import FavoritesScreen from './favorites';
 
+let mockState: { status: string; data?: unknown[]; error?: string } = {
+  status: 'success',
+  data: [],
+};
+
 jest.mock('@react-navigation/native', () => ({
   useFocusEffect: (cb: () => void) => cb(),
 }));
 
 jest.mock('@/hooks/useFavorites', () => ({
   useFavorites: () => ({
-    state: { status: 'success', data: [] },
+    state: mockState,
     removeFavorite: jest.fn(),
     refresh: jest.fn(),
   }),
@@ -31,32 +36,27 @@ jest.mock('@/utils/i18n', () => ({ t: (k: string) => k }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
 describe('FavoritesScreen', () => {
+  beforeEach(() => {
+    mockState = { status: 'success', data: [] };
+  });
+
   it('affiche l\'état vide quand aucun favori', () => {
     const { getByText } = render(<FavoritesScreen />);
     expect(getByText('favorites.empty')).toBeTruthy();
   });
 
   it('affiche le spinner en état loading', () => {
-    jest.doMock('@/hooks/useFavorites', () => ({
-      useFavorites: () => ({
-        state: { status: 'loading' },
-        removeFavorite: jest.fn(),
-        refresh: jest.fn(),
-      }),
-    }));
+    mockState = { status: 'loading' };
+    const { queryByText } = render(<FavoritesScreen />);
+    expect(queryByText('favorites.empty')).toBeNull();
   });
 
   it('affiche les favoris quand data présente', () => {
-    jest.resetModules();
-    jest.doMock('@/hooks/useFavorites', () => ({
-      useFavorites: () => ({
-        state: {
-          status: 'success',
-          data: [{ id: '1', name: 'Mont Blanc', slug: 'mont-blanc', lat: 0, lng: 0, altitude: 4807 }],
-        },
-        removeFavorite: jest.fn(),
-        refresh: jest.fn(),
-      }),
-    }));
+    mockState = {
+      status: 'success',
+      data: [{ id: '1', name: 'Mont Blanc', slug: 'mont-blanc', lat: 0, lng: 0, altitude: 4807 }],
+    };
+    const { getByText } = render(<FavoritesScreen />);
+    expect(getByText('Mont Blanc')).toBeTruthy();
   });
 });

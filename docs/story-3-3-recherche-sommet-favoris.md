@@ -103,7 +103,7 @@ Tri client-side, pas de round-trip serveur supplémentaire.
 
 ```bash
 npm test
-# 63 tests — 0 failures
+# 65 tests — 0 failures
 ```
 
 ---
@@ -119,3 +119,4 @@ npm test
 | AC5 | Suppression depuis les favoris | ✅ |
 | AC6 | Favoris remontent en premier dans la recherche | ✅ |
 | AC7 | Refresh auto au focus (useFocusEffect) | ✅ |
+| AC8 | Tap sur un résultat → navigation vers écran de prévision | ⏳ Story 3.4 — l'écran `/peak/[slug]` n'existe pas encore |
