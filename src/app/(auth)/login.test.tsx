@@ -1,6 +1,6 @@
 import React from 'react';
-import LoginScreen from './login';
 import { render, fireEvent } from '@testing-library/react-native';
+import LoginScreen from '@/app/(auth)/login';
 
 const mockSetEmail = jest.fn();
 const mockToggleMode = jest.fn();

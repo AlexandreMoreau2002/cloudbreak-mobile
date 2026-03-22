@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { useRouter, useSegments, SplashScreen, Stack } from 'expo-router';
+import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 import {
   JosefinSans_300Light,
   JosefinSans_400Regular,
@@ -9,8 +7,12 @@ import {
   JosefinSans_700Bold,
   useFonts,
 } from '@expo-google-fonts/josefin-sans';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
+
+const TABS_ROUTE = '/(tabs)' as Href;
 
 function AuthGuard() {
   const router = useRouter();
@@ -23,7 +25,7 @@ function AuthGuard() {
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
     } else if (session && inAuthGroup) {
-      router.replace('/(tabs)');
+      router.replace(TABS_ROUTE);
     }
   }, [session, loading, segments, router]);
 

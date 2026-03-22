@@ -21,9 +21,19 @@ export default {
   },
   search: {
     comingSoon: 'Recherche — à venir',
+    placeholder: 'Nom du sommet...',
+    minChars: 'Tapez au moins 2 caractères',
+    noResults: 'Aucun résultat',
+    altitude: 'm',
+    addFavorite: 'Ajouter aux favoris',
+    removeFavorite: 'Retirer des favoris',
   },
   favorites: {
     comingSoon: 'Favoris — à venir',
+    empty: 'Aucun favori',
+    emptyHint: 'Recherchez un sommet et ajoutez-le à vos favoris.',
+    remove: 'Retirer',
+    altitude: 'm',
   },
   profile: {
     comingSoon: 'Profil — à venir',

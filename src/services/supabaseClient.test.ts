@@ -1,6 +1,6 @@
-import { supabase } from './supabaseClient';
+import { supabase } from '@/services/supabaseClient';
 
-jest.mock('./supabaseClient', () => ({
+jest.mock('@/services/supabaseClient', () => ({
   supabase: {
     auth: {
       getSession: jest.fn(),

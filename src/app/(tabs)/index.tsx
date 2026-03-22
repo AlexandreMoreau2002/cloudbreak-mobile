@@ -1,6 +1,6 @@
+import { StyleSheet, Text, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { StyleSheet, Text, View } from 'react-native';
 
 export default function HomeScreen() {
   const { colors, typography } = useTheme();

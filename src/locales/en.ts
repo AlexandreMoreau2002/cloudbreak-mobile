@@ -21,9 +21,19 @@ export default {
   },
   search: {
     comingSoon: 'Search — coming soon',
+    placeholder: 'Summit name...',
+    minChars: 'Type at least 2 characters',
+    noResults: 'No results',
+    altitude: 'm',
+    addFavorite: 'Add to favorites',
+    removeFavorite: 'Remove from favorites',
   },
   favorites: {
     comingSoon: 'Favorites — coming soon',
+    empty: 'No favorites',
+    emptyHint: 'Search for a summit and add it to your favorites.',
+    remove: 'Remove',
+    altitude: 'm',
   },
   profile: {
     comingSoon: 'Profile — coming soon',

@@ -1,15 +1,15 @@
 import { Alert } from 'react-native';
-import { useAuthForm } from './useAuthForm';
 import { renderHook, act } from '@testing-library/react-native';
+import { useAuthForm } from '@/hooks/useAuthForm';
 
 const mockSignIn = jest.fn();
 const mockSignUp = jest.fn();
 
-jest.mock('../contexts/AuthContext', () => ({
+jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ signIn: mockSignIn, signUp: mockSignUp }),
 }));
 
-jest.mock('../utils/i18n', () => ({
+jest.mock('@/utils/i18n', () => ({
   __esModule: true,
   default: { t: (key: string) => key },
 }));

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text } from 'react-native';
-import { ThemeProvider, useTheme } from './ThemeContext';
 import { render, fireEvent } from '@testing-library/react-native';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 
 const mockUseColorScheme = jest.fn().mockReturnValue('light');
 
@@ -64,6 +64,18 @@ describe('ThemeContext', () => {
     expect(getByTestId('scheme').props.children).toBe('dark');
     fireEvent.press(getByTestId('toggle'));
     expect(getByTestId('scheme').props.children).toBe('light');
+  });
+
+  it('toggleScheme depuis dark (système) rebascule bien vers dark au second toggle', () => {
+    mockUseColorScheme.mockReturnValue('dark');
+    const { getByTestId } = render(
+      <ThemeProvider><TestConsumer /></ThemeProvider>
+    );
+    expect(getByTestId('scheme').props.children).toBe('dark');
+    fireEvent.press(getByTestId('toggle'));
+    expect(getByTestId('scheme').props.children).toBe('light');
+    fireEvent.press(getByTestId('toggle'));
+    expect(getByTestId('scheme').props.children).toBe('dark');
   });
 
   it('useTheme lance une erreur hors ThemeProvider', () => {

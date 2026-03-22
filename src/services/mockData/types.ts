@@ -1,5 +1,18 @@
 /** Types partagés entre les mocks et les services réels. */
 
+export interface AsyncState<T> {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  data?: T;
+  error?: string;
+}
+
+export interface FavoriteResponse {
+  id: string;
+  peak_id: string;
+  peak: Peak;
+  created_at: string;
+}
+
 export interface Peak {
   id: string;
   name: string;
