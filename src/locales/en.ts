@@ -6,6 +6,7 @@ export default {
     profile: 'Profile',
   },
   score: {
+    none: 'Clouds at base',
     high: 'Early riser time!',
     medium: 'Could work',
     low: 'Not this time',
@@ -18,6 +19,13 @@ export default {
   },
   home: {
     comingSoon: 'Coming soon',
+    title: 'CLOUDBREAK',
+    selectPeak: 'Choose a summit',
+    selectPeakHint: 'Search for a summit to see the forecast',
+    goToSearch: 'Search for a summit',
+    retry: 'Retry',
+    serviceUnavailable: 'Service temporarily unavailable',
+    errorGeneric: 'Unable to load forecast',
   },
   search: {
     comingSoon: 'Search — coming soon',

@@ -1,3 +1,6 @@
+/**
+ * SearchScreen — recherche de sommets et gestion des favoris depuis la liste de résultats.
+ */
 import {
   ActivityIndicator,
   FlatList,
@@ -7,25 +10,40 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import i18n from '@/utils/i18n';
+import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { usePeakSearch } from '@/hooks/usePeakSearch';
-import { useTheme } from '@/contexts/ThemeContext';
 import type { Peak } from '@/services/mockData/types';
+import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const HOME_ROUTE = '/(tabs)/' as Href;
 
 export default function SearchScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors, typography, spacing, radius } = useTheme();
   const { state, query, setQuery } = usePeakSearch();
   const { state: favState, addFavorite, removeFavorite } = useFavorites();
+  const { setSelectedPeak } = useSelectedPeak();
 
   const favoriteIds = new Set((favState.data ?? []).map((p) => p.id));
+
+  function handleSelectPeak(peak: Peak) {
+    setSelectedPeak(peak);
+    router.push(HOME_ROUTE);
+  }
 
   function renderItem({ item }: { item: Peak }) {
     const isFav = favoriteIds.has(item.id);
     return (
       <TouchableOpacity
         activeOpacity={0.75}
+        onPress={() => handleSelectPeak(item)}
         style={[styles.item, { backgroundColor: colors.surface, borderColor: isFav ? colors.accent : colors.border }]}
       >
         <View style={styles.itemLeft}>
@@ -111,7 +129,7 @@ export default function SearchScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 16 }]}>
       <View style={[styles.inputWrapper, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.sm }]}>
         <Ionicons name="search-outline" size={18} color={colors.textDisabled} style={styles.searchIcon} />
         <TextInput
@@ -133,7 +151,7 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 16, paddingTop: 56 },
+  container: { flex: 1, paddingHorizontal: 16 },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',

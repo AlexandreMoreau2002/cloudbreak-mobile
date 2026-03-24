@@ -1,5 +1,3 @@
-import { useEffect } from 'react';
-import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 import {
   JosefinSans_300Light,
   JosefinSans_400Regular,
@@ -7,8 +5,11 @@ import {
   JosefinSans_700Bold,
   useFonts,
 } from '@expo-google-fonts/josefin-sans';
+import { useEffect } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
+import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -49,8 +50,10 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AuthGuard />
-        <Stack screenOptions={{ headerShown: false }} />
+        <SelectedPeakProvider>
+          <AuthGuard />
+          <Stack screenOptions={{ headerShown: false }} />
+        </SelectedPeakProvider>
       </AuthProvider>
     </ThemeProvider>
   );

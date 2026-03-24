@@ -31,7 +31,7 @@ export interface ScoreConditions {
 
 export interface ScoreResponse {
   score: number;
-  verdict: 'high' | 'medium' | 'low';
+  verdict: 'none' | 'high' | 'medium' | 'low';
   cloud_base: number;
   peak_name: string;
   peak_altitude: number;
