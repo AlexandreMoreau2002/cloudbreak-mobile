@@ -2,6 +2,8 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { usePeakSearch } from '@/hooks/usePeakSearch';
 
 const mockSearchPeaks = jest.fn();
+const mockAuthState = { session: { access_token: 'mock-token' } as { access_token: string } | null };
+const mockDevConfigState = { MOCK_API: false, DEBUG: false };
 
 jest.mock('@/services/api/peaks', () => ({
   searchPeaks: (...args: unknown[]) => mockSearchPeaks(...args),
@@ -10,12 +12,12 @@ jest.mock('@/services/api/peaks', () => ({
 }));
 
 jest.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ session: { access_token: 'mock-token' } }),
+  useAuth: () => mockAuthState,
 }));
 
 jest.mock('@/constants/devConfig', () => ({
-  MOCK_API: false,
-  DEBUG: false,
+  get MOCK_API() { return mockDevConfigState.MOCK_API; },
+  get DEBUG() { return mockDevConfigState.DEBUG; },
 }));
 
 const MOCK_PEAKS = [
@@ -27,6 +29,9 @@ describe('usePeakSearch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockAuthState.session = { access_token: 'mock-token' };
+    mockDevConfigState.MOCK_API = false;
+    mockDevConfigState.DEBUG = false;
   });
 
   afterEach(() => {
@@ -120,5 +125,88 @@ describe('usePeakSearch', () => {
     });
 
     expect(result.current.state.data).toEqual([]);
+  });
+
+  it('passe en error si aucun token n’est disponible au déclenchement', async () => {
+    mockAuthState.session = null;
+    const { result } = renderHook(() => usePeakSearch());
+
+    act(() => { result.current.setQuery('mo'); });
+    act(() => { jest.runAllTimers(); });
+
+    await waitFor(() => {
+      expect(result.current.state).toEqual({ status: 'error', error: 'Non authentifié' });
+    });
+
+    expect(mockSearchPeaks).not.toHaveBeenCalled();
+  });
+
+  it('log le succès en mode debug', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    mockDevConfigState.DEBUG = true;
+    mockSearchPeaks.mockResolvedValue(MOCK_PEAKS);
+
+    const { result } = renderHook(() => usePeakSearch());
+
+    act(() => { result.current.setQuery('mo'); });
+    act(() => { jest.runAllTimers(); });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('success');
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith('[usePeakSearch] fetching', { query: 'mo' });
+    expect(consoleSpy).toHaveBeenCalledWith('[usePeakSearch] success', { count: 2 });
+    consoleSpy.mockRestore();
+  });
+
+  it('log l’erreur en mode debug et nettoie le timer au unmount', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    mockDevConfigState.DEBUG = true;
+    mockSearchPeaks.mockRejectedValue('unexpected error');
+
+    const { result, unmount } = renderHook(() => usePeakSearch());
+
+    act(() => { result.current.setQuery('mo'); });
+    act(() => { jest.runAllTimers(); });
+
+    await waitFor(() => {
+      expect(result.current.state).toEqual({ status: 'error', error: 'Erreur inconnue' });
+    });
+
+    unmount();
+
+    expect(consoleSpy).toHaveBeenCalledWith('[usePeakSearch] error', { message: 'Erreur inconnue' });
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it('annule le timer précédent quand la query change avant échéance', () => {
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    const { result } = renderHook(() => usePeakSearch());
+
+    act(() => { result.current.setQuery('mo'); });
+    act(() => { result.current.setQuery('mon'); });
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it('skip le clearTimeout de cleanup si aucun timer valide n’a été stocké', () => {
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation(
+      () => null as unknown as ReturnType<typeof setTimeout>,
+    );
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    const { result, unmount } = renderHook(() => usePeakSearch());
+
+    act(() => { result.current.setQuery('mo'); });
+    unmount();
+
+    expect(setTimeoutSpy).toHaveBeenCalled();
+    expect(clearTimeoutSpy).not.toHaveBeenCalled();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
   });
 });
