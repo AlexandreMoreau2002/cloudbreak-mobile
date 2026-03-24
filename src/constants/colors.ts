@@ -20,6 +20,7 @@ export const Colors = {
     textDisabled: '#5E5E5E',
   },
   score: {
+    none: '#9E9E9E',    // conditions bloquantes — ⚫ Nuages au sol
     high: '#4CAF50',    // ≥ 70% — 🟢 Lève-toi tôt !
     medium: '#FF9800',  // 40-70% — 🟡 Ça peut le faire
     low: '#F44336',     // < 40% — 🔴 Pas ce coup-ci

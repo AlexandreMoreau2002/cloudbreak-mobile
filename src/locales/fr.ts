@@ -6,6 +6,7 @@ export default {
     profile: 'Profil',
   },
   score: {
+    none: 'Nuages au sol',
     high: 'Lève-toi tôt !',
     medium: 'Ça peut le faire',
     low: 'Pas ce coup-ci',
@@ -18,6 +19,13 @@ export default {
   },
   home: {
     comingSoon: 'À venir',
+    title: 'CLOUDBREAK',
+    selectPeak: 'Choisissez un sommet',
+    selectPeakHint: 'Recherchez un sommet pour voir la prévision',
+    goToSearch: 'Rechercher un sommet',
+    retry: 'Réessayer',
+    serviceUnavailable: 'Service momentanément indisponible',
+    errorGeneric: 'Impossible de charger la prévision',
   },
   search: {
     comingSoon: 'Recherche — à venir',

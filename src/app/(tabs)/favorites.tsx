@@ -1,3 +1,6 @@
+/**
+ * FavoritesScreen — liste des sommets favoris de l'utilisateur.
+ */
 import { useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -7,16 +10,30 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
 import i18n from '@/utils/i18n';
-import { useFavorites } from '@/hooks/useFavorites';
+import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useFavorites } from '@/hooks/useFavorites';
 import type { Peak } from '@/services/mockData/types';
+import { useFocusEffect } from '@react-navigation/native';
+import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const HOME_ROUTE = '/(tabs)/' as Href;
 
 export default function FavoritesScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors, typography, spacing } = useTheme();
   const { state, removeFavorite, refresh } = useFavorites();
+  const { setSelectedPeak } = useSelectedPeak();
+
+  function handleSelectPeak(peak: Peak) {
+    setSelectedPeak(peak);
+    router.push(HOME_ROUTE);
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -26,7 +43,11 @@ export default function FavoritesScreen() {
 
   function renderItem({ item }: { item: Peak }) {
     return (
-      <View style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={() => handleSelectPeak(item)}
+        style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      >
         <View style={styles.itemLeft}>
           <View style={[styles.altBadge, { backgroundColor: colors.accent + '22' }]}>
             <Text style={{ color: colors.accent, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.xs }}>
@@ -45,7 +66,7 @@ export default function FavoritesScreen() {
         >
           <Ionicons name="close" size={16} color={colors.textSecondary} />
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     );
   }
 
@@ -83,7 +104,7 @@ export default function FavoritesScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 16 }]}>
       <FlatList
         data={state.data}
         keyExtractor={(item) => item.id}
@@ -97,7 +118,7 @@ export default function FavoritesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 16, paddingTop: 56 },
+  container: { flex: 1, paddingHorizontal: 16 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   item: {
     flexDirection: 'row',
