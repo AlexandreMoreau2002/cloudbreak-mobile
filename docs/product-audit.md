@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-03-23_
+_Dernière mise à jour : 2026-03-24_
 
 ---
 
@@ -25,6 +25,10 @@ _Dernière mise à jour : 2026-03-23_
 | Cache offline AsyncStorage TTL 2h (story 3.4) | ✅ |
 | SelectedPeakContext — sommet/date/heure partagés (story 3.4) | ✅ |
 | ScoreSkeleton — loader animé (story 3.4) | ✅ |
+| Détail conditions météo + fenêtre temporelle (story 3.5) | ✅ |
+| Lever du soleil + indicateur de stabilité (story 3.5) | ✅ |
+| WeekStrip — changement de jour sur l'écran principal (story 3.5) | ✅ |
+| CloudLayerViz — couche nuageuse vs altitude sommet (story 3.5) | ✅ |
 
 ## Ce qui n'existe pas encore
 
@@ -37,5 +41,5 @@ _Dernière mise à jour : 2026-03-23_
 
 ## Prochaines étapes
 
-1. **Story 3.5** — Détail conditions météo + fenêtre temporelle
+1. **Story 3.6** — Message contextuel hors-saison + partage deep link
 2. **Epic 4** — Paywall / freemium (StoreKit 2)

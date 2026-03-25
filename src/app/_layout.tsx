@@ -14,6 +14,7 @@ import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-rou
 SplashScreen.preventAutoHideAsync();
 
 const TABS_ROUTE = '/(tabs)' as Href;
+const AUTH_LOGIN_ROUTE = '/(auth)/login' as Href;
 
 function AuthGuard() {
   const router = useRouter();
@@ -24,7 +25,7 @@ function AuthGuard() {
     if (loading) return;
     const inAuthGroup = segments[0] === '(auth)';
     if (!session && !inAuthGroup) {
-      router.replace('/(auth)/login');
+      router.replace(AUTH_LOGIN_ROUTE);
     } else if (session && inAuthGroup) {
       router.replace(TABS_ROUTE);
     }

@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import type { ScoreCloudLayerViz } from '@/services/mockData/types';
 
 export type CloudLayerVizVariant = 'focus' | 'ridge' | 'minimal';

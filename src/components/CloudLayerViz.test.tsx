@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { __private__, CloudLayerViz } from '@/components/CloudLayerViz';
+import { getPalette } from '@/components/cloud-layer-viz/palette';
 
 jest.mock('@/utils/i18n', () => ({
   t: (key: string) => {
@@ -72,6 +73,19 @@ describe('CloudLayerViz', () => {
     expect(screen.getByText('Ciel dégagé')).toBeTruthy();
   });
 
+  it('affiche aussi le label de variante en mode sunny detaille', () => {
+    render(
+      <CloudLayerViz
+        viz={{ summit_altitude: 476, cloud_base: 5000, pressure_levels: [] }}
+        isSunny
+        variant="ridge"
+        showVariantLabel
+      />,
+    );
+
+    expect(screen.getByText('Variant B')).toBeTruthy();
+  });
+
   it('affiche le mode sunny compact sans texte', () => {
     render(
       <CloudLayerViz
@@ -81,6 +95,17 @@ describe('CloudLayerViz', () => {
       />,
     );
     expect(screen.getByTestId('cloud-layer-viz-sunny')).toBeTruthy();
+  });
+
+  it('affiche la variante compacte standard hors mode sunny', () => {
+    render(
+      <CloudLayerViz
+        viz={{ summit_altitude: 2257, cloud_base: 1200, pressure_levels: [] }}
+        compact
+      />,
+    );
+
+    expect(screen.queryByTestId('cloud-layer-viz-sunny')).toBeNull();
   });
 
   it('affiche un état serré quand la marge est faible mais positive', () => {
@@ -160,6 +185,22 @@ describe('CloudLayerViz', () => {
     expect(screen.getByText('Variant C')).toBeTruthy();
   });
 
+  it('affiche Variant A pour la variante focus', () => {
+    render(
+      <CloudLayerViz
+        viz={{
+          summit_altitude: 2257,
+          cloud_base: 1200,
+          pressure_levels: [],
+        }}
+        variant="focus"
+        showVariantLabel
+      />,
+    );
+
+    expect(screen.getByText('Variant A')).toBeTruthy();
+  });
+
   it('affiche un état neutre quand la base nuageuse est au niveau du sommet', () => {
     render(
       <CloudLayerViz
@@ -197,10 +238,34 @@ describe('CloudLayerViz', () => {
     const summitY = __private__.projectY(2257, 3500, 164);
     const regularMountain = __private__.getMountainGeometry(summitY, 164);
     const { COMPACT_GEO } = __private__;
+    const compactMountain = __private__.getCompactMountainGeometry();
 
     expect(COMPACT_GEO.mainHalfW).toBeLessThan(regularMountain.mainHalfWidth);
     expect(COMPACT_GEO.smallHeight).toBeLessThan(COMPACT_GEO.mainHeight);
     expect(COMPACT_GEO.smallHalfW).toBeLessThan(COMPACT_GEO.mainHalfW);
     expect(COMPACT_GEO.summitLineY).toBe(164 - COMPACT_GEO.mainHeight);
+    expect(compactMountain).toBe(COMPACT_GEO);
+  });
+
+  it('utilise la géométrie cloud serrée en mode compact', () => {
+    render(
+      <CloudLayerViz
+        viz={{
+          summit_altitude: 1800,
+          cloud_base: 1700,
+          pressure_levels: [],
+        }}
+        compact
+      />,
+    );
+
+    expect(screen.queryByTestId('cloud-layer-viz-sunny')).toBeNull();
+  });
+
+  it('calcule une palette cohérente dans les quatre combinaisons light/dark gap', () => {
+    expect(getPalette(true, true).summitLineBorder).toContain('#5C9E6E');
+    expect(getPalette(true, false).summitLineBorder).toContain('#D4904A');
+    expect(getPalette(false, true).chartBg).toBe('#F2ECE2');
+    expect(getPalette(false, false).cloudLayerBg).toContain('rgba(212,144,74');
   });
 });

@@ -2,6 +2,8 @@ import { ScoreCard } from '@/components/ScoreCard';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ScoreResponse } from '@/services/mockData/types';
 
+let mockScheme: 'light' | 'dark' = 'light';
+
 jest.mock('@/utils/i18n', () => ({
   t: (key: string) => {
     const map: Record<string, string> = {
@@ -25,7 +27,7 @@ jest.mock('@/utils/i18n', () => ({
 }));
 
 jest.mock('@/contexts/ThemeContext', () => ({
-  useTheme: () => ({ scheme: 'light' }),
+  useTheme: () => ({ scheme: mockScheme }),
 }));
 
 const makeScore = (overrides: Partial<ScoreResponse>): ScoreResponse => ({
@@ -44,6 +46,10 @@ const makeScore = (overrides: Partial<ScoreResponse>): ScoreResponse => ({
 });
 
 describe('ScoreCard', () => {
+  beforeEach(() => {
+    mockScheme = 'light';
+  });
+
   it('affiche_score_high_avec_couleur_verte', () => {
     render(<ScoreCard score={makeScore({ score: 84, verdict: 'high' })} date="2026-03-23" />);
     expect(screen.getByText('Lève-toi tôt ! 🟢')).toBeTruthy();
@@ -137,5 +143,26 @@ describe('ScoreCard', () => {
   it('n\'affiche pas les chips d\'heure sans onSelectHour', () => {
     render(<ScoreCard score={makeScore({})} date="2026-03-23" />);
     expect(screen.queryByText('08h')).toBeNull();
+  });
+
+  it('n affiche pas le message contextuel quand il est vide apres trim', () => {
+    render(
+      <ScoreCard
+        score={makeScore({ cloud_layer_viz: null })}
+        date="2026-03-23"
+        contextMessage="   "
+      />,
+    );
+
+    expect(screen.queryByText('   ')).toBeNull();
+    expect(screen.getByTestId('score-card')).toBeTruthy();
+  });
+
+  it('reste lisible en theme dark avec la viz de fallback', () => {
+    mockScheme = 'dark';
+    render(<ScoreCard score={makeScore({ cloud_layer_viz: null, verdict: 'none', cloud_base: 800 })} date="2026-03-23" />);
+
+    expect(screen.getByText(/Nuages au sol/)).toBeTruthy();
+    expect(screen.getByText('Mont Blanc')).toBeTruthy();
   });
 });
