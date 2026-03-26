@@ -1,6 +1,3 @@
-import i18n from '@/utils/i18n';
-import { CHART_HEIGHT } from '@/components/cloud-layer-viz/constants';
-import { ChartScene } from '@/components/cloud-layer-viz/ChartScene';
 import {
   formatMeters,
   getCloudGeometry,
@@ -10,11 +7,14 @@ import {
   getVizState,
   projectY,
 } from '@/components/cloud-layer-viz/geometry';
-import { getPalette } from '@/components/cloud-layer-viz/palette';
-import { styles } from '@/components/cloud-layer-viz/styles';
-import type { CloudLayerVizProps } from '@/components/cloud-layer-viz/types';
 import React from 'react';
+import i18n from '@/utils/i18n';
 import { Text, View } from 'react-native';
+import { styles } from '@/components/cloud-layer-viz/styles';
+import { getPalette } from '@/components/cloud-layer-viz/palette';
+import { ChartScene } from '@/components/cloud-layer-viz/ChartScene';
+import { CHART_HEIGHT } from '@/components/cloud-layer-viz/constants';
+import type { CloudLayerVizProps } from '@/components/cloud-layer-viz/types';
 
 interface DetailedCloudLayerVizProps
   extends Pick<CloudLayerVizProps, 'viz' | 'variant' | 'showVariantLabel' | 'isSunny'> {

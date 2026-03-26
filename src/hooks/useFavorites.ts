@@ -4,12 +4,12 @@
  * Usage :
  *   const { state, addFavorite, removeFavorite } = useFavorites();
  */
-import { useCallback, useEffect, useState } from 'react';
 import { DEBUG } from '@/constants/devConfig';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCallback, useEffect, useState } from 'react';
+import type { AsyncState, Peak } from '@/services/mockData/types';
 import { addFavorite as apiAddFavorite } from '@/services/api/user';
 import { fetchFavorites, removeFavorite as apiRemoveFavorite } from '@/services/api/peaks';
-import { useAuth } from '@/contexts/AuthContext';
-import type { AsyncState, Peak } from '@/services/mockData/types';
 
 export function useFavorites() {
   const { session } = useAuth();

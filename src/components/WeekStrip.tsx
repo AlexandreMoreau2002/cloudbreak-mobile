@@ -1,10 +1,10 @@
 import { useRef } from 'react';
 import { Colors } from '@/constants/colors';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Radius, Spacing } from '@/constants/spacing';
 import { Typography } from '@/constants/typography';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Radius, Spacing } from '@/constants/spacing';
 import type { WeekScores } from '@/hooks/useWeekScores';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface WeekStripProps {
   selectedDate: string;

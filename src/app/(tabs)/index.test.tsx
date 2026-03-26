@@ -1,8 +1,8 @@
 import React from 'react';
-import HomeScreen, { getShareForecastUrl, shareForecast } from '@/app/(tabs)/index';
+import { Alert, Share } from 'react-native';
 import type { ScoreResponse } from '@/services/mockData/types';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert, Share } from 'react-native';
+import HomeScreen, { getShareForecastUrl, shareForecast } from '@/app/(tabs)/index';
 
 // --- Mocks ---
 

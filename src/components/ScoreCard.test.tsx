@@ -1,6 +1,6 @@
 import { ScoreCard } from '@/components/ScoreCard';
-import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ScoreResponse } from '@/services/mockData/types';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 let mockScheme: 'light' | 'dark' = 'light';
 

@@ -1,6 +1,6 @@
 import { Colors } from '@/constants/colors';
-import { Radius, Spacing } from '@/constants/spacing';
 import { Typography } from '@/constants/typography';
+import { Radius, Spacing } from '@/constants/spacing';
 import { StyleSheet, Text, View } from 'react-native';
 
 const { textPrimary: CARD_TEXT, textSecondary: CARD_TEXT_DIM } = Colors.dark;

@@ -1,10 +1,10 @@
-import { COMPACT_GEO } from '@/components/cloud-layer-viz/constants';
-import { styles } from '@/components/cloud-layer-viz/styles';
-import type { CloudLayerPalette, VizState } from '@/components/cloud-layer-viz/types';
-import { formatMeters, getMountainGeometry } from '@/components/cloud-layer-viz/geometry';
-import type { ScoreCloudLayerViz } from '@/services/mockData/types';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { styles } from '@/components/cloud-layer-viz/styles';
+import type { ScoreCloudLayerViz } from '@/services/mockData/types';
+import { COMPACT_GEO } from '@/components/cloud-layer-viz/constants';
+import type { CloudLayerPalette, VizState } from '@/components/cloud-layer-viz/types';
+import { formatMeters, getMountainGeometry } from '@/components/cloud-layer-viz/geometry';
 
 interface ChartSceneProps {
   viz: ScoreCloudLayerViz;

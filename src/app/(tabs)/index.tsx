@@ -1,8 +1,8 @@
 /**
  * HomeScreen — écran principal, affiche le score mer de nuage du sommet sélectionné.
  */
-import { useEffect, useRef } from 'react';
 import i18n from '@/utils/i18n';
+import { useEffect, useRef } from 'react';
 import { useScore } from '@/hooks/useScore';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,13 +10,13 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { ScoreCard } from '@/components/ScoreCard';
 import { WeekStrip } from '@/components/WeekStrip';
 import { useRouter, type Href } from 'expo-router';
-import { ScoreSkeleton } from '@/components/ScoreSkeleton';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useWeekScores } from '@/hooks/useWeekScores';
+import { ScoreSkeleton } from '@/components/ScoreSkeleton';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const SEARCH_ROUTE = '/(tabs)/search' as Href;
 

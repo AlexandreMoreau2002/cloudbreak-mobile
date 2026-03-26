@@ -1,11 +1,11 @@
-import { COMPACT_CHART_HEIGHT, COMPACT_GEO } from '@/components/cloud-layer-viz/constants';
-import { ChartScene } from '@/components/cloud-layer-viz/ChartScene';
-import { getCloudGeometry, getGap, getMaxAltitude, getVizState, projectY } from '@/components/cloud-layer-viz/geometry';
-import { getPalette } from '@/components/cloud-layer-viz/palette';
-import { styles } from '@/components/cloud-layer-viz/styles';
-import type { CloudLayerVizProps } from '@/components/cloud-layer-viz/types';
 import React from 'react';
 import { View } from 'react-native';
+import { styles } from '@/components/cloud-layer-viz/styles';
+import { getPalette } from '@/components/cloud-layer-viz/palette';
+import { ChartScene } from '@/components/cloud-layer-viz/ChartScene';
+import type { CloudLayerVizProps } from '@/components/cloud-layer-viz/types';
+import { COMPACT_CHART_HEIGHT, COMPACT_GEO } from '@/components/cloud-layer-viz/constants';
+import { getCloudGeometry, getGap, getMaxAltitude, getVizState, projectY } from '@/components/cloud-layer-viz/geometry';
 
 interface CompactCloudLayerVizProps extends Pick<CloudLayerVizProps, 'viz' | 'isSunny'> {
   isDark: boolean;

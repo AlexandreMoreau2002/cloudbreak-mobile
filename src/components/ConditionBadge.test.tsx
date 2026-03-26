@@ -1,6 +1,6 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
 import { ConditionBadge } from '@/components/ConditionBadge';
+import { render, screen } from '@testing-library/react-native';
 
 describe('ConditionBadge', () => {
   it('affiche le label et la valeur', () => {

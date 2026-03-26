@@ -1,6 +1,6 @@
 import i18n from '@/utils/i18n';
-import type { ScoreCloudLayerViz } from '@/services/mockData/types';
 import type { VizState } from '@/components/cloud-layer-viz/types';
+import type { ScoreCloudLayerViz } from '@/services/mockData/types';
 
 export function formatMeters(value: number): string {
   return new Intl.NumberFormat('fr-FR').format(Math.round(value));

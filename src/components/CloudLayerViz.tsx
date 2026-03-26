@@ -25,8 +25,6 @@
  * - `cloud-layer-viz/CompactCloudLayerViz.tsx`: variante Home
  * - `cloud-layer-viz/DetailedCloudLayerViz.tsx`: variante detaillee
  */
-import { CompactCloudLayerViz } from '@/components/cloud-layer-viz/CompactCloudLayerViz';
-import { COMPACT_GEO } from '@/components/cloud-layer-viz/constants';
 import {
   getCloudGeometry,
   getMountainGeometry,
@@ -34,10 +32,12 @@ import {
   getVizState,
   projectY,
 } from '@/components/cloud-layer-viz/geometry';
-import { DetailedCloudLayerViz } from '@/components/cloud-layer-viz/DetailedCloudLayerViz';
-import type { CloudLayerVizProps } from '@/components/cloud-layer-viz/types';
-import { useTheme } from '@/contexts/ThemeContext';
 import React from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { COMPACT_GEO } from '@/components/cloud-layer-viz/constants';
+import type { CloudLayerVizProps } from '@/components/cloud-layer-viz/types';
+import { CompactCloudLayerViz } from '@/components/cloud-layer-viz/CompactCloudLayerViz';
+import { DetailedCloudLayerViz } from '@/components/cloud-layer-viz/DetailedCloudLayerViz';
 
 export type {
   CloudLayerVizProps,

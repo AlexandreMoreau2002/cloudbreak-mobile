@@ -1,6 +1,6 @@
 export const CHART_HEIGHT = 196;
-export const COMPACT_CHART_HEIGHT = 164;
 export const CHART_WIDTH_INSET = 14;
+export const COMPACT_CHART_HEIGHT = 164;
 
 // Geometrie compacte fixee pour la mini-viz Home.
 // On la garde volontairement explicite, car cette version privilegie

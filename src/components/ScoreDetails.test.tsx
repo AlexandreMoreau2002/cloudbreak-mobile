@@ -1,6 +1,6 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
 import { ScoreDetails } from '@/components/ScoreDetails';
+import { render, screen } from '@testing-library/react-native';
 import type { ScoreResponse } from '@/services/mockData/types';
 
 jest.mock('@/utils/i18n', () => ({

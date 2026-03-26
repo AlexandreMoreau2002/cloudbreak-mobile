@@ -9,12 +9,12 @@
  */
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
-import { Radius, Spacing } from '@/constants/spacing';
-import { Typography } from '@/constants/typography';
-import { CloudLayerViz } from '@/components/CloudLayerViz';
 import { useTheme } from '@/contexts/ThemeContext';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Typography } from '@/constants/typography';
+import { Radius, Spacing } from '@/constants/spacing';
+import { CloudLayerViz } from '@/components/CloudLayerViz';
 import type { ScoreResponse } from '@/services/mockData/types';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const HOUR_OPTIONS = [6, 8, 10, 12, 14, 16];
 

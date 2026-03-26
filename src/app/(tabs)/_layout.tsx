@@ -1,6 +1,6 @@
+import i18n from '@/utils/i18n';
 import { Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import i18n from '@/utils/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];

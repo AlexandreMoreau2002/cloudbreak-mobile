@@ -1,8 +1,8 @@
-import { Colors } from '@/constants/colors';
-import { Radius, Spacing } from '@/constants/spacing';
-import { Typography } from '@/constants/typography';
-import { CHART_HEIGHT, CHART_WIDTH_INSET } from '@/components/cloud-layer-viz/constants';
 import { StyleSheet } from 'react-native';
+import { Colors } from '@/constants/colors';
+import { Typography } from '@/constants/typography';
+import { Radius, Spacing } from '@/constants/spacing';
+import { CHART_HEIGHT, CHART_WIDTH_INSET } from '@/components/cloud-layer-viz/constants';
 
 export const styles = StyleSheet.create({
   container: {

@@ -1,6 +1,6 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
 import AuthLayout from '@/app/(auth)/_layout';
+import { render } from '@testing-library/react-native';
 
 const mockStack = jest.fn((_props: unknown) => null);
 

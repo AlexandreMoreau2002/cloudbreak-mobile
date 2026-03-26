@@ -1,6 +1,6 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
 import { fetchScore } from '@/services/api/score';
 import { useWeekScores } from '@/hooks/useWeekScores';
+import { renderHook, waitFor } from '@testing-library/react-native';
 
 jest.mock('@/services/api/score', () => ({
   fetchScore: jest.fn(),
