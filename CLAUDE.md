@@ -25,6 +25,20 @@ npm run build:check     # expo export (vérifie que le bundle compile)
 
 > Ne pas utiliser Expo Go — l'app a des modules natifs incompatibles.
 
+### Dépannage simulateur iOS
+
+```bash
+# Tuer tous les simulateurs
+killall "Simulator" 2>/dev/null; xcrun simctl shutdown all
+
+# Effacer complètement un simulateur (si corrompu/bloqué)
+xcrun simctl erase <UDID>
+# Trouver l'UDID : xcrun simctl list devices | grep "iPhone 16 Pro"
+
+# Forcer Metro sur localhost (si timeout exp://192.x.x.x)
+npm start -- --localhost --clear
+```
+
 ---
 
 ## Imports — règle STRICTE
