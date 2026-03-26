@@ -39,6 +39,20 @@ xcrun simctl erase <UDID>
 npm start -- --localhost --clear
 ```
 
+Important :
+- `Cmd+Q` ferme souvent seulement l'UI de `Simulator.app`
+- le device simulé peut rester `Booted` en arrière-plan via `CoreSimulator`
+- si Claude constate que le simulateur "ne se ferme jamais", utiliser cette séquence complète :
+
+```bash
+killall Simulator
+xcrun simctl shutdown all
+killall -9 com.apple.CoreSimulator.CoreSimulatorService
+```
+
+- utiliser cette séquence avant d'investiguer un bug Expo/React Native si le souci ressemble à un simulateur bloqué
+- après ce reset, relancer proprement avec `npx expo run:ios` ou `npm start` selon le cas
+
 ---
 
 ## Imports — règle STRICTE
