@@ -18,7 +18,8 @@
       "src/**/*.{ts,tsx}",
       "!src/**/*.test.{ts,tsx}",
       "!src/locales/**",
-      "!src/services/mockData/types.ts"
+      "!src/services/mockData/types.ts",
+      "!src/components/cloud-layer-viz/types.ts"
     ],
     "coveragePathIgnorePatterns": [
       "/node_modules/",
@@ -48,8 +49,8 @@
     "expo-system-ui": "~55.0.10",
     "expo-web-browser": "~55.0.10",
     "i18n-js": "^4.5.3",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "react-native": "0.83.2",
     "react-native-gesture-handler": "~2.30.0",
     "react-native-reanimated": "4.2.1",

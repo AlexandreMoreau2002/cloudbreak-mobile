@@ -1,17 +1,33 @@
 import { ScoreCard } from '@/components/ScoreCard';
-import { render, screen } from '@testing-library/react-native';
 import type { ScoreResponse } from '@/services/mockData/types';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+
+let mockScheme: 'light' | 'dark' = 'light';
 
 jest.mock('@/utils/i18n', () => ({
   t: (key: string) => {
     const map: Record<string, string> = {
       'score.none': 'Nuages au sol',
+      'score.sunny': 'Ciel dégagé',
       'score.high': 'Lève-toi tôt !',
       'score.medium': 'Ça peut le faire',
       'score.low': 'Pas ce coup-ci',
+      'home.cloudLayerAbove': 'Sommet au-dessus de la base nuageuse',
+      'home.cloudLayerBelow': 'Base nuageuse au-dessus du sommet de',
+      'home.cloudLayerTouching': 'Base nuageuse au niveau du sommet',
+      'home.cloudLayerTitle': 'Couche nuageuse vs sommet',
+      'home.summitShort': 'Sommet',
+      'home.cloudBaseShort': 'Base',
+      'home.cloudLayerMargin': 'Marge verticale',
+      'home.cloudLayerComfortable': 'Lecture simple: marge confortable pour passer au-dessus.',
+      'home.cloudLayerTight': 'Lecture simple: la marge est faible ou nulle.',
     };
     return map[key] ?? key;
   },
+}));
+
+jest.mock('@/contexts/ThemeContext', () => ({
+  useTheme: () => ({ scheme: mockScheme }),
 }));
 
 const makeScore = (overrides: Partial<ScoreResponse>): ScoreResponse => ({
@@ -30,6 +46,10 @@ const makeScore = (overrides: Partial<ScoreResponse>): ScoreResponse => ({
 });
 
 describe('ScoreCard', () => {
+  beforeEach(() => {
+    mockScheme = 'light';
+  });
+
   it('affiche_score_high_avec_couleur_verte', () => {
     render(<ScoreCard score={makeScore({ score: 84, verdict: 'high' })} date="2026-03-23" />);
     expect(screen.getByText('Lève-toi tôt ! 🟢')).toBeTruthy();
@@ -67,6 +87,12 @@ describe('ScoreCard', () => {
     expect(screen.getByText(/Nuages au sol/)).toBeTruthy();
   });
 
+  it('affiche_score_sunny_quand_nuages_au_dessus_du_sommet', () => {
+    const score = makeScore({ score: 0, verdict: 'none', cloud_base: 5000, peak_altitude: 476 });
+    render(<ScoreCard score={score} date="2026-03-25" />);
+    expect(screen.getByText('Ciel dégagé ☀️')).toBeTruthy();
+  });
+
   it('affiche_date_brute_si_invalide', () => {
     render(<ScoreCard score={makeScore({})} date="invalid-date" />);
     expect(screen.getByText('invalid-date')).toBeTruthy();
@@ -84,5 +110,59 @@ describe('ScoreCard', () => {
     } finally {
       global.Date = OriginalDate;
     }
+  });
+
+  it('affiche le message contextuel quand il est fourni', () => {
+    render(
+      <ScoreCard
+        score={makeScore({})}
+        date="2026-03-23"
+        contextMessage="Pas de mer de nuage - mais ciel dégagé au-dessus de 2400m ☀️"
+      />,
+    );
+
+    expect(screen.getByText('Pas de mer de nuage - mais ciel dégagé au-dessus de 2400m ☀️')).toBeTruthy();
+  });
+
+  it('affiche les chips d\'heure quand onSelectHour est fourni', () => {
+    const mockOnSelectHour = jest.fn();
+    render(
+      <ScoreCard
+        score={makeScore({ score: 84, verdict: 'high' })}
+        date="2026-03-23"
+        selectedHour={8}
+        onSelectHour={mockOnSelectHour}
+      />,
+    );
+    expect(screen.getByText('08h')).toBeTruthy(); // chip actif
+    expect(screen.getByText('06h')).toBeTruthy();
+    fireEvent.press(screen.getByText('06h'));
+    expect(mockOnSelectHour).toHaveBeenCalledWith(6);
+  });
+
+  it('n\'affiche pas les chips d\'heure sans onSelectHour', () => {
+    render(<ScoreCard score={makeScore({})} date="2026-03-23" />);
+    expect(screen.queryByText('08h')).toBeNull();
+  });
+
+  it('n affiche pas le message contextuel quand il est vide apres trim', () => {
+    render(
+      <ScoreCard
+        score={makeScore({ cloud_layer_viz: null })}
+        date="2026-03-23"
+        contextMessage="   "
+      />,
+    );
+
+    expect(screen.queryByText('   ')).toBeNull();
+    expect(screen.getByTestId('score-card')).toBeTruthy();
+  });
+
+  it('reste lisible en theme dark avec la viz de fallback', () => {
+    mockScheme = 'dark';
+    render(<ScoreCard score={makeScore({ cloud_layer_viz: null, verdict: 'none', cloud_base: 800 })} date="2026-03-23" />);
+
+    expect(screen.getByText(/Nuages au sol/)).toBeTruthy();
+    expect(screen.getByText('Mont Blanc')).toBeTruthy();
   });
 });

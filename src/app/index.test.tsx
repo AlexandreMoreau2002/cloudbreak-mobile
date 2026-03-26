@@ -1,6 +1,6 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
 import Index from '@/app/index';
+import { render } from '@testing-library/react-native';
 
 const mockRedirect = jest.fn((_props: unknown) => null);
 

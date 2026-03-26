@@ -4,9 +4,9 @@
  * Usage :
  *   import { searchPeaks, fetchPeakBySlug, fetchFavorites, removeFavorite } from '@/services/api/peaks';
  */
+import { MOCK_PEAKS } from '@/services/mockData/peaks';
 import { MOCK_API, DEBUG } from '@/constants/devConfig';
 import { apiFetch, _delay } from '@/services/fetchService';
-import { MOCK_PEAKS } from '@/services/mockData/peaks';
 import type { Peak, FavoriteResponse } from '@/services/mockData/types';
 
 export async function searchPeaks(token: string, query: string): Promise<Peak[]> {

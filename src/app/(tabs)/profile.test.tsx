@@ -1,6 +1,10 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
 import ProfileScreen from '@/app/(tabs)/profile';
+import { render, fireEvent } from '@testing-library/react-native';
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 
 jest.mock('@/utils/i18n', () => ({
   __esModule: true,
@@ -12,6 +16,20 @@ const mockToggleScheme = jest.fn();
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ signOut: mockSignOut }),
+}));
+
+jest.mock('@/components/CloudLayerViz', () => ({
+  CloudLayerViz: () => null,
+}));
+
+jest.mock('@/services/mockData/score', () => ({
+  MOCK_SCORE_HIGH: { cloud_layer_viz: { summit_altitude: 2257, cloud_base: 1200, pressure_levels: [] } },
+  MOCK_SCORE_MEDIUM: { cloud_layer_viz: { summit_altitude: 2341, cloud_base: 1800, pressure_levels: [] } },
+  MOCK_SCORE_LOW: { cloud_layer_viz: { summit_altitude: 4808, cloud_base: 3200, pressure_levels: [] } },
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 12, right: 0, bottom: 0, left: 0 }),
 }));
 
 const mockUseThemeLight = {
@@ -64,6 +82,15 @@ describe('ProfileScreen', () => {
   it('affiche le bouton de déconnexion', () => {
     const { getByText } = render(<ProfileScreen />);
     expect(getByText('profile.signOut')).toBeTruthy();
+  });
+
+  it('affiche la sandbox cloud layer viz', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('CloudLayerViz Sandbox')).toBeTruthy();
+    expect(getByText('Variante A · sommet au-dessus')).toBeTruthy();
+    expect(getByText('Variante B · marge serrée')).toBeTruthy();
+    expect(getByText('Variante C · nuage couvrant')).toBeTruthy();
+    expect(getByText('Variante D · ciel dégagé (WIP)')).toBeTruthy();
   });
 
   it('appelle signOut au clic sur le bouton', () => {

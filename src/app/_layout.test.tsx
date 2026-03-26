@@ -1,6 +1,6 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
 import RootLayout from '@/app/_layout';
+import { render, waitFor } from '@testing-library/react-native';
 
 const mockReplace = jest.fn();
 const mockHideAsync = jest.fn();

@@ -1,6 +1,6 @@
-import { searchPeaks, fetchPeakBySlug, fetchFavorites, removeFavorite } from '@/services/api/peaks';
 import { apiFetch } from '@/services/fetchService';
 import { MOCK_PEAKS } from '@/services/mockData/peaks';
+import { searchPeaks, fetchPeakBySlug, fetchFavorites, removeFavorite } from '@/services/api/peaks';
 
 const mockDevConfigState = { MOCK_API: false, DEBUG: false };
 

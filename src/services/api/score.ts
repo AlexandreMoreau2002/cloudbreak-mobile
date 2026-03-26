@@ -6,8 +6,8 @@
  */
 import { MOCK_API, DEBUG } from '@/constants/devConfig';
 import { apiFetch, _delay } from '@/services/fetchService';
-import { getMockScore } from '@/services/mockData/score';
 import type { ScoreResponse } from '@/services/mockData/types';
+import { getMockScore, normalizeScoreResponse } from '@/services/mockData/score';
 
 export async function fetchScore(
   token: string,
@@ -18,11 +18,12 @@ export async function fetchScore(
   if (MOCK_API) {
     if (DEBUG) console.debug('[api/score] MOCK fetchScore', { peak_id, date, hour });
     await _delay(400);
-    return getMockScore(peak_id);
+    return normalizeScoreResponse(getMockScore(peak_id));
   }
-  return apiFetch<ScoreResponse>('/api/v1/score', token, {
+  const response = await apiFetch<Partial<ScoreResponse>>('/api/v1/score', token, {
     peak_id,
     date,
     hour: String(hour),
   });
+  return normalizeScoreResponse(response);
 }
