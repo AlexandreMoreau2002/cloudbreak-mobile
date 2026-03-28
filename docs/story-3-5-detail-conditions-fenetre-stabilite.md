@@ -66,7 +66,7 @@ HomeScreen
 
 Le backend applique une règle bloquante avant de calculer un score mer de nuage :
 
-- si `cloud_cover_low < 35%`, il considère qu'il n'y a pas assez de nuages bas pour former une couche exploitable
+- si `cloud_cover_low < 45%`, il considère qu'il n'y a pas assez de nuages bas pour former une couche exploitable
 - dans ce cas, il retourne immédiatement `verdict = "none"` et `score = 0`
 - le bon framing UX n'est donc pas "petite chance", mais "pas de scénario mer de nuage aujourd'hui"
 
