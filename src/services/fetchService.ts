@@ -20,6 +20,7 @@ export const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.cloudbre
 export interface ApiFetchOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
+  signal?: AbortSignal;
 }
 
 export async function apiFetch<T>(
@@ -43,6 +44,7 @@ export async function apiFetch<T>(
   const response = await fetch(url.toString(), {
     method,
     headers,
+    signal: options?.signal,
     body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 

@@ -2,18 +2,23 @@
  * HomeScreen — écran principal, affiche le score mer de nuage du sommet sélectionné.
  */
 import i18n from '@/utils/i18n';
-import { useEffect, useRef } from 'react';
-import { useScore } from '@/hooks/useScore';
+import { useEffect } from 'react';
+import { DEBUG } from '@/constants/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWeekData } from '@/hooks/useWeekData';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ScoreCard } from '@/components/ScoreCard';
 import { WeekStrip } from '@/components/WeekStrip';
 import { useRouter, type Href } from 'expo-router';
 import { useFavorites } from '@/hooks/useFavorites';
-import { useWeekScores } from '@/hooks/useWeekScores';
+import { PeakHeader } from '@/components/PeakHeader';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { FavoritesGrid } from '@/components/FavoritesGrid';
 import { ScoreSkeleton } from '@/components/ScoreSkeleton';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
+import { localizeScoreResponse } from '@/services/mockData/score';
+import { ConditionsSection } from '@/components/ConditionsSection';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
 import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -48,6 +53,7 @@ export async function shareForecast(
 }
 
 export default function HomeScreen() {
+  useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
@@ -55,17 +61,25 @@ export default function HomeScreen() {
   const { selectedPeak, setSelectedPeak, selectedDate, selectedHour, setSelectedDate, setSelectedHour } = useSelectedPeak();
 
   const token = session?.access_token ?? null;
-  const scoreState = useScore(selectedPeak?.id ?? null, selectedDate, selectedHour, token);
-  const weekScores = useWeekScores(selectedPeak?.id ?? null, selectedHour, token);
+  const { data: weekData, loading: weekLoading, error: weekError } = useWeekData(selectedPeak?.id ?? null, token);
 
-  // Stale-while-revalidate : garde les dernières données valides par sommet
-  const lastScoreRef = useRef<{ peakId: string; data: ScoreResponse } | null>(null);
-
+  // Auto-sync selectedDate + selectedHour — corrige si la date ou l'heure n'a pas de données
   useEffect(() => {
-    if (scoreState.status === 'success' && scoreState.data && selectedPeak) {
-      lastScoreRef.current = { peakId: selectedPeak.id, data: scoreState.data };
+    if (!weekData) return;
+    const today = new Date().toISOString().slice(0, 10);
+    // 1. Date : revenir à aujourd'hui si absente
+    const hasDateData = weekData.byDate[selectedDate] && Object.keys(weekData.byDate[selectedDate]).length > 0;
+    const effectiveDate = hasDateData ? selectedDate : today;
+    if (!hasDateData) setSelectedDate(effectiveDate);
+    // 2. Heure : si le créneau sélectionné n'a pas de données, prendre le meilleur
+    const hourHasData = weekData.byDate[effectiveDate]?.[selectedHour] != null;
+    if (!hourHasData) {
+      const best = weekData.bestByDate[effectiveDate];
+      const newHour = best && best.score > 0 ? best.hour : 6;
+      if (DEBUG) console.debug('[HOME] auto-sync hour', { effectiveDate, selectedHour, newHour });
+      setSelectedHour(newHour);
     }
-  }, [scoreState, selectedPeak]);
+  }, [weekData, selectedDate, selectedHour, setSelectedDate, setSelectedHour]);
 
   const { state: favoritesState, addFavorite, removeFavorite } = useFavorites();
   const favorites: Peak[] = favoritesState.status === 'success' ? favoritesState.data || [] : [];
@@ -78,6 +92,14 @@ export default function HomeScreen() {
     router.push(SEARCH_ROUTE);
   }
 
+  function handleSelectDate(date: string) {
+    setSelectedDate(date);
+    if (weekData) {
+      const best = weekData.bestByDate[date];
+      setSelectedHour(best && best.score > 0 ? best.hour : 6);
+    }
+  }
+
   function handleToggleFavorite(peakId: string) {
     /* istanbul ignore next - aucun sommet n'affiche ce bouton */
     if (isFavorite(peakId)) {
@@ -87,138 +109,17 @@ export default function HomeScreen() {
     }
   }
 
-  function renderPeakHeader(peak: Peak) {
-    /* istanbul ignore next - le header n'est jamais appelé sans sommet sélectionné */
-    const starred = isFavorite(peak.id);
-    return (
-      <View style={styles.peakHeader}>
-        <View style={styles.peakHeaderLeft}>
-          <Text style={[styles.peakHeaderName, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold, fontSize: typography.fontSize.lg }]} numberOfLines={1}>
-            {peak.name}
-          </Text>
-          <Text style={[styles.peakHeaderAlt, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm }]}>
-            {peak.altitude} m
-          </Text>
-        </View>
-        <TouchableOpacity
-          testID="favorite-toggle-button"
-          onPress={() => handleToggleFavorite(peak.id)}
-          activeOpacity={0.7}
-          style={[styles.favButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-        >
-          <Ionicons
-            name={starred ? 'star' : 'star-outline'}
-            size={18}
-            color={starred ? colors.accent : colors.textSecondary}
-          />
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  function renderConditionsSection(score: ScoreResponse) {
-    const conditions = score.conditions;
-    if (!conditions) return null;
-
-    const humidityVal = conditions.humidity != null ? `${Math.round(conditions.humidity)}%` : (conditions.humidity_pct != null ? `${Math.round(conditions.humidity_pct)}%` : 'N/A');
-    const windVal = conditions.wind_speed != null ? `${Math.round(conditions.wind_speed)} km/h` : (conditions.wind_speed_kmh != null ? `${Math.round(conditions.wind_speed_kmh)} km/h` : 'N/A');
-    const inversionPresent = conditions.inversion_present ?? conditions.inversion_detected ?? null;
-    const inversionVal = inversionPresent === true ? 'Oui' : inversionPresent === false ? 'Non' : 'N/A';
-    const alertLabel = i18n.t('home.alertCtaTitle');
-    const alertSubtitle = i18n.t('home.alertCtaSubtitle');
-    const showAlertCta = score.verdict === 'high' || score.verdict === 'medium';
-
-    return (
-      <View style={styles.conditionsSection}>
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.xs }]}>
-          {i18n.t('home.conditionsTitle').toUpperCase()}
-        </Text>
-
-        <View style={styles.widgetsRow}>
-          <View style={[styles.widget, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.widgetLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.xs }]}>
-              {i18n.t('home.humidity').toUpperCase()}
-            </Text>
-            <Text style={[styles.widgetValue, { color: colors.textPrimary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }]}>
-              {humidityVal}
-            </Text>
-          </View>
-          <View style={[styles.widget, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.widgetLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.xs }]}>
-              {i18n.t('home.wind').toUpperCase()}
-            </Text>
-            <Text style={[styles.widgetValue, { color: colors.textPrimary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }]}>
-              {windVal}
-            </Text>
-          </View>
-          <View style={[styles.widget, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.widgetLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.xs }]}>
-              {i18n.t('home.inversion').toUpperCase()}
-            </Text>
-            <Text style={[styles.widgetValue, { color: colors.textPrimary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }]}>
-              {inversionVal}
-            </Text>
-          </View>
-        </View>
-
-        {showAlertCta ? (
-          <View style={[styles.alertCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.alertCopy}>
-              <View style={styles.alertTitleRow}>
-                <Ionicons name="notifications-outline" size={18} color={colors.accent} />
-                <Text style={[styles.alertTitle, { color: colors.textPrimary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }]}>
-                  {alertLabel}
-                </Text>
-              </View>
-              <Text style={[styles.alertSubtitle, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs }]}>
-                {alertSubtitle}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.alertButton, { backgroundColor: colors.accent }]}
-              activeOpacity={0.82}
-              onPress={() => Alert.alert(alertLabel, alertSubtitle)}
-            >
-              <Text style={[styles.alertButtonText, { color: colors.surface, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.xs }]}>
-                {i18n.t('home.alertCtaButton').toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-      </View>
-    );
-  }
-
-  function renderFavoritesSection() {
-    if (favorites.length === 0) return null;
-    return (
-      <View style={styles.favoritesSection}>
-        <Text style={[styles.favoritesSectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.xs }]}>
-          {i18n.t('home.sectionFavorites').toUpperCase()}
-        </Text>
-        <View style={styles.favoritesGrid}>
-          {favorites.map((peak) => (
-            <TouchableOpacity
-              key={peak.id}
-              testID={`favorite-peak-${peak.id}`}
-              style={[styles.favoritePeakCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => setSelectedPeak(peak)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.favoritePeakName, { color: colors.textPrimary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }]} numberOfLines={1}>
-                {peak.name}
-              </Text>
-              <Text style={[styles.favoritePeakAlt, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs }]}>
-                {peak.altitude} m
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    );
-  }
-
   function renderContent() {
+    if (DEBUG) console.debug('[HOME] renderContent', {
+      selectedPeak: selectedPeak?.id ?? null,
+      selectedDate,
+      selectedHour,
+      weekLoading,
+      weekError,
+      weekDataDates: weekData ? Object.keys(weekData.byDate) : null,
+      displayScoreRaw: weekData?.byDate[selectedDate]?.[selectedHour] ? 'PRESENT' : 'NULL',
+    });
+
     if (!selectedPeak) {
       return (
         <View style={styles.emptyContainer}>
@@ -238,21 +139,29 @@ export default function HomeScreen() {
               {i18n.t('home.goToSearch')}
             </Text>
           </TouchableOpacity>
-          {renderFavoritesSection()}
+          <FavoritesGrid favorites={favorites} onSelectPeak={setSelectedPeak} />
         </View>
       );
     }
 
-    const staleData = lastScoreRef.current?.peakId === selectedPeak.id
-      ? lastScoreRef.current.data!
+    // Si la date sélectionnée n'a pas de données (cache périmé / date hors fenêtre),
+    // on se rabat sur aujourd'hui
+    const today = new Date().toISOString().slice(0, 10);
+    const effectiveDate =
+      weekData && (!weekData.byDate[selectedDate] || Object.keys(weekData.byDate[selectedDate]).length === 0)
+        ? today
+        : selectedDate;
+    const rawDisplayScore: ScoreResponse | null = weekData?.byDate[effectiveDate]?.[selectedHour] ?? null;
+    const displayScore: ScoreResponse | null = rawDisplayScore
+      ? localizeScoreResponse(rawDisplayScore)
       : null;
-    const displayScore = scoreState.status === 'success' ? scoreState.data : staleData;
-    const isRefreshing = scoreState.status === 'loading' && displayScore != null;
+    const isLoading = weekLoading && displayScore == null;
+    const isRefreshing = weekLoading && displayScore != null;
 
-    if (scoreState.status === 'loading' && !displayScore) {
+    if (isLoading) {
       return (
         <View style={styles.forecastStack}>
-          {renderPeakHeader(selectedPeak)}
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} />
           <ScoreSkeleton />
         </View>
       );
@@ -261,7 +170,7 @@ export default function HomeScreen() {
     if (displayScore) {
       return (
         <View style={[styles.forecastStack, isRefreshing && { opacity: 0.7 }]}>
-          {renderPeakHeader(selectedPeak)}
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} />
           <ScoreCard
             score={displayScore}
             date={selectedDate}
@@ -269,20 +178,20 @@ export default function HomeScreen() {
             selectedHour={selectedHour}
             onSelectHour={setSelectedHour}
           />
-          <WeekStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} dayScores={weekScores ?? undefined} />
-          {renderConditionsSection(displayScore)}
-          {renderFavoritesSection()}
+          <WeekStrip selectedDate={selectedDate} onSelectDate={handleSelectDate} dayScores={weekData?.bestByDate} />
+          <ConditionsSection score={displayScore} />
+          <FavoritesGrid favorites={favorites} onSelectPeak={setSelectedPeak} />
         </View>
       );
     }
 
-    if (scoreState.status === 'error') {
-      const message = scoreState.error?.includes('indisponible')
+    if (weekError) {
+      const message = weekError.includes('indisponible')
         ? i18n.t('home.serviceUnavailable')
         : i18n.t('home.errorGeneric');
       return (
         <View style={styles.forecastStack}>
-          {renderPeakHeader(selectedPeak)}
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} />
           <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
             <Ionicons name="cloud-offline-outline" size={40} color={colors.textDisabled} style={{ marginBottom: spacing.sm }} />
             <Text style={[styles.emptyHint, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center', marginBottom: 0 }]}>
@@ -327,7 +236,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    paddingBottom: 16,
+    paddingBottom: 8,
     paddingHorizontal: 24,
   },
   searchBar: {
@@ -354,7 +263,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 8,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -381,114 +290,10 @@ const styles = StyleSheet.create({
   },
   forecastStack: {
     width: '100%',
-    gap: 22,
+    gap: 12,
     alignSelf: 'center',
     maxWidth: 540,
   },
-  peakHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-  },
-  peakHeaderLeft: {
-    flex: 1,
-    gap: 2,
-  },
-  peakHeaderName: {
-    letterSpacing: 0.5,
-  },
-  peakHeaderAlt: {},
-  favButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  widgetsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  conditionsSection: {
-    gap: 12,
-  },
-  sectionLabel: {
-    letterSpacing: 1,
-  },
-  widget: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    gap: 6,
-    alignItems: 'center',
-  },
-  widgetLabel: {
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  widgetValue: {
-    textAlign: 'center',
-  },
-  alertCard: {
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  alertCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  alertTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  alertTitle: {},
-  alertSubtitle: {
-    lineHeight: 16,
-  },
-  alertButton: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  alertButtonText: {
-    letterSpacing: 1,
-  },
-  favoritesSection: {
-    gap: 12,
-    width: '100%',
-  },
-  favoritesSectionLabel: {
-    letterSpacing: 1,
-  },
-  favoritesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  favoritePeakCard: {
-    width: '48%',
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    gap: 4,
-  },
-  favoritePeakName: {
-    letterSpacing: 0.3,
-  },
-  favoritePeakAlt: {},
   errorCard: {
     borderWidth: 1,
     borderRadius: 24,

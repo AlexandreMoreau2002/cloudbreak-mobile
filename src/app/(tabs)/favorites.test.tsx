@@ -34,6 +34,10 @@ jest.mock('@/contexts/ThemeContext', () => ({
   }),
 }));
 
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
+}));
+
 jest.mock('@/utils/i18n', () => ({ t: (k: string) => k }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 

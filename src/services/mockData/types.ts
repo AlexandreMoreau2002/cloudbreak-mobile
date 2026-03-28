@@ -20,6 +20,7 @@ export interface Peak {
   lat: number;
   lng: number;
   altitude: number;
+  region?: string | null;
 }
 
 export interface ScoreConditions {
@@ -58,12 +59,16 @@ export interface ScoreCloudLayerViz {
 export interface ScoreResponse {
   score: number;
   verdict: 'none' | 'high' | 'medium' | 'low';
-  label?: string;
+  label_code?: string | null;
   cloud_base: number;
   peak_name: string;
   peak_altitude: number;
+  peak_region?: string | null;
   peak_slug?: string | null;
+  label?: string | null;
   context_message?: string | null;
+  context_code?: string | null;
+  context_params?: Record<string, string | number | boolean | null> | null;
   optimal_window_start?: string | null;
   optimal_window_end?: string | null;
   sunrise?: string | null;

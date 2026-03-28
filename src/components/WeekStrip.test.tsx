@@ -1,7 +1,8 @@
 import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+
 import { WeekStrip } from '@/components/WeekStrip';
 import type { WeekScores } from '@/hooks/useWeekScores';
-import { fireEvent, render, screen } from '@testing-library/react-native';
 
 let mockScheme: 'light' | 'dark' = 'light';
 
@@ -21,9 +22,43 @@ jest.mock('@/contexts/ThemeContext', () => ({
   }),
 }));
 
+let mockLocale: 'fr' | 'en' = 'fr';
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: mockLocale, toggleLocale: jest.fn() }),
+}));
+
+jest.mock('@/utils/i18n', () => ({
+  t: (key: string) => {
+    const map: Record<string, string> = {
+      'home.today': mockLocale === 'fr' ? "Aujourd'hui" : 'Today',
+      'home.calendar.weekdaysShort.sun': mockLocale === 'fr' ? 'Dim.' : 'Sun.',
+      'home.calendar.weekdaysShort.mon': mockLocale === 'fr' ? 'Lun.' : 'Mon.',
+      'home.calendar.weekdaysShort.tue': mockLocale === 'fr' ? 'Mar.' : 'Tue.',
+      'home.calendar.weekdaysShort.wed': mockLocale === 'fr' ? 'Mer.' : 'Wed.',
+      'home.calendar.weekdaysShort.thu': mockLocale === 'fr' ? 'Jeu.' : 'Thu.',
+      'home.calendar.weekdaysShort.fri': mockLocale === 'fr' ? 'Ven.' : 'Fri.',
+      'home.calendar.weekdaysShort.sat': mockLocale === 'fr' ? 'Sam.' : 'Sat.',
+      'home.calendar.monthsShort.jan': mockLocale === 'fr' ? 'Jan.' : 'Jan.',
+      'home.calendar.monthsShort.feb': mockLocale === 'fr' ? 'Fév.' : 'Feb.',
+      'home.calendar.monthsShort.mar': mockLocale === 'fr' ? 'Mar.' : 'Mar.',
+      'home.calendar.monthsShort.apr': mockLocale === 'fr' ? 'Avr.' : 'Apr.',
+      'home.calendar.monthsShort.may': mockLocale === 'fr' ? 'Mai' : 'May',
+      'home.calendar.monthsShort.jun': mockLocale === 'fr' ? 'Juin' : 'Jun.',
+      'home.calendar.monthsShort.jul': mockLocale === 'fr' ? 'Juil.' : 'Jul.',
+      'home.calendar.monthsShort.aug': mockLocale === 'fr' ? 'Août' : 'Aug.',
+      'home.calendar.monthsShort.sep': mockLocale === 'fr' ? 'Sep.' : 'Sep.',
+      'home.calendar.monthsShort.oct': mockLocale === 'fr' ? 'Oct.' : 'Oct.',
+      'home.calendar.monthsShort.nov': mockLocale === 'fr' ? 'Nov.' : 'Nov.',
+      'home.calendar.monthsShort.dec': mockLocale === 'fr' ? 'Déc.' : 'Dec.',
+    };
+    return map[key] ?? key;
+  },
+}));
+
 describe('WeekStrip', () => {
   beforeEach(() => {
     mockScheme = 'light';
+    mockLocale = 'fr';
     jest.useFakeTimers().setSystemTime(new Date('2026-03-24T08:00:00Z'));
   });
 
@@ -94,9 +129,9 @@ describe('WeekStrip', () => {
   it('affiche le score coloré pour chaque jour quand dayScores est fourni', () => {
     const onSelectDate = jest.fn();
     const dayScores: WeekScores = {
-      '2026-03-24': { score: 82, verdict: 'high' },
-      '2026-03-25': { score: 44, verdict: 'medium' },
-      '2026-03-26': { score: 12, verdict: 'low' },
+      '2026-03-24': { score: 82, verdict: 'high', hour: 6 },
+      '2026-03-25': { score: 44, verdict: 'medium', hour: 8 },
+      '2026-03-26': { score: 12, verdict: 'low', hour: 16 },
     };
 
     render(<WeekStrip selectedDate="2026-03-24" onSelectDate={onSelectDate} dayScores={dayScores} />);
@@ -130,38 +165,45 @@ describe('WeekStrip', () => {
   it('utilise la couleur de secours pour un verdict inconnu', () => {
     const onSelectDate = jest.fn();
     const dayScores: WeekScores = {
-      '2026-03-24': { score: 61, verdict: 'mystery' },
+      '2026-03-24': { score: 61, verdict: 'mystery', hour: 6 },
     } as WeekScores;
 
     render(<WeekStrip selectedDate="2026-03-24" onSelectDate={onSelectDate} dayScores={dayScores} />);
 
     expect(screen.getByTestId('day-score-2026-03-24')).toBeTruthy();
-    expect(screen.getByTestId('day-dot-2026-03-24')).toBeTruthy();
     expect(screen.getByText('61%')).toBeTruthy();
   });
 
   it('affiche aussi le fallback inconnu pour un jour actif', () => {
     const onSelectDate = jest.fn();
     const dayScores: WeekScores = {
-      '2026-03-24': { score: 50, verdict: 'mystery' },
+      '2026-03-24': { score: 50, verdict: 'mystery', hour: 6 },
     } as WeekScores;
 
     render(<WeekStrip selectedDate="2026-03-24" onSelectDate={onSelectDate} dayScores={dayScores} />);
 
     expect(screen.getByTestId('day-score-2026-03-24')).toBeTruthy();
-    expect(screen.getByTestId('day-dot-2026-03-24')).toBeTruthy();
   });
 
   it('utilise la couleur de secours pour un verdict inconnu sur un jour non actif', () => {
     const onSelectDate = jest.fn();
     const dayScores: WeekScores = {
-      '2026-03-25': { score: 50, verdict: 'mystery' },
+      '2026-03-25': { score: 50, verdict: 'mystery', hour: 8 },
     } as WeekScores;
 
     render(<WeekStrip selectedDate="2026-03-24" onSelectDate={onSelectDate} dayScores={dayScores} />);
 
     expect(screen.getByTestId('day-score-2026-03-25')).toBeTruthy();
-    expect(screen.getByTestId('day-dot-2026-03-25')).toBeTruthy();
     expect(screen.getByText('50%')).toBeTruthy();
+  });
+
+  it('bascule Today en anglais quand la locale est en', () => {
+    mockLocale = 'en';
+    const onSelectDate = jest.fn();
+    render(<WeekStrip selectedDate="2026-03-24" onSelectDate={onSelectDate} />);
+
+    expect(screen.getByText('Today')).toBeTruthy();
+    expect(screen.getByText('Wed.')).toBeTruthy();
+    expect(screen.getByText('24 Mar.')).toBeTruthy();
   });
 });

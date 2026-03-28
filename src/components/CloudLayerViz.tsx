@@ -26,11 +26,12 @@
  * - `cloud-layer-viz/DetailedCloudLayerViz.tsx`: variante detaillee
  */
 import {
+  projectY,
+  getVizState,
+  getMaxAltitude,
   getCloudGeometry,
   getMountainGeometry,
-  getMaxAltitude,
-  getVizState,
-  projectY,
+  getCompactCloudGeometry,
 } from '@/components/cloud-layer-viz/geometry';
 import React from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -63,10 +64,11 @@ export function CloudLayerViz({
 
 export const __private__ = {
   projectY,
+  getVizState,
+  getMaxAltitude,
   getCloudGeometry,
   getMountainGeometry,
+  getCompactCloudGeometry,
   getCompactMountainGeometry: () => COMPACT_GEO,
-  getMaxAltitude,
-  getVizState,
   COMPACT_GEO,
 };

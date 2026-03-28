@@ -27,7 +27,7 @@ describe('searchPeaks', () => {
   it('appelle GET /api/v1/peaks/search avec le query', async () => {
     mockApiFetch.mockResolvedValueOnce([]);
     await searchPeaks(TOKEN, 'mont');
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/peaks/search', TOKEN, { q: 'mont' });
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/peaks/search', TOKEN, { q: 'mont' }, { signal: undefined });
   });
 
   it('retourne les résultats de l\'API', async () => {

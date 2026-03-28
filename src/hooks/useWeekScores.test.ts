@@ -18,7 +18,7 @@ const mockFetchScore = fetchScore as jest.MockedFunction<typeof fetchScore>;
 const MOCK_SCORE_FULL = {
   score: 80,
   verdict: 'high',
-  label: 'Lève-toi tôt !',
+  label: 'Élevée',
   cloud_base: 1200,
   peak_name: 'Mont Blanc',
   peak_altitude: 4808,
@@ -44,19 +44,19 @@ describe('useWeekScores', () => {
   });
 
   it('retourne null si peakId est null', () => {
-    const { result } = renderHook(() => useWeekScores(null, 6, 'mock-token'));
+    const { result } = renderHook(() => useWeekScores(null, 'mock-token'));
     expect(result.current).toBeNull();
   });
 
   it('retourne null si token est null', () => {
-    const { result } = renderHook(() => useWeekScores('peak-1', 6, null));
+    const { result } = renderHook(() => useWeekScores('peak-1', null));
     expect(result.current).toBeNull();
   });
 
-  it('fetche les scores pour 7 jours et les retourne par date', async () => {
+  it('fetche le meilleur score journalier pour 7 jours', async () => {
     mockFetchScore.mockResolvedValue(MOCK_SCORE_FULL as never);
 
-    const { result } = renderHook(() => useWeekScores('peak-1', 6, 'mock-token'));
+    const { result } = renderHook(() => useWeekScores('peak-1', 'mock-token'));
 
     await waitFor(() => {
       expect(result.current).not.toBeNull();
@@ -75,36 +75,84 @@ describe('useWeekScores', () => {
       '2026-03-30',
     ];
     for (const date of expectedDates) {
-      expect(scores[date]).toEqual({ score: 80, verdict: 'high' });
+      expect(scores[date]).toEqual({ score: 80, verdict: 'high', hour: 6 });
     }
-    expect(mockFetchScore).toHaveBeenCalledTimes(7);
+    expect(mockFetchScore).toHaveBeenCalledTimes(42);
   });
 
   it('ignore les erreurs de fetch par jour', async () => {
-    mockFetchScore.mockImplementation((_token, _peakId, date) => {
-      if (date === '2026-03-24' || date === '2026-03-26') {
+    mockFetchScore.mockImplementation((_token, _peakId, date, hour = 6) => {
+      if ((date === '2026-03-24' || date === '2026-03-26') && hour !== 16) {
         return Promise.reject(new Error('Network error'));
       }
       return Promise.resolve({
         ...MOCK_SCORE_FULL,
-        score: 50,
+        score: hour === 16 ? 61 : 50,
         verdict: 'medium',
       } as never);
     });
 
-    const { result } = renderHook(() => useWeekScores('peak-1', 6, 'mock-token'));
+    const { result } = renderHook(() => useWeekScores('peak-1', 'mock-token'));
 
     await waitFor(() => {
       expect(result.current).not.toBeNull();
     });
 
     const scores = result.current!;
-    // 5 successful days (7 - 2 failed)
-    expect(Object.keys(scores)).toHaveLength(5);
-    expect(scores['2026-03-24']).toBeUndefined();
-    expect(scores['2026-03-26']).toBeUndefined();
-    expect(scores['2026-03-25']).toEqual({ score: 50, verdict: 'medium' });
-    expect(scores['2026-03-27']).toEqual({ score: 50, verdict: 'medium' });
+    expect(Object.keys(scores)).toHaveLength(7);
+    expect(scores['2026-03-24']).toEqual({ score: 61, verdict: 'medium', hour: 16 });
+    expect(scores['2026-03-26']).toEqual({ score: 61, verdict: 'medium', hour: 16 });
+    expect(scores['2026-03-25']).toEqual({ score: 61, verdict: 'medium', hour: 16 });
+    expect(scores['2026-03-27']).toEqual({ score: 61, verdict: 'medium', hour: 16 });
+  });
+
+  it("retient le maximum journalier indépendamment de l'heure courante", async () => {
+    mockFetchScore.mockImplementation((_token, _peakId, date, hour = 6) => Promise.resolve({
+      ...MOCK_SCORE_FULL,
+      score: date === '2026-03-27' ? hour : (hour >= 14 ? 39 : 33),
+      verdict: hour >= 14 ? 'low' : 'medium',
+    } as never));
+
+    const { result } = renderHook(() => useWeekScores('peak-1', 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current).not.toBeNull();
+    });
+
+    expect(result.current?.['2026-03-24']).toEqual({ score: 39, verdict: 'low', hour: 16 });
+    expect(result.current?.['2026-03-27']).toEqual({ score: 16, verdict: 'low', hour: 16 });
+  });
+
+  it('privilégie 6h si toute la journée est à 0%', async () => {
+    mockFetchScore.mockResolvedValue({
+      ...MOCK_SCORE_FULL,
+      score: 0,
+      verdict: 'none',
+    } as never);
+
+    const { result } = renderHook(() => useWeekScores('peak-1', 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current).not.toBeNull();
+    });
+
+    expect(result.current?.['2026-03-24']).toEqual({ score: 0, verdict: 'none', hour: 6 });
+  });
+
+  it('privilégie le lever du soleil en cas d égalité sur le meilleur score', async () => {
+    mockFetchScore.mockImplementation((_token, _peakId, _date, hour = 6) => Promise.resolve({
+      ...MOCK_SCORE_FULL,
+      score: hour === 6 || hour === 16 ? 34 : 12,
+      verdict: hour === 6 || hour === 16 ? 'low' : 'none',
+    } as never));
+
+    const { result } = renderHook(() => useWeekScores('peak-1', 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current).not.toBeNull();
+    });
+
+    expect(result.current?.['2026-03-24']).toEqual({ score: 34, verdict: 'low', hour: 6 });
   });
 
   it('journalise les transitions en mode debug', async () => {
@@ -112,7 +160,7 @@ describe('useWeekScores', () => {
     const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
     mockFetchScore.mockResolvedValue(MOCK_SCORE_FULL as never);
 
-    const { result } = renderHook(() => useWeekScores('peak-1', 8, 'mock-token'));
+    const { result } = renderHook(() => useWeekScores('peak-1', 'mock-token'));
 
     await waitFor(() => {
       expect(result.current).not.toBeNull();
@@ -120,7 +168,7 @@ describe('useWeekScores', () => {
 
     expect(debugSpy).toHaveBeenCalledWith('[useWeekScores] fetching week scores', expect.objectContaining({
       peakId: 'peak-1',
-      hour: 8,
+      hours: [6, 8, 10, 12, 14, 16],
     }));
     expect(debugSpy).toHaveBeenCalledWith('[useWeekScores] success', { count: 7 });
     debugSpy.mockRestore();
@@ -130,7 +178,7 @@ describe('useWeekScores', () => {
     mockDebug = true;
     const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
 
-    const { result } = renderHook(() => useWeekScores(null, 6, null));
+    const { result } = renderHook(() => useWeekScores(null, null));
     expect(result.current).toBeNull();
     expect(debugSpy).toHaveBeenCalledWith('[useWeekScores] idle — peakId or token missing', {
       peakId: null,
@@ -140,16 +188,17 @@ describe('useWeekScores', () => {
     debugSpy.mockClear();
     mockFetchScore.mockRejectedValue(new Error('boom'));
 
-    const { result: errorResult } = renderHook(() => useWeekScores('peak-1', 6, 'mock-token'));
+    const { result: errorResult } = renderHook(() => useWeekScores('peak-1', 'mock-token'));
 
     await waitFor(() => {
       expect(errorResult.current).toEqual({});
     });
 
     expect(debugSpy).toHaveBeenCalledWith(
-      '[useWeekScores] fetch failed for date',
+      '[useWeekScores] fetch failed for date/hour',
       expect.objectContaining({
         date: '2026-03-24',
+        hour: 6,
         err: expect.any(Error),
       }),
     );

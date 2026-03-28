@@ -8,6 +8,7 @@ export const MOCK_PEAKS: Peak[] = [
     lat: 45.8326,
     lng: 6.8652,
     altitude: 4808,
+    region: 'Massif du Mont-Blanc',
   },
   {
     id: 'peak-croix-de-chamrousse',
@@ -16,6 +17,7 @@ export const MOCK_PEAKS: Peak[] = [
     lat: 45.1194,
     lng: 5.8883,
     altitude: 2257,
+    region: 'Massif de Belledonne',
   },
   {
     id: 'peak-grand-veymont',
@@ -24,6 +26,7 @@ export const MOCK_PEAKS: Peak[] = [
     lat: 44.8631,
     lng: 5.5267,
     altitude: 2341,
+    region: 'Massif du Vercors',
   },
   {
     id: 'peak-belledonne-sept-laux',
@@ -32,6 +35,7 @@ export const MOCK_PEAKS: Peak[] = [
     lat: 45.2667,
     lng: 6.0333,
     altitude: 2183,
+    region: 'Massif de Belledonne',
   },
   {
     id: 'peak-moucherotte',
@@ -40,5 +44,6 @@ export const MOCK_PEAKS: Peak[] = [
     lat: 45.1317,
     lng: 5.6258,
     altitude: 1901,
+    region: 'Massif du Vercors',
   },
 ];

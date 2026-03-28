@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AsyncState, ScoreResponse } from '@/services/mockData/types';
 
+const SCORE_CACHE_VERSION = 'v2';
 const CACHE_TTL_MS = 7200 * 1000; // 2h
 
 interface CacheEntry {
@@ -17,8 +18,25 @@ interface CacheEntry {
   cachedAt: number;
 }
 
+function hasExpectedLabelCode(data: ScoreResponse): boolean {
+  return data.label_code === `score.label.${data.verdict}`;
+}
+
+function hasCompatibleContextCode(data: ScoreResponse): boolean {
+  if (!data.context_code) return false;
+
+  if (data.verdict === 'none') return data.context_code.startsWith('score.context.none.');
+  if (data.verdict === 'high') return data.context_code.startsWith('score.context.high.');
+  if (data.verdict === 'medium') return data.context_code.startsWith('score.context.medium.');
+  return data.context_code.startsWith('score.context.low.');
+}
+
+function isCacheEntryCompatible(entry: CacheEntry): boolean {
+  return hasExpectedLabelCode(entry.data) && hasCompatibleContextCode(entry.data);
+}
+
 function cacheKey(peakId: string, date: string, hour: number): string {
-  return `cache:score:${peakId}:${date}:${hour}`;
+  return `cache:score:${SCORE_CACHE_VERSION}:${peakId}:${date}:${hour}`;
 }
 
 export function useScore(
@@ -45,7 +63,7 @@ export function useScore(
         if (raw) {
           const entry: CacheEntry = JSON.parse(raw);
           const age = Date.now() - entry.cachedAt;
-          if (age < CACHE_TTL_MS) {
+          if (age < CACHE_TTL_MS && isCacheEntryCompatible(entry)) {
             if (DEBUG) console.debug('[useScore] cache hit', { peakId, date, hour, ageMs: age });
             setState({ status: 'success', data: entry.data });
             return;

@@ -1,6 +1,7 @@
 import i18n from '@/utils/i18n';
 import type { VizState } from '@/components/cloud-layer-viz/types';
 import type { ScoreCloudLayerViz } from '@/services/mockData/types';
+import { COMPACT_GEO } from '@/components/cloud-layer-viz/constants';
 
 export function formatMeters(value: number): string {
   return new Intl.NumberFormat('fr-FR').format(Math.round(value));
@@ -54,6 +55,16 @@ export function getCloudGeometry(
     return { top: summitY + 4, height: 30 };
   }
   return { top: summitY - 24, height: 68 };
+}
+
+export function getCompactCloudGeometry(state: VizState): { top: number; height: number } {
+  if (state === 'below') {
+    return { top: COMPACT_GEO.cloudBelowY, height: 24 };
+  }
+  if (state === 'tight') {
+    return { top: COMPACT_GEO.summitLineY - 6, height: 34 };
+  }
+  return { top: COMPACT_GEO.cloudCoverY, height: 50 };
 }
 
 export function getMountainGeometry(summitY: number, chartHeight: number) {

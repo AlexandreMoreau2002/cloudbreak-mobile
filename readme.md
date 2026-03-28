@@ -9,6 +9,7 @@ App mobile Cloudbreak — prédit la probabilité de mer de nuage depuis un somm
 - **TypeScript 5.9**
 - **Josefin Sans** — police principale
 - **i18n-js** + **expo-localization** — traductions FR/EN
+- **React 19.2** + `react-test-renderer` pour les tests RN
 
 ## Setup (première fois)
 
@@ -37,7 +38,7 @@ npm run validate       # ✅ tout valider d'un coup — à lancer avant chaque c
 Cette commande enchaîne dans l'ordre :
 1. `npx tsc --noEmit` — 0 erreur TypeScript
 2. `npm run lint` — 0 warning ESLint
-3. `npm test -- --coverage` — tous les tests passent, coverage 100%
+3. `npm test -- --coverage` — suite Jest React Native
 4. `npm run build:check` — le bundle iOS compile sans erreur
 
 Commandes individuelles si besoin :
@@ -53,18 +54,21 @@ npm run build:check    # build check uniquement
 ```
 src/
 ├── app/
-│   ├── _layout.tsx          # Root layout : fonts + ThemeProvider
+│   ├── _layout.tsx          # Root layout : fonts + ThemeProvider + LanguageProvider + AuthGuard
 │   ├── index.tsx            # Redirect → /(tabs)
 │   └── (tabs)/
 │       ├── _layout.tsx      # Tab bar (4 onglets)
-│       ├── index.tsx        # Accueil
+│       ├── index.tsx        # Accueil : ScoreCard + WeekStrip + conditions + favoris
 │       ├── search.tsx       # Recherche
 │       ├── favorites.tsx    # Favoris
 │       └── profile.tsx      # Profil
 ├── components/              # Composants réutilisables
+│   └── cloud-layer-viz/     # Primitives de visualisation couche nuageuse
 ├── contexts/
-│   └── ThemeContext.tsx     # ThemeProvider + useTheme()
-├── hooks/                   # Hooks métier (useScore, usePeaks...)
+│   ├── ThemeContext.tsx     # ThemeProvider + useTheme()
+│   ├── LanguageContext.tsx  # FR/EN + toggleLocale()
+│   └── SelectedPeakContext.tsx
+├── hooks/                   # Hooks métier (useWeekData, usePeaks...)
 ├── locales/
 │   ├── fr.ts                # Traductions français
 │   └── en.ts                # Traductions anglais
@@ -76,7 +80,7 @@ src/
 │   │   ├── peaks.ts
 │   │   └── score.ts
 │   └── api/                 # Couche par domaine métier
-│       ├── score.ts         # fetchScore()
+│       ├── score.ts         # fetchScore() + normalisation du contrat backend
 │       ├── peaks.ts         # searchPeaks(), fetchPeakBySlug()
 │       ├── user.ts          # fetchUserSubscription(), updateNotificationPreferences(), updatePushToken(), addFavorite()
 │       └── validations.ts   # postTerrainValidation()
@@ -99,7 +103,7 @@ EXPO_PUBLIC_MOCK_API=true   # active les données mockées
 EXPO_PUBLIC_API_URL=http://localhost:8000
 ```
 
-Avec `MOCK_API=true`, tous les appels réseau sont remplacés par des données statiques. Les fonctions mock sont définies dans `src/services/api/` (score.ts, peaks.ts, user.ts, validations.ts) et retournent les données de `src/services/mockData/` : sommets, scores (high/medium/low), user, abonnement. Changer la variable et relancer Metro pour basculer.
+Avec `MOCK_API=true`, tous les appels réseau sont remplacés par des données statiques. Les fonctions mock sont définies dans `src/services/api/` (score.ts, peaks.ts, user.ts, validations.ts) et retournent les données de `src/services/mockData/` : sommets, scores, user, abonnement. Changer la variable et relancer Metro pour basculer.
 
 ---
 
@@ -118,15 +122,25 @@ Le thème s'adapte automatiquement au mode système (light/dark) via `useTheme()
 
 ## Traductions
 
-Les fichiers de traduction sont dans `src/locales/`. Pour ajouter une langue :
+Les fichiers de traduction sont dans `src/locales/`.
+
+- Le backend renvoie des codes stables (`label_code`, `context_code`, `context_params`).
+- La traduction et le rerender au changement de langue passent par `src/services/mockData/score.ts` et `LanguageContext`.
+- `AppStack` est keyé sur `locale` pour rerendre proprement les écrans.
+
+Pour ajouter une langue :
 1. Créer `src/locales/es.ts` (par exemple)
 2. L'importer dans `src/utils/i18n.ts`
+3. Étendre `LanguageContext` si la langue doit être selectable dans l'UI
 
 ## Documentation features
 
 - [Setup squelette Expo](docs/story-1-3-setup-mobile.md)
 - [Authentification Supabase](docs/story-2-1-auth-supabase.md)
 - [Hors-sprint — Thème, navigation, login](docs/hors-sprint-ui-foundations.md)
+- [Story 3.4 — ScoreCard écran principal](docs/story-3-4-scorecard-ecran-principal.md)
+- [Story 3.5 — Détail conditions, fenêtre, stabilité](docs/story-3-5-detail-conditions-fenetre-stabilite.md)
+- [Refactorisation i18n score](docs/story-refacto-i18n-score.md)
 
 ## Dette technique connue
 

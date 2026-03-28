@@ -1,3 +1,26 @@
+/**
+ * ChartScene — scene visuelle partagee de la cloud viz.
+ *
+ * Ce composant ne porte pas la logique produit du score. Il rend uniquement
+ * la scene graphique a partir d'une geometrie deja calculee :
+ * - montagnes
+ * - ligne du sommet et tag altitude
+ * - couche nuageuse
+ * - variante ciel degage avec soleil
+ *
+ * Il est reutilise par les variantes compacte et detaillee afin de mutualiser
+ * le rendu de base sans dupliquer la scene.
+ *
+ * Props :
+ *   viz          ScoreCloudLayerViz  — donnees de visualisation du score
+ *   palette      CloudLayerPalette   — palette deja resolue selon le theme
+ *   chartHeight  number              — hauteur utile de la scene
+ *   compact      boolean             — active la geometrie compacte Home
+ *   isSunny      boolean             — active le rendu ciel degage
+ *   state        VizState            — etat visuel calcule de la couche
+ *   summitY      number              — position verticale du sommet
+ *   cloud        { top, height }     — geometrie projetee de la couche
+ */
 import React from 'react';
 import { Text, View } from 'react-native';
 import { styles } from '@/components/cloud-layer-viz/styles';
@@ -26,14 +49,14 @@ export function ChartScene({
   summitY,
   cloud,
 }: ChartSceneProps) {
-  const effectiveSummitY = compact ? COMPACT_GEO.summitLineY : summitY;
+  const RAY_ANGLES = [200, 220, 240, 260, 280];
   const mountain = getMountainGeometry(summitY, chartHeight);
+  const effectiveSummitY = compact ? COMPACT_GEO.summitLineY : summitY;
   const sunnyMountain = getMountainGeometry(
     compact ? COMPACT_GEO.summitLineY : chartHeight - Math.round(chartHeight * 0.62),
     chartHeight,
   );
   const sunnySummitLineY = compact ? COMPACT_GEO.summitLineY : chartHeight - Math.round(chartHeight * 0.62);
-  const RAY_ANGLES = [200, 220, 240, 260, 280];
 
   if (isSunny) {
     return (
@@ -196,6 +219,7 @@ export function ChartScene({
       <View
         style={[
           styles.cloudLayer,
+          compact ? styles.cloudLayerCompact : null,
           {
             top: cloud.top,
             height: cloud.height,

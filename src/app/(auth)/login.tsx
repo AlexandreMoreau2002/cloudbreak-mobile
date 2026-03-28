@@ -1,10 +1,12 @@
 import i18n from '@/utils/i18n';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { MountainBackground } from '@/components/MountainBackground';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {
+  useLanguage();
   const { colors, typography, spacing, radius } = useTheme();
   const { email, setEmail, password, setPassword, loading, mode, toggleMode, handleSubmit } = useAuthForm();
 

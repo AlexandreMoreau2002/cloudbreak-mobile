@@ -14,6 +14,10 @@ jest.mock('@/utils/i18n', () => ({
   default: { t: (key: string) => key },
 }));
 
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
+}));
+
 describe('useAuthForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();

@@ -4,13 +4,51 @@ import type {
   ScoreCloudLayerPoint,
   ScoreResponse,
 } from '@/services/mockData/types';
+import i18n from '@/utils/i18n';
 
 export const SCORE_VERDICT_LABELS: Record<ScoreResponse['verdict'], string> = {
-  none: 'Pas de mer de nuage',
-  high: 'Fenetre optimale',
-  medium: 'Fenetre correcte',
-  low: 'Fenetre faible',
+  none: 'Pas de nuages',
+  high: 'Élevée',
+  medium: 'Moyenne',
+  low: 'Faible',
 };
+
+function translateMaybe(
+  key: string,
+  params?: Record<string, string | number | boolean | null>,
+): string | null {
+  const translated = params ? i18n.t(key, params) : i18n.t(key);
+  if (typeof translated === 'string' && translated !== key) {
+    return translated;
+  }
+  return null;
+}
+
+function translateLabel(score: Partial<ScoreResponse>, verdict: ScoreResponse['verdict']): string {
+  const candidates = [
+    score.label_code,
+    `score.label.${verdict}`,
+    `score.${verdict}`,
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const key of candidates) {
+    const translated = translateMaybe(key);
+    if (translated) {
+      return translated;
+    }
+  }
+
+  return SCORE_VERDICT_LABELS[verdict];
+}
+
+function translateContext(
+  score: Partial<ScoreResponse>,
+): string | null {
+  if (score.context_code) {
+    return translateMaybe(score.context_code, score.context_params ?? {});
+  }
+  return null;
+}
 
 function buildConditions(conditions: Partial<ScoreConditions>): ScoreConditions {
   return {
@@ -51,12 +89,16 @@ export function normalizeScoreResponse(score: Partial<ScoreResponse>): ScoreResp
   return {
     score: score.score ?? 0,
     verdict,
-    label: score.label ?? SCORE_VERDICT_LABELS[verdict],
+    label: translateLabel(score, verdict),
+    label_code: score.label_code ?? null,
     cloud_base: score.cloud_base ?? 0,
     peak_name: score.peak_name ?? '',
     peak_altitude: score.peak_altitude ?? 0,
+    peak_region: score.peak_region ?? null,
     peak_slug: score.peak_slug ?? null,
-    context_message: score.context_message ?? null,
+    context_message: translateContext(score),
+    context_code: score.context_code ?? null,
+    context_params: score.context_params ?? null,
     optimal_window_start: score.optimal_window_start ?? null,
     optimal_window_end: score.optimal_window_end ?? null,
     sunrise: score.sunrise ?? null,
@@ -69,6 +111,14 @@ export function normalizeScoreResponse(score: Partial<ScoreResponse>): ScoreResp
           pressure_levels: normalizePressureLevels(score.cloud_layer_viz.pressure_levels),
         }
       : null,
+  };
+}
+
+export function localizeScoreResponse(score: ScoreResponse): ScoreResponse {
+  return {
+    ...score,
+    label: translateLabel(score, score.verdict),
+    context_message: translateContext(score),
   };
 }
 
@@ -88,10 +138,11 @@ function buildCloudLayerViz(
 export const MOCK_SCORE_HIGH: ScoreResponse = normalizeScoreResponse({
   score: 84,
   verdict: 'high',
-  label: 'Fenetre optimale',
+  label_code: 'score.label.high',
   cloud_base: 1200,
   peak_name: 'Croix de Chamrousse',
   peak_altitude: 2257,
+  peak_region: 'Massif de Belledonne',
   peak_slug: 'croix-de-chamrousse',
   context_message: null,
   optimal_window_start: '06:40',
@@ -122,10 +173,11 @@ export const MOCK_SCORE_HIGH: ScoreResponse = normalizeScoreResponse({
 export const MOCK_SCORE_MEDIUM: ScoreResponse = normalizeScoreResponse({
   score: 54,
   verdict: 'medium',
-  label: 'Fenetre correcte',
+  label_code: 'score.label.medium',
   cloud_base: 1800,
   peak_name: 'Grand Veymont',
   peak_altitude: 2341,
+  peak_region: 'Massif du Vercors',
   peak_slug: 'grand-veymont',
   context_message: null,
   optimal_window_start: '07:10',
@@ -152,16 +204,18 @@ export const MOCK_SCORE_MEDIUM: ScoreResponse = normalizeScoreResponse({
   ]),
 });
 
-/** Score "low" — pas de mer de nuage */
+/** Score "low" — pas de nuages */
 export const MOCK_SCORE_LOW: ScoreResponse = normalizeScoreResponse({
   score: 22,
   verdict: 'low',
-  label: 'Fenetre faible',
+  label_code: 'score.label.low',
   cloud_base: 3200,
   peak_name: 'Mont Blanc',
   peak_altitude: 4808,
+  peak_region: 'Massif du Mont-Blanc',
   peak_slug: 'mont-blanc',
-  context_message: 'Pas de mer de nuage - mais ciel parfaitement dégagé au-dessus de 2400m ☀️',
+  context_code: 'score.context.low.sunny_clear',
+  context_params: { clear_sky_altitude_m: 2400 },
   optimal_window_start: null,
   optimal_window_end: null,
   sunrise: '07:06',

@@ -18,12 +18,14 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { usePeakSearch } from '@/hooks/usePeakSearch';
 import type { Peak } from '@/services/mockData/types';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const HOME_ROUTE = '/(tabs)/' as Href;
 
 export default function SearchScreen() {
+  useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, typography, spacing, radius } = useTheme();

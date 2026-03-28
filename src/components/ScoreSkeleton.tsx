@@ -5,13 +5,21 @@
  * Affiché pendant le chargement du score (status === 'loading').
  */
 import { useEffect, useRef } from 'react';
-import { Colors } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Radius, Spacing } from '@/constants/spacing';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
 
-const { background: CARD_BG, border: BLOCK_COLOR } = Colors.dark;
-
-function SkeletonBlock({ width, height, style }: { width: number | string; height: number; style?: object }) {
+function SkeletonBlock({
+  width,
+  height,
+  color,
+  style,
+}: {
+  width: ViewStyle['width'];
+  height: number;
+  color: string;
+  style?: ViewStyle;
+}) {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -29,7 +37,7 @@ function SkeletonBlock({ width, height, style }: { width: number | string; heigh
     <Animated.View
       style={[
         styles.block,
-        { width: width as number, height, borderRadius: Radius.sm, opacity },
+        { width, height, backgroundColor: color, borderRadius: Radius.sm, opacity },
         style,
       ]}
     />
@@ -37,32 +45,42 @@ function SkeletonBlock({ width, height, style }: { width: number | string; heigh
 }
 
 export function ScoreSkeleton() {
+  const { colors, scheme } = useTheme();
+  const blockColor = scheme === 'dark' ? '#3A3A3A' : '#E9E4DA';
+
   return (
-    <View testID="score-skeleton" style={styles.card}>
+    <View
+      testID="score-skeleton"
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}
+    >
       {/* Peak name */}
-      <SkeletonBlock width={160} height={22} />
+      <SkeletonBlock width={160} height={22} color={blockColor} />
       {/* Altitude */}
-      <SkeletonBlock width={60} height={14} />
+      <SkeletonBlock width={60} height={14} color={blockColor} />
       {/* Score hero */}
-      <SkeletonBlock width={120} height={72} style={{ marginVertical: Spacing.sm }} />
+      <SkeletonBlock width={120} height={72} color={blockColor} style={{ marginVertical: Spacing.sm }} />
       {/* Verdict pill */}
-      <SkeletonBlock width={180} height={36} style={{ borderRadius: Radius.full }} />
+      <SkeletonBlock width={180} height={36} color={blockColor} style={{ borderRadius: Radius.full }} />
       {/* Date */}
-      <SkeletonBlock width={200} height={14} style={{ marginTop: Spacing.xs }} />
+      <SkeletonBlock width={200} height={14} color={blockColor} style={{ marginTop: Spacing.xs }} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: CARD_BG,
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.xl,
     alignItems: 'center',
     gap: Spacing.md,
+    borderWidth: 1,
   },
-  block: {
-    backgroundColor: BLOCK_COLOR,
-  },
+  block: {},
 });

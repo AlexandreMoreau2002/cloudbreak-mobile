@@ -1,8 +1,21 @@
+/**
+ * ScoreDetails — panneau detaille des conditions associees au score affiche.
+ *
+ * Ce composant sert de seconde lecture sous la ScoreCard :
+ * - resume de la fenetre optimale et du lever du soleil
+ * - conditions clefs (base nuageuse, humidite, vent, inversion)
+ * - niveau de stabilite de la situation
+ * - visualisation detaillee si `cloud_layer_viz` est disponible
+ *
+ * Props :
+ *   score   ScoreResponse — reponse score complete a afficher
+ */
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
 import { Typography } from '@/constants/typography';
 import { Radius, Spacing } from '@/constants/spacing';
 import { StyleSheet, Text, View } from 'react-native';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { CloudLayerViz } from '@/components/CloudLayerViz';
 import { ConditionBadge } from '@/components/ConditionBadge';
 import type { ScoreResponse } from '@/services/mockData/types';
@@ -44,6 +57,7 @@ function getStabilityColor(stabilityHours: number | null | undefined): string {
 }
 
 export function ScoreDetails({ score }: ScoreDetailsProps) {
+  useLanguage();
   const windowText = score.optimal_window_start && score.optimal_window_end
     ? `${score.optimal_window_start}-${score.optimal_window_end}`
     : i18n.t('home.windowUnavailable');
