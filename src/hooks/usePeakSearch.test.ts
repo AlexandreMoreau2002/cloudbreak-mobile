@@ -68,7 +68,7 @@ describe('usePeakSearch', () => {
     });
 
     expect(result.current.state.data).toEqual(MOCK_PEAKS);
-    expect(mockSearchPeaks).toHaveBeenCalledWith('mock-token', 'mo');
+    expect(mockSearchPeaks).toHaveBeenCalledWith('mock-token', 'mo', expect.any(AbortSignal));
   });
 
   it('debounce: n\'appelle l\'API qu\'une seule fois après plusieurs frappes rapides', async () => {
@@ -85,7 +85,58 @@ describe('usePeakSearch', () => {
     });
 
     expect(mockSearchPeaks).toHaveBeenCalledTimes(1);
-    expect(mockSearchPeaks).toHaveBeenCalledWith('mock-token', 'mont');
+    expect(mockSearchPeaks).toHaveBeenCalledWith('mock-token', 'mont', expect.any(AbortSignal));
+  });
+
+  it('AbortController: annule la requête en vol quand une nouvelle query est lancée', async () => {
+    let resolveFirst!: (value: typeof MOCK_PEAKS) => void;
+    const firstRequest = new Promise<typeof MOCK_PEAKS>((resolve) => { resolveFirst = resolve; });
+    mockSearchPeaks
+      .mockResolvedValueOnce([MOCK_PEAKS[0]])
+      .mockImplementationOnce((_token, _query, signal: AbortSignal) =>
+        new Promise<typeof MOCK_PEAKS>((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(Object.assign(new Error('AbortError'), { name: 'AbortError' })));
+          firstRequest.then(_resolve);
+        })
+      );
+
+    const { result } = renderHook(() => usePeakSearch());
+
+    // First query fires
+    act(() => { result.current.setQuery('mo'); });
+    act(() => { jest.runAllTimers(); });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('success');
+    });
+
+    // Second query — aborts the in-flight request of the first
+    act(() => { result.current.setQuery('mon'); });
+    act(() => { jest.runAllTimers(); });
+
+    // Resolve the first (now aborted) request — state must not regress to first result
+    resolveFirst(MOCK_PEAKS);
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('success');
+    });
+
+    // Last call is the second query
+    expect(mockSearchPeaks).toHaveBeenLastCalledWith('mock-token', 'mon', expect.any(AbortSignal));
+  });
+
+  it('ignore les AbortError sans passer en erreur', async () => {
+    mockSearchPeaks.mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    const { result } = renderHook(() => usePeakSearch());
+
+    act(() => { result.current.setQuery('mo'); });
+    act(() => { jest.runAllTimers(); });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('loading');
+    });
+
+    expect(result.current.state).not.toHaveProperty('error');
   });
 
   it('repasse en idle si query retombe sous 2 caractères', () => {

@@ -1,6 +1,7 @@
 import React from 'react';
-import RootLayout from '@/app/_layout';
 import { render, waitFor } from '@testing-library/react-native';
+
+import RootLayout from '@/app/_layout';
 
 const mockReplace = jest.fn();
 const mockHideAsync = jest.fn();
@@ -37,6 +38,11 @@ jest.mock('@/contexts/SelectedPeakContext', () => ({
 
 jest.mock('@/contexts/ThemeContext', () => ({
   ThemeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+jest.mock('@/contexts/LanguageContext', () => ({
+  LanguageProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
 }));
 describe('RootLayout', () => {
   beforeEach(() => {

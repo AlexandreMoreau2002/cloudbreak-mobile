@@ -12,9 +12,11 @@ import { Colors } from '@/constants/colors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Typography } from '@/constants/typography';
 import { Radius, Spacing } from '@/constants/spacing';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { CloudLayerViz } from '@/components/CloudLayerViz';
 import type { ScoreResponse } from '@/services/mockData/types';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { CloudLayerVizVariant } from '@/components/cloud-layer-viz/types';
 
 const HOUR_OPTIONS = [6, 8, 10, 12, 14, 16];
 
@@ -30,30 +32,34 @@ function getScoreColor(verdict: ScoreResponse['verdict']): string {
   return Colors.score[verdict];
 }
 
+function getLabelText(score: ScoreResponse, sunny: boolean): string {
+  if (score.label?.trim()) {
+    return score.label.toUpperCase();
+  }
+  return getVerdictLabel(score.verdict, sunny);
+}
+
 function getVerdictLabel(verdict: ScoreResponse['verdict'], sunny: boolean): string {
-  if (verdict === 'none' && sunny) return `${i18n.t('score.sunny')} ☀️`;
+  if (verdict === 'none' && sunny) return i18n.t('score.sunny').toUpperCase();
+  const labelKey = `score.label.${verdict}`;
+  const label = i18n.t(labelKey);
+  if (typeof label === 'string' && label !== labelKey) {
+    return label.toUpperCase();
+  }
+
   const labels: Record<ScoreResponse['verdict'], string> = {
-    none: `${i18n.t('score.none')} ⚫`,
-    high: `${i18n.t('score.high')} 🟢`,
-    medium: `${i18n.t('score.medium')} 🟡`,
-    low: `${i18n.t('score.low')} 🔴`,
+    none: i18n.t('score.none').toUpperCase(),
+    high: i18n.t('score.high').toUpperCase(),
+    medium: i18n.t('score.medium').toUpperCase(),
+    low: i18n.t('score.low').toUpperCase(),
   };
   return labels[verdict];
 }
 
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso + 'T00:00:00');
-    if (isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
+function getCompactVizVariant(score: ScoreResponse): CloudLayerVizVariant {
+  if (score.verdict === 'medium') return 'ridge';
+  if (score.verdict === 'low') return 'minimal';
+  return 'focus';
 }
 
 export function ScoreCard({
@@ -63,6 +69,7 @@ export function ScoreCard({
   selectedHour,
   onSelectHour,
 }: ScoreCardProps) {
+  useLanguage();
   const { scheme } = useTheme();
   const isDark = scheme === 'dark';
   const isSunny = score.verdict === 'none' && score.cloud_base > score.peak_altitude;
@@ -76,13 +83,11 @@ export function ScoreCard({
   };
   const cardBg = isDark ? Colors.dark.surface : Colors.light.surface;
   const cardBorder = isDark ? '#FFFFFF12' : Colors.light.border;
-  const cardText = isDark ? Colors.dark.textPrimary : Colors.light.textPrimary;
   const cardTextDim = isDark ? Colors.dark.textSecondary : Colors.light.textSecondary;
   const cardShadow = isDark ? '#000000' : '#A07D5D';
   const chipBg = isDark ? '#FFFFFF0D' : '#FFFFFFB5';
   const chipBorder = isDark ? '#FFFFFF14' : '#DCCEBB';
-  const contextBg = isDark ? '#FFFFFF0D' : '#FFFFFFB8';
-  const contextBorder = isDark ? '#FFFFFF12' : '#E3D5C5';
+  const compactVizVariant = getCompactVizVariant(score);
 
   return (
     <View
@@ -100,15 +105,6 @@ export function ScoreCard({
     >
       <View style={styles.topRow}>
         <View style={styles.heroColumn}>
-          <View style={styles.peakRow}>
-            <Text style={[styles.peakName, { color: cardText }]} numberOfLines={1}>
-              {score.peak_name}
-            </Text>
-            <Text style={[styles.peakAlt, { color: cardTextDim }]}>
-              {score.peak_altitude} m
-            </Text>
-          </View>
-
           <View style={styles.scoreRow}>
             <Text style={[styles.scoreNumber, { color: verdictColor }]}>
               {score.score}
@@ -118,13 +114,25 @@ export function ScoreCard({
 
           <View style={[styles.pill, { backgroundColor: pillBg }]}>
             <Text style={[styles.pillText, { color: verdictColor }]}>
-              {getVerdictLabel(score.verdict, isSunny)}
+              {getLabelText(score, isSunny)}
             </Text>
           </View>
+
+          {hasContextMessage ? (
+            <Text style={[styles.contextMessageInline, { color: cardTextDim }]}>
+              {contextMessage}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.vizWrapper}>
-          <CloudLayerViz viz={viz} compact isSunny={isSunny} tone={isDark ? 'dark' : 'light'} />
+          <CloudLayerViz
+            viz={viz}
+            compact
+            variant={compactVizVariant}
+            isSunny={isSunny}
+            tone={isDark ? 'dark' : 'light'}
+          />
         </View>
       </View>
 
@@ -151,20 +159,6 @@ export function ScoreCard({
         </View>
       ) : null}
 
-      <View style={styles.footerBlock}>
-        <Text style={[styles.dateText, { color: cardTextDim }]}>
-          {formatDate(date)}
-        </Text>
-
-        {hasContextMessage ? (
-          <View style={[styles.contextMessageBox, { backgroundColor: contextBg, borderColor: contextBorder }]}>
-            <Text style={[styles.contextMessageText, { color: cardText }]}>
-              {contextMessage}
-            </Text>
-          </View>
-        ) : null}
-
-      </View>
     </View>
   );
 }
@@ -172,60 +166,48 @@ export function ScoreCard({
 const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xl,
-    gap: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: { width: 0, height: 8 },
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   heroColumn: {
     flex: 1,
-    gap: Spacing.md,
-  },
-  vizWrapper: {
-    width: 126,
-  },
-  peakRow: {
-    alignItems: 'flex-start',
     gap: Spacing.xs,
   },
-  peakName: {
-    fontFamily: Typography.fontFamily.bold,
-    fontSize: Typography.fontSize.xl,
-  },
-  peakAlt: {
-    fontFamily: Typography.fontFamily.regular,
-    fontSize: Typography.fontSize.sm,
+  vizWrapper: {
+    width: 108,
   },
   scoreRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 4,
+    gap: 2,
   },
   scoreNumber: {
     fontFamily: Typography.fontFamily.bold,
-    fontSize: Typography.fontSize.hero,
-    lineHeight: Typography.fontSize.hero * Typography.lineHeight.tight,
+    fontSize: 54,
+    lineHeight: 54 * Typography.lineHeight.tight,
   },
   scorePercent: {
     fontFamily: Typography.fontFamily.semiBold,
-    fontSize: Typography.fontSize.xl,
-    paddingBottom: 14,
+    fontSize: Typography.fontSize.lg,
+    paddingBottom: 10,
   },
   pill: {
     alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
     borderRadius: Radius.full,
   },
   pillText: {
     fontFamily: Typography.fontFamily.semiBold,
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
   },
   hourRow: {
     flexDirection: 'row',
@@ -235,7 +217,7 @@ const styles = StyleSheet.create({
   hourChip: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: Radius.sm,
     borderWidth: 1,
   },
@@ -244,22 +226,22 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs,
   },
   footerBlock: {
-    gap: Spacing.md,
+    gap: Spacing.xs,
   },
   dateText: {
     fontFamily: Typography.fontFamily.regular,
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     textTransform: 'capitalize',
   },
-  contextMessageBox: {
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  contextMessageText: {
-    fontFamily: Typography.fontFamily.regular,
-    fontSize: Typography.fontSize.sm,
-    lineHeight: Math.round(Typography.fontSize.sm * 1.45),
+  contextMessageInline: {
+    fontFamily: Typography.fontFamily.light,
+    fontSize: 13,
+    fontStyle: 'italic',
+    lineHeight: Math.round(13 * 1.5),
+    marginTop: 6,
   },
 });
+
+export const __private__ = {
+  getCompactVizVariant,
+};

@@ -46,6 +46,14 @@ const MOCK_SCORE_RESPONSE = {
   },
 };
 
+function makeCacheableScore() {
+  return {
+    ...MOCK_SCORE_RESPONSE,
+    label_code: 'score.label.high',
+    context_code: 'score.context.high.stable_window',
+  };
+}
+
 describe('useScore', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -101,8 +109,9 @@ describe('useScore', () => {
   });
 
   it('retourne_cache_si_valide', async () => {
-    const entry = { data: MOCK_SCORE_RESPONSE, cachedAt: Date.now() };
-    asyncStorageStore['cache:score:peak-1:2026-03-23:6'] = JSON.stringify(entry);
+    const cachedScore = makeCacheableScore();
+    const entry = { data: cachedScore, cachedAt: Date.now() };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(entry);
 
     const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
 
@@ -110,14 +119,14 @@ describe('useScore', () => {
       expect(result.current.status).toBe('success');
     });
 
-    expect(result.current.data).toEqual(MOCK_SCORE_RESPONSE);
+    expect(result.current.data).toEqual(cachedScore);
     expect(mockFetchScore).not.toHaveBeenCalled();
   });
 
   it('appelle_api_si_cache_expire', async () => {
     const expiredCachedAt = Date.now() - 3 * 60 * 60 * 1000; // 3h ago
-    const entry = { data: MOCK_SCORE_RESPONSE, cachedAt: expiredCachedAt };
-    asyncStorageStore['cache:score:peak-1:2026-03-23:6'] = JSON.stringify(entry);
+    const entry = { data: makeCacheableScore(), cachedAt: expiredCachedAt };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(entry);
     mockFetchScore.mockResolvedValue(MOCK_SCORE_RESPONSE);
 
     const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
@@ -234,8 +243,8 @@ describe('useScore', () => {
   it('emet_log_debug_pour_cache_hit', async () => {
     const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
     mockDevConfigState.DEBUG = true;
-    const entry = { data: MOCK_SCORE_RESPONSE, cachedAt: Date.now() };
-    asyncStorageStore['cache:score:peak-1:2026-03-23:6'] = JSON.stringify(entry);
+    const entry = { data: makeCacheableScore(), cachedAt: Date.now() };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(entry);
 
     const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
 
@@ -250,8 +259,8 @@ describe('useScore', () => {
   it('emet_log_debug_pour_cache_miss_expire', async () => {
     const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
     mockDevConfigState.DEBUG = true;
-    const expiredEntry = { data: MOCK_SCORE_RESPONSE, cachedAt: Date.now() - 3 * 60 * 60 * 1000 };
-    asyncStorageStore['cache:score:peak-1:2026-03-23:6'] = JSON.stringify(expiredEntry);
+    const expiredEntry = { data: makeCacheableScore(), cachedAt: Date.now() - 3 * 60 * 60 * 1000 };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(expiredEntry);
     mockFetchScore.mockResolvedValue(MOCK_SCORE_RESPONSE);
 
     const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
@@ -277,5 +286,114 @@ describe('useScore', () => {
 
     expect(consoleSpy).toHaveBeenCalledWith('[useScore] error', expect.any(Object));
     consoleSpy.mockRestore();
+  });
+
+  it('ignore_un_cache_legacy_sans_codes_i18n', async () => {
+    const legacyEntry = { data: MOCK_SCORE_RESPONSE, cachedAt: Date.now() };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(legacyEntry);
+    mockFetchScore.mockResolvedValue(MOCK_SCORE_RESPONSE);
+
+    const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('success');
+    });
+
+    expect(mockFetchScore).toHaveBeenCalledWith('mock-token', 'peak-1', '2026-03-23', 6);
+  });
+
+  it('ignore_un_cache_contradictoire_avec_le_verdict', async () => {
+    const inconsistentEntry = {
+      data: {
+        ...makeCacheableScore(),
+        context_code: 'score.context.low.no_inversion',
+      },
+      cachedAt: Date.now(),
+    };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(inconsistentEntry);
+    mockFetchScore.mockResolvedValue(MOCK_SCORE_RESPONSE);
+
+    const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('success');
+    });
+
+    expect(mockFetchScore).toHaveBeenCalledWith('mock-token', 'peak-1', '2026-03-23', 6);
+  });
+
+  it('ignore_un_cache_sans_context_code', async () => {
+    const entry = {
+      data: {
+        ...makeCacheableScore(),
+        context_code: undefined,
+      },
+      cachedAt: Date.now(),
+    };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(entry);
+    mockFetchScore.mockResolvedValue(MOCK_SCORE_RESPONSE);
+
+    const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('success');
+    });
+
+    expect(mockFetchScore).toHaveBeenCalledWith('mock-token', 'peak-1', '2026-03-23', 6);
+  });
+
+  it('accepte_un_cache_compatible_pour_le_verdict_none', async () => {
+    const cachedScore = {
+      ...MOCK_SCORE_RESPONSE,
+      verdict: 'none' as const,
+      score: 0,
+      label_code: 'score.label.none',
+      context_code: 'score.context.none.clear_window',
+    };
+    const entry = { data: cachedScore, cachedAt: Date.now() };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(entry);
+
+    const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('success');
+    });
+
+    expect(result.current.data).toEqual(cachedScore);
+    expect(mockFetchScore).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      verdict: 'medium' as const,
+      score: 52,
+      label_code: 'score.label.medium',
+      context_code: 'score.context.medium.neutral_window',
+    },
+    {
+      verdict: 'low' as const,
+      score: 18,
+      label_code: 'score.label.low',
+      context_code: 'score.context.low.narrow_window',
+    },
+  ])('accepte_un_cache_compatible_pour_le_verdict_$verdict', async ({ verdict, score, label_code, context_code }) => {
+    const cachedScore = {
+      ...MOCK_SCORE_RESPONSE,
+      verdict,
+      score,
+      label_code,
+      context_code,
+    };
+    const entry = { data: cachedScore, cachedAt: Date.now() };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(entry);
+
+    const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('success');
+    });
+
+    expect(result.current.data).toEqual(cachedScore);
+    expect(mockFetchScore).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import i18n from '@/utils/i18n';
 import { Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
@@ -10,6 +11,7 @@ function TabIcon({ name, color }: { name: FeatherName; color: string }) {
 }
 
 export default function TabsLayout() {
+  const { locale } = useLanguage();
   const { colors, typography } = useTheme();
 
   const tabBarStyle = {
@@ -31,6 +33,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      key={locale}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.accent,

@@ -1,18 +1,24 @@
 import i18n from '@/utils/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { CloudLayerViz } from '@/components/CloudLayerViz';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MOCK_SCORE_HIGH, MOCK_SCORE_MEDIUM } from '@/services/mockData/score';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
-  const { colors, typography, scheme, toggleScheme } = useTheme();
   const { signOut } = useAuth();
   const insets = useSafeAreaInsets();
+  const { locale, toggleLocale } = useLanguage();
+  const { colors, typography, scheme, toggleScheme } = useTheme();
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
+    <ScrollView
+      key={locale}
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+    >
       <Text style={{ color: colors.textPrimary, fontSize: typography.fontSize.lg, fontFamily: typography.fontFamily.semiBold }}>
         {i18n.t('profile.comingSoon')}
       </Text>
@@ -20,6 +26,15 @@ export default function ProfileScreen() {
       <TouchableOpacity style={[styles.button, { borderColor: colors.accent, backgroundColor: colors.surface }]} onPress={toggleScheme}>
         <Text style={{ color: colors.accent, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }}>
           {scheme === 'light' ? i18n.t('profile.darkMode') : i18n.t('profile.lightMode')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, { borderColor: colors.accentSecondary ?? colors.accent, backgroundColor: colors.surface }]}
+        onPress={toggleLocale}
+      >
+        <Text style={{ color: colors.accent, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }}>
+          {locale === 'fr' ? i18n.t('profile.languageEn') : i18n.t('profile.languageFr')}
         </Text>
       </TouchableOpacity>
 

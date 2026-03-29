@@ -2,10 +2,12 @@ import i18n from '@/utils/i18n';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type Mode = 'login' | 'signup';
 
 export function useAuthForm() {
+  useLanguage();
   const { signIn, signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

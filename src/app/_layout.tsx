@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 import {
   JosefinSans_300Light,
   JosefinSans_400Regular,
@@ -5,11 +7,10 @@ import {
   JosefinSans_700Bold,
   useFonts,
 } from '@expo-google-fonts/josefin-sans';
-import { useEffect } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
-import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
+import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -34,6 +35,12 @@ function AuthGuard() {
   return null;
 }
 
+function AppStack() {
+  const { locale } = useLanguage();
+
+  return <Stack key={locale} screenOptions={{ headerShown: false }} />;
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     JosefinSans_300Light,
@@ -50,12 +57,14 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <SelectedPeakProvider>
-          <AuthGuard />
-          <Stack screenOptions={{ headerShown: false }} />
-        </SelectedPeakProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <SelectedPeakProvider>
+            <AuthGuard />
+            <AppStack />
+          </SelectedPeakProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

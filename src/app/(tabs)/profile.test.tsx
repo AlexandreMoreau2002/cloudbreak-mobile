@@ -13,6 +13,7 @@ jest.mock('@/utils/i18n', () => ({
 
 const mockSignOut = jest.fn();
 const mockToggleScheme = jest.fn();
+const mockToggleLocale = jest.fn();
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ signOut: mockSignOut }),
@@ -20,6 +21,11 @@ jest.mock('@/contexts/AuthContext', () => ({
 
 jest.mock('@/components/CloudLayerViz', () => ({
   CloudLayerViz: () => null,
+}));
+
+let mockLocale: 'fr' | 'en' = 'fr';
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: mockLocale, toggleLocale: mockToggleLocale }),
 }));
 
 jest.mock('@/services/mockData/score', () => ({
@@ -55,7 +61,7 @@ jest.mock('@/contexts/ThemeContext', () => ({
 }));
 
 describe('ProfileScreen', () => {
-  beforeEach(() => { jest.clearAllMocks(); mockScheme = 'light'; });
+  beforeEach(() => { jest.clearAllMocks(); mockScheme = 'light'; mockLocale = 'fr'; });
 
   it('s\'affiche sans erreur', () => {
     const { getByText } = render(<ProfileScreen />);
@@ -82,6 +88,23 @@ describe('ProfileScreen', () => {
   it('affiche le bouton de déconnexion', () => {
     const { getByText } = render(<ProfileScreen />);
     expect(getByText('profile.signOut')).toBeTruthy();
+  });
+
+  it('affiche le bouton de langue vers EN en locale fr', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.languageEn')).toBeTruthy();
+  });
+
+  it('appelle toggleLocale au clic sur le bouton langue', () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.languageEn'));
+    expect(mockToggleLocale).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche le bouton de langue vers FR en locale en', () => {
+    mockLocale = 'en';
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.languageFr')).toBeTruthy();
   });
 
   it('affiche la sandbox cloud layer viz', () => {

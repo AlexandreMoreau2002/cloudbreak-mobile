@@ -31,10 +31,14 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ scheme: 'light' }),
 }));
 
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
+}));
+
 const makeScore = (overrides: Partial<ScoreResponse> = {}): ScoreResponse => ({
   score: 84,
   verdict: 'high',
-  label: 'Fenetre optimale',
+  label: 'Élevée',
   cloud_base: 1200,
   peak_name: 'Mont Blanc',
   peak_altitude: 4808,

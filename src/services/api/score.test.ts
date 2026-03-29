@@ -1,6 +1,19 @@
 import { fetchScore } from '@/services/api/score';
 import { MOCK_SCORE_HIGH, MOCK_SCORE_LOW } from '@/services/mockData/score';
 
+jest.mock('@/utils/i18n', () => ({
+  t: (key: string, params?: Record<string, string | number>) => {
+    const map: Record<string, string> = {
+      'score.label.high': 'Élevée',
+      'score.label.medium': 'Moyenne',
+      'score.label.low': 'Faible',
+      'score.label.none': 'Pas de nuages',
+      'score.context.high.stable_window': `Conditions favorables : la base nuageuse reste sous le sommet de ${params?.cloud_base_gap_m} m.`,
+    };
+    return map[key] ?? key;
+  },
+}));
+
 const mockDevConfigState = { MOCK_API: false, DEBUG: false };
 const mockApiFetch = jest.fn();
 const mockDelay = jest.fn((_ms: number) => Promise.resolve());
@@ -76,7 +89,9 @@ describe('api/score', () => {
     const result = await fetchScore('token-123', 'peak-grand-veymont', '2026-03-23');
 
     expect(result).toMatchObject({
-      label: 'Fenetre correcte',
+      label: 'Moyenne',
+      label_code: null,
+      peak_region: null,
       optimal_window_start: null,
       optimal_window_end: null,
       sunrise: null,
@@ -97,12 +112,14 @@ describe('api/score', () => {
     mockApiFetch.mockResolvedValueOnce({
       score: 84,
       verdict: 'high',
-      label: 'Lève-toi tôt, ça vaut le coup',
+      label_code: 'score.label.high',
       cloud_base: 1200,
       peak_name: 'Croix de Chamrousse',
       peak_altitude: 2257,
+      peak_region: 'Massif de Belledonne',
       peak_slug: 'croix-de-chamrousse',
-      context_message: 'Pas de mer de nuage - mais ciel parfaitement dégagé au-dessus de 2400m ☀️',
+      context_code: 'score.context.high.stable_window',
+      context_params: { cloud_base_gap_m: 1057 },
       optimal_window_start: '06:40',
       optimal_window_end: '08:15',
       sunrise: '07:02',
@@ -139,9 +156,12 @@ describe('api/score', () => {
     const result = await fetchScore('token-123', 'peak-1', '2026-03-23');
 
     expect(result).toMatchObject({
-      label: 'Lève-toi tôt, ça vaut le coup',
+      label: 'Élevée',
+      label_code: 'score.label.high',
       peak_slug: 'croix-de-chamrousse',
-      context_message: 'Pas de mer de nuage - mais ciel parfaitement dégagé au-dessus de 2400m ☀️',
+      peak_region: 'Massif de Belledonne',
+      context_message: 'Conditions favorables : la base nuageuse reste sous le sommet de 1057 m.',
+      context_code: 'score.context.high.stable_window',
       optimal_window_start: '06:40',
       optimal_window_end: '08:15',
       sunrise: '07:02',
@@ -180,6 +200,7 @@ describe('api/score', () => {
       cloud_base: 1500,
       peak_name: 'Test Peak',
       peak_altitude: 2200,
+      peak_region: null,
       conditions: {
         cloud_base_score: 0.5,
         humidity_score: 0.5,
@@ -202,13 +223,15 @@ describe('api/score', () => {
       cloud_base: 0,
       peak_name: 'Sommet inconnu',
       peak_altitude: 0,
+      peak_region: null,
     });
 
     const result = await fetchScore('token-123', 'peak-unknown', '2026-03-23');
 
     expect(result).toMatchObject({
       verdict: 'none',
-      label: 'Pas de mer de nuage',
+      label: 'Pas de nuages',
+      label_code: null,
       conditions: {
         cloud_base_score: 0,
         humidity_score: 0,
@@ -234,10 +257,12 @@ describe('api/score', () => {
     expect(result).toMatchObject({
       score: 0,
       verdict: 'none',
-      label: 'Pas de mer de nuage',
+      label: 'Pas de nuages',
+      label_code: null,
       cloud_base: 0,
       peak_name: '',
       peak_altitude: 0,
+      peak_region: null,
       conditions: {
         cloud_base_score: 0,
         humidity_score: 0,

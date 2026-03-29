@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import type { Peak } from '@/services/mockData/types';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const HOME_ROUTE = '/(tabs)/' as Href;
 
 export default function FavoritesScreen() {
+  useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, typography, spacing } = useTheme();

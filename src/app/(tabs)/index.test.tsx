@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, Share } from 'react-native';
+import type { WeekData } from '@/hooks/useWeekData';
 import type { ScoreResponse } from '@/services/mockData/types';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import HomeScreen, { getShareForecastUrl, shareForecast } from '@/app/(tabs)/index';
@@ -25,6 +26,7 @@ jest.mock('@/utils/i18n', () => ({
       'home.selectPeak': 'Choisissez un sommet',
       'home.selectPeakHint': 'Recherchez un sommet pour voir la prévision',
       'home.goToSearch': 'Rechercher un sommet',
+      'home.today': "Aujourd'hui",
       'home.serviceUnavailable': 'Service momentanément indisponible',
       'home.errorGeneric': 'Impossible de charger la prévision',
       'home.shareForecast': 'Partager la prévision',
@@ -50,13 +52,41 @@ jest.mock('@/utils/i18n', () => ({
       'home.cloudBaseShort': 'Base',
       'home.searchPlaceholder': 'Rechercher un sommet...',
       'home.sectionFavorites': 'Favoris',
-      'score.none': 'Nuages au sol',
-      'score.high': 'Lève-toi tôt !',
-      'score.medium': 'Ça peut le faire',
-      'score.low': 'Pas ce coup-ci',
+      'home.calendar.weekdaysShort.sun': 'Dim.',
+      'home.calendar.weekdaysShort.mon': 'Lun.',
+      'home.calendar.weekdaysShort.tue': 'Mar.',
+      'home.calendar.weekdaysShort.wed': 'Mer.',
+      'home.calendar.weekdaysShort.thu': 'Jeu.',
+      'home.calendar.weekdaysShort.fri': 'Ven.',
+      'home.calendar.weekdaysShort.sat': 'Sam.',
+      'home.calendar.monthsShort.jan': 'jan.',
+      'home.calendar.monthsShort.feb': 'fév.',
+      'home.calendar.monthsShort.mar': 'mar.',
+      'home.calendar.monthsShort.apr': 'avr.',
+      'home.calendar.monthsShort.may': 'mai',
+      'home.calendar.monthsShort.jun': 'juin',
+      'home.calendar.monthsShort.jul': 'juil.',
+      'home.calendar.monthsShort.aug': 'août',
+      'home.calendar.monthsShort.sep': 'sept.',
+      'home.calendar.monthsShort.oct': 'oct.',
+      'home.calendar.monthsShort.nov': 'nov.',
+      'home.calendar.monthsShort.dec': 'déc.',
+      'score.label.none': 'Pas de nuages',
+      'score.label.high': 'Élevée',
+      'score.label.medium': 'Moyenne',
+      'score.label.low': 'Faible',
+      'score.none': 'Pas de nuages',
+      'score.high': 'Élevée',
+      'score.medium': 'Moyenne',
+      'score.low': 'Faible',
+      'score.context.high.favorable_window': 'Conditions favorables : la couche est bien placée pour une mer de nuage.',
     };
     return map[key] ?? key;
   },
+}));
+
+jest.mock('@/constants/devConfig', () => ({
+  MOCK_API: true,
 }));
 
 jest.mock('@/contexts/ThemeContext', () => ({
@@ -81,6 +111,10 @@ jest.mock('@/contexts/ThemeContext', () => ({
   }),
 }));
 
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
+}));
+
 const mockUseAuth = jest.fn();
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
@@ -91,9 +125,9 @@ jest.mock('@/contexts/SelectedPeakContext', () => ({
   useSelectedPeak: () => mockUseSelectedPeak(),
 }));
 
-const mockUseScore = jest.fn();
-jest.mock('@/hooks/useScore', () => ({
-  useScore: () => mockUseScore(),
+const mockUseWeekData = jest.fn();
+jest.mock('@/hooks/useWeekData', () => ({
+  useWeekData: () => mockUseWeekData(),
 }));
 
 const mockUseFavorites = jest.fn();
@@ -101,11 +135,7 @@ jest.mock('@/hooks/useFavorites', () => ({
   useFavorites: () => mockUseFavorites(),
 }));
 
-jest.mock('@/hooks/useWeekScores', () => ({
-  useWeekScores: () => null,
-}));
-
-// --- Shared defaults ---
+// --- Helpers ---
 
 const DEFAULT_PEAK = {
   id: 'peak-1',
@@ -114,19 +144,24 @@ const DEFAULT_PEAK = {
   lat: 45.8326,
   lng: 6.8652,
   altitude: 4808,
+  region: 'Massif du Mont-Blanc',
 };
 
 const mockSetSelectedDate = jest.fn();
+const mockSetSelectedHour = jest.fn();
 
 const MOCK_SCORE_DATA: ScoreResponse = {
   score: 84,
   verdict: 'high',
-  label: 'Fenetre optimale',
+  label_code: 'score.label.high',
   cloud_base: 1200,
   peak_name: 'Mont Blanc',
   peak_altitude: 4808,
+  peak_region: 'Massif du Mont-Blanc',
   peak_slug: 'mont-blanc',
-  context_message: 'Pas de mer de nuage - mais ciel parfaitement dégagé au-dessus de 2400m ☀️',
+  label: 'Élevée',
+  context_code: 'score.context.high.favorable_window',
+  context_message: 'Conditions favorables : la couche est bien placée pour une mer de nuage.',
   optimal_window_start: '06:40',
   optimal_window_end: '08:15',
   sunrise: '07:02',
@@ -153,6 +188,38 @@ const MOCK_SCORE_DATA: ScoreResponse = {
   },
 };
 
+/** Crée un WeekData minimal pour un seul créneau date+hour. */
+function makeWeekData(score: ScoreResponse, date = '2026-03-24', hour = 6): WeekData {
+  return {
+    byDate: { [date]: { [hour]: score } },
+    bestByDate: { [date]: { score: score.score, verdict: score.verdict, hour } },
+  };
+}
+
+function setupSuccess(
+  score: Partial<ScoreResponse> = MOCK_SCORE_DATA,
+  date = '2026-03-24',
+  hour = 6,
+) {
+  mockUseWeekData.mockReturnValue({
+    data: makeWeekData({ ...MOCK_SCORE_DATA, ...score } as ScoreResponse, date, hour),
+    loading: false,
+    error: null,
+  });
+}
+
+function setupLoading(existingData: WeekData | null = null) {
+  mockUseWeekData.mockReturnValue({ data: existingData, loading: true, error: null });
+}
+
+function setupError(message = 'Erreur de chargement') {
+  mockUseWeekData.mockReturnValue({ data: null, loading: false, error: message });
+}
+
+function setupIdle() {
+  mockUseWeekData.mockReturnValue({ data: null, loading: false, error: null });
+}
+
 // --- Tests ---
 
 describe('HomeScreen', () => {
@@ -161,6 +228,7 @@ describe('HomeScreen', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-03-24T08:00:00Z'));
     mockPush.mockReset();
     mockSetSelectedDate.mockReset();
+    mockSetSelectedHour.mockReset();
     mockUseAuth.mockReturnValue({ session: { access_token: 'mock-token' }, loading: false });
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: null,
@@ -168,9 +236,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'idle' });
+    setupIdle();
     mockUseFavorites.mockReturnValue({
       state: { status: 'success', data: [] },
       addFavorite: jest.fn(),
@@ -215,13 +283,12 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'loading' });
+    setupLoading();
 
     render(<HomeScreen />);
     expect(screen.getByTestId('score-skeleton')).toBeTruthy();
-    // WeekStrip n'est plus affiché en état loading
     expect(screen.queryByTestId('week-strip')).toBeNull();
   });
 
@@ -232,15 +299,100 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    setupSuccess();
 
     render(<HomeScreen />);
     expect(screen.getByTestId('score-card')).toBeTruthy();
-    expect(screen.getByText('Pas de mer de nuage - mais ciel parfaitement dégagé au-dessus de 2400m ☀️')).toBeTruthy();
+    expect(screen.getByText('Conditions favorables : la couche est bien placée pour une mer de nuage.')).toBeTruthy();
     expect(screen.getByTestId('week-strip')).toBeTruthy();
     expect(screen.getByText('Activer une alerte')).toBeTruthy();
+  });
+
+  it("auto-synchronise l heure quand la date sélectionnée n existe pas dans le cache", async () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-23',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockUseWeekData.mockReturnValue({
+      data: makeWeekData(MOCK_SCORE_DATA, '2026-03-24', 14),
+      loading: false,
+      error: null,
+    });
+
+    render(<HomeScreen />);
+
+    await waitFor(() => {
+      expect(mockSetSelectedDate).toHaveBeenCalledWith('2026-03-24');
+      expect(mockSetSelectedHour).toHaveBeenCalledWith(14);
+    });
+  });
+
+  it("auto-synchronise à 6h quand le meilleur créneau est nul", () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-23',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockUseWeekData.mockReturnValue({
+      data: makeWeekData({ ...MOCK_SCORE_DATA, score: 0, verdict: 'none' }, '2026-03-24', 14),
+      loading: false,
+      error: null,
+    });
+    render(<HomeScreen />);
+
+    expect(mockSetSelectedDate).toHaveBeenCalledWith('2026-03-24');
+    expect(mockSetSelectedHour).toHaveBeenCalledWith(6);
+  });
+
+  it('affiche_la_region_dans_le_header_du_sommet', () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess();
+
+    render(<HomeScreen />);
+
+    expect(screen.getByText('4808 m · Massif du Mont-Blanc')).toBeTruthy();
+  });
+
+  it("n'affiche pas le séparateur si la région est absente", () => {
+    const peakWithoutRegion = {
+      id: 'peak-1',
+      name: 'Mont Blanc',
+      slug: 'mont-blanc',
+      lat: 45.8326,
+      lng: 6.8652,
+      altitude: 4808,
+    };
+
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: peakWithoutRegion,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess();
+
+    render(<HomeScreen />);
+
+    expect(screen.getByText('4808 m')).toBeTruthy();
+    expect(screen.queryByText('4808 m ·')).toBeNull();
   });
 
   it('affiche_erreur_si_api_echoue', () => {
@@ -250,9 +402,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'error', error: 'Erreur de chargement' });
+    setupError('Erreur de chargement');
 
     render(<HomeScreen />);
     expect(screen.getByText('Impossible de charger la prévision')).toBeTruthy();
@@ -265,9 +417,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'error', error: 'Service momentanément indisponible' });
+    setupError('Service momentanément indisponible');
 
     render(<HomeScreen />);
     expect(screen.getByText('Service momentanément indisponible')).toBeTruthy();
@@ -285,19 +437,18 @@ describe('HomeScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/search');
   });
 
-  it('retourne_null_si_sommet_selectionne_et_etat_idle', () => {
+  it('retourne_null_si_sommet_selectionne_et_weekdata_absent', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'idle' });
+    setupIdle();
 
     render(<HomeScreen />);
-    // No scorecard, no skeleton, no error — renders empty content
     expect(screen.queryByTestId('score-card')).toBeNull();
     expect(screen.queryByTestId('score-skeleton')).toBeNull();
   });
@@ -309,40 +460,38 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    setupSuccess();
 
     render(<HomeScreen />);
     expect(screen.getByTestId('score-card')).toBeTruthy();
-    // Les labels des widgets (uppercase via JS)
     expect(screen.getByText('HUMIDITÉ')).toBeTruthy();
     expect(screen.getByText('VENT')).toBeTruthy();
     expect(screen.getByText('INVERSION')).toBeTruthy();
-    // Les valeurs
     expect(screen.getByText('86%')).toBeTruthy();
     expect(screen.getByText('7 km/h')).toBeTruthy();
     expect(screen.getByText('Oui')).toBeTruthy();
   });
 
-  it('garde le dernier score visible pendant un refresh du meme sommet', () => {
-    const states: ({ status: 'success'; data: ScoreResponse } | { status: 'loading' })[] = [
-      { status: 'success', data: MOCK_SCORE_DATA },
-      { status: 'loading' },
-    ];
+  it('garde le score visible pendant un refresh du meme sommet', () => {
+    const existingData = makeWeekData(MOCK_SCORE_DATA);
+    let currentState = { data: existingData, loading: false, error: null };
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockImplementation(() => states.shift() ?? { status: 'loading' });
+    mockUseWeekData.mockImplementation(() => currentState);
 
     const { rerender } = render(<HomeScreen />);
-    expect(screen.getByText('Pas de mer de nuage - mais ciel parfaitement dégagé au-dessus de 2400m ☀️')).toBeTruthy();
+    expect(screen.getByText('Conditions favorables : la couche est bien placée pour une mer de nuage.')).toBeTruthy();
 
+    // Refresh du même sommet — les données sont conservées pendant le fetch
+    currentState = { data: existingData, loading: true, error: null };
     rerender(<HomeScreen />);
 
     expect(screen.getByTestId('score-card')).toBeTruthy();
@@ -362,9 +511,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    setupSuccess();
 
     render(<HomeScreen />);
     expect(screen.getByText('FAVORIS')).toBeTruthy();
@@ -386,9 +535,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    setupSuccess();
 
     render(<HomeScreen />);
     fireEvent.press(screen.getByTestId('favorite-toggle-button'));
@@ -410,9 +559,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    setupSuccess();
 
     render(<HomeScreen />);
     fireEvent.press(screen.getByTestId('favorite-toggle-button'));
@@ -428,9 +577,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    setupSuccess();
 
     render(<HomeScreen />);
     fireEvent.press(screen.getByText('ACTIVER'));
@@ -449,22 +598,19 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({
-      status: 'success',
-      data: {
-        ...MOCK_SCORE_DATA,
-        verdict: 'low',
-        conditions: {
-          cloud_base_score: 0.5,
-          humidity_score: 0.5,
-          wind_score: 0.4,
-          inversion_score: 0.3,
-          humidity_pct: 61,
-          wind_speed_kmh: 14,
-          inversion_detected: false,
-        },
+    setupSuccess({
+      ...MOCK_SCORE_DATA,
+      verdict: 'low',
+      conditions: {
+        cloud_base_score: 0.5,
+        humidity_score: 0.5,
+        wind_score: 0.4,
+        inversion_score: 0.3,
+        humidity_pct: 61,
+        wind_speed_kmh: 14,
+        inversion_detected: false,
       },
     });
 
@@ -483,15 +629,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({
-      status: 'success',
-      data: {
-        ...MOCK_SCORE_DATA,
-        conditions: null,
-      },
-    });
+    setupSuccess({ ...MOCK_SCORE_DATA, conditions: undefined });
 
     render(<HomeScreen />);
 
@@ -506,19 +646,16 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({
-      status: 'success',
-      data: {
-        ...MOCK_SCORE_DATA,
-        verdict: 'low',
-        conditions: {
-          cloud_base_score: 0.2,
-          humidity_score: 0.2,
-          wind_score: 0.2,
-          inversion_score: 0.2,
-        },
+    setupSuccess({
+      ...MOCK_SCORE_DATA,
+      verdict: 'low',
+      conditions: {
+        cloud_base_score: 0.2,
+        humidity_score: 0.2,
+        wind_score: 0.2,
+        inversion_score: 0.2,
       },
     });
 
@@ -542,9 +679,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak,
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    setupSuccess();
 
     render(<HomeScreen />);
     fireEvent.press(screen.getByTestId('favorite-peak-fav-1'));
@@ -593,15 +730,11 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({
-      status: 'success',
-      data: { ...MOCK_SCORE_DATA, peak_slug: undefined },
-    });
+    setupSuccess({ ...MOCK_SCORE_DATA, peak_slug: undefined });
 
     render(<HomeScreen />);
-    // Le bouton share a été retiré du layout
     expect(screen.queryByTestId('share-forecast-button')).toBeNull();
   });
 
@@ -617,100 +750,101 @@ describe('HomeScreen', () => {
     alertSpy.mockRestore();
   });
 
-  it('change la date via le week strip', () => {
+  it('change la date via le week strip et selectionne l heure optimale', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    // weekData avec le score du mercredi à 14h
+    const weekData: WeekData = {
+      byDate: {
+        '2026-03-24': { 6: MOCK_SCORE_DATA },
+        '2026-03-25': { 14: { ...MOCK_SCORE_DATA, score: 36, verdict: 'low' } },
+      },
+      bestByDate: {
+        '2026-03-24': { score: 84, verdict: 'high', hour: 6 },
+        '2026-03-25': { score: 36, verdict: 'low', hour: 14 },
+      },
+    };
+    mockUseWeekData.mockReturnValue({ data: weekData, loading: false, error: null });
 
     render(<HomeScreen />);
+    // 2026-03-24 = mardi → offset+1 = mercredi = 'Mer.'
     fireEvent.press(screen.getByText('Mer.'));
 
     expect(mockSetSelectedDate).toHaveBeenCalledWith('2026-03-25');
+    expect(mockSetSelectedHour).toHaveBeenCalledWith(14);
   });
 
-  it('ajoute le sommet courant aux favoris quand il ne lest pas encore', () => {
-    const addFavorite = jest.fn();
-    mockUseFavorites.mockReturnValue({
-      state: { status: 'success', data: [] },
-      addFavorite,
-      removeFavorite: jest.fn(),
-      refresh: jest.fn(),
-    });
+  it('revient à 6h si le jour sélectionné est à 0% toute la journée', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    const weekData: WeekData = {
+      byDate: {
+        '2026-03-24': { 6: MOCK_SCORE_DATA },
+        '2026-03-25': { 6: { ...MOCK_SCORE_DATA, score: 0, verdict: 'none' } },
+      },
+      bestByDate: {
+        '2026-03-24': { score: 84, verdict: 'high', hour: 6 },
+        '2026-03-25': { score: 0, verdict: 'none', hour: 6 },
+      },
+    };
+    mockUseWeekData.mockReturnValue({ data: weekData, loading: false, error: null });
 
     render(<HomeScreen />);
-    fireEvent.press(screen.getByTestId('favorite-toggle-button'));
+    // 2026-03-24 = mardi → offset+1 = mercredi = 'Mer.'
+    fireEvent.press(screen.getByText('Mer.'));
 
-    expect(addFavorite).toHaveBeenCalledWith('peak-1');
+    expect(mockSetSelectedDate).toHaveBeenCalledWith('2026-03-25');
+    expect(mockSetSelectedHour).toHaveBeenCalledWith(6);
   });
 
-  it('retire le sommet courant des favoris quand il est deja favori', () => {
-    const removeFavorite = jest.fn();
-    mockUseFavorites.mockReturnValue({
-      state: { status: 'success', data: [DEFAULT_PEAK] },
-      addFavorite: jest.fn(),
-      removeFavorite,
-      refresh: jest.fn(),
-    });
-    mockUseSelectedPeak.mockReturnValue({
-      selectedPeak: DEFAULT_PEAK,
-      selectedDate: '2026-03-24',
-      selectedHour: 6,
-      setSelectedPeak: jest.fn(),
-      setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
-    });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+  it('n applique pas les donnees du sommet precedent lors du changement de sommet', () => {
+    const alternatePeak = { ...DEFAULT_PEAK, id: 'peak-2', name: 'Aiguille Verte' };
+    mockUseSelectedPeak
+      .mockReturnValueOnce({
+        selectedPeak: DEFAULT_PEAK,
+        selectedDate: '2026-03-24',
+        selectedHour: 6,
+        setSelectedPeak: jest.fn(),
+        setSelectedDate: mockSetSelectedDate,
+        setSelectedHour: mockSetSelectedHour,
+      })
+      .mockReturnValue({
+        selectedPeak: alternatePeak,
+        selectedDate: '2026-03-24',
+        selectedHour: 6,
+        setSelectedPeak: jest.fn(),
+        setSelectedDate: mockSetSelectedDate,
+        setSelectedHour: mockSetSelectedHour,
+      });
 
-    render(<HomeScreen />);
-    fireEvent.press(screen.getByTestId('favorite-toggle-button'));
+    let currentWeekDataState: { data: WeekData | null; loading: boolean; error: string | null } = {
+      data: makeWeekData(MOCK_SCORE_DATA),
+      loading: false,
+      error: null,
+    };
+    mockUseWeekData.mockImplementation(() => currentWeekDataState);
 
-    expect(removeFavorite).toHaveBeenCalledWith('peak-1');
-  });
+    const { rerender } = render(<HomeScreen />);
+    expect(screen.getByTestId('score-card')).toBeTruthy();
 
-  it('selectionne un favori depuis la section favoris', () => {
-    const setSelectedPeak = jest.fn();
-    mockUseFavorites.mockReturnValue({
-      state: { status: 'success', data: [{ id: 'fav-1', name: 'Moucherotte', slug: 'moucherotte', lat: 45.1, lng: 5.6, altitude: 1901 }] },
-      addFavorite: jest.fn(),
-      removeFavorite: jest.fn(),
-      refresh: jest.fn(),
-    });
-    mockUseSelectedPeak.mockReturnValue({
-      selectedPeak: DEFAULT_PEAK,
-      selectedDate: '2026-03-24',
-      selectedHour: 6,
-      setSelectedPeak,
-      setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
-    });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    // Changement de sommet — data=null car reset immédiat dans le hook
+    currentWeekDataState = { data: null, loading: true, error: null };
+    rerender(<HomeScreen />);
 
-    render(<HomeScreen />);
-    fireEvent.press(screen.getByTestId('favorite-peak-fav-1'));
-
-    expect(setSelectedPeak).toHaveBeenCalledWith({
-      id: 'fav-1',
-      name: 'Moucherotte',
-      slug: 'moucherotte',
-      lat: 45.1,
-      lng: 5.6,
-      altitude: 1901,
-    });
+    expect(screen.getByTestId('score-skeleton')).toBeTruthy();
+    expect(screen.queryByTestId('score-card')).toBeNull();
   });
 
   it('ouvre lalerte native depuis le CTA dalerte', () => {
@@ -721,9 +855,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({ status: 'success', data: MOCK_SCORE_DATA });
+    setupSuccess();
 
     render(<HomeScreen />);
     fireEvent.press(screen.getByText('ACTIVER'));
@@ -742,12 +876,9 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({
-      status: 'success',
-      data: { ...MOCK_SCORE_DATA, conditions: null },
-    });
+    setupSuccess({ ...MOCK_SCORE_DATA, conditions: undefined });
 
     render(<HomeScreen />);
     expect(screen.queryByText('Conditions météo')).toBeNull();
@@ -772,25 +903,22 @@ describe('HomeScreen', () => {
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockReturnValue({
-      status: 'success',
-      data: {
-        ...MOCK_SCORE_DATA,
-        verdict: 'low',
-        conditions: {
-          cloud_base_score: 0.9,
-          humidity_score: 0.8,
-          wind_score: 0.7,
-          inversion_score: 0.6,
-          humidity: null,
-          humidity_pct: 31,
-          wind_speed: null,
-          wind_speed_kmh: 12,
-          inversion_present: null,
-          inversion_detected: false,
-        },
+    setupSuccess({
+      ...MOCK_SCORE_DATA,
+      verdict: 'low',
+      conditions: {
+        cloud_base_score: 0.9,
+        humidity_score: 0.8,
+        wind_score: 0.7,
+        inversion_score: 0.6,
+        humidity: null,
+        humidity_pct: 31,
+        wind_speed: null,
+        wind_speed_kmh: 12,
+        inversion_present: null,
+        inversion_detected: false,
       },
     });
 
@@ -802,57 +930,56 @@ describe('HomeScreen', () => {
   });
 
   it('conserve le dernier score valide pendant un refresh du meme sommet', () => {
-    let currentScoreState: ReturnType<typeof mockUseScore> = { status: 'success', data: MOCK_SCORE_DATA };
+    const existingData = makeWeekData(MOCK_SCORE_DATA);
+    let currentState = { data: existingData, loading: false, error: null };
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
       selectedHour: 6,
       setSelectedPeak: jest.fn(),
       setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: jest.fn(),
+      setSelectedHour: mockSetSelectedHour,
     });
-    mockUseScore.mockImplementation(() => currentScoreState);
+    mockUseWeekData.mockImplementation(() => currentState);
 
     const { rerender } = render(<HomeScreen />);
     expect(screen.getByTestId('score-card')).toBeTruthy();
 
-    currentScoreState = { status: 'loading' };
+    currentState = { data: existingData, loading: true, error: null };
     rerender(<HomeScreen />);
 
     expect(screen.getByTestId('score-card')).toBeTruthy();
     expect(screen.queryByTestId('score-skeleton')).toBeNull();
   });
 
-  it('n applique pas le cache stale au refresh dun autre sommet', () => {
-    const alternatePeak = { ...DEFAULT_PEAK, id: 'peak-2', name: 'Aiguille Verte' };
-    mockUseSelectedPeak
-      .mockReturnValueOnce({
-        selectedPeak: DEFAULT_PEAK,
-        selectedDate: '2026-03-24',
-        selectedHour: 6,
-        setSelectedPeak: jest.fn(),
-        setSelectedDate: mockSetSelectedDate,
-        setSelectedHour: jest.fn(),
-      })
-      .mockReturnValue({
-        selectedPeak: alternatePeak,
-        selectedDate: '2026-03-24',
-        selectedHour: 6,
-        setSelectedPeak: jest.fn(),
-        setSelectedDate: mockSetSelectedDate,
-        setSelectedHour: jest.fn(),
-      });
+  it('selectionne un favori depuis la section favoris', () => {
+    const setSelectedPeak = jest.fn();
+    mockUseFavorites.mockReturnValue({
+      state: { status: 'success', data: [{ id: 'fav-1', name: 'Moucherotte', slug: 'moucherotte', lat: 45.1, lng: 5.6, altitude: 1901 }] },
+      addFavorite: jest.fn(),
+      removeFavorite: jest.fn(),
+      refresh: jest.fn(),
+    });
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak,
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess();
 
-    let currentScoreState: ReturnType<typeof mockUseScore> = { status: 'success', data: MOCK_SCORE_DATA };
-    mockUseScore.mockImplementation(() => currentScoreState);
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('favorite-peak-fav-1'));
 
-    const { rerender } = render(<HomeScreen />);
-    expect(screen.getByTestId('score-card')).toBeTruthy();
-
-    currentScoreState = { status: 'loading' };
-    rerender(<HomeScreen />);
-
-    expect(screen.getByTestId('score-skeleton')).toBeTruthy();
-    expect(screen.queryByTestId('score-card')).toBeNull();
+    expect(setSelectedPeak).toHaveBeenCalledWith({
+      id: 'fav-1',
+      name: 'Moucherotte',
+      slug: 'moucherotte',
+      lat: 45.1,
+      lng: 5.6,
+      altitude: 1901,
+    });
   });
 });

@@ -39,6 +39,10 @@ jest.mock('@/contexts/ThemeContext', () => ({
   }),
 }));
 
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
+}));
+
 describe('TabsLayout', () => {
   it('s\'affiche sans erreur et couvre TabIcon', () => {
     const { toJSON } = render(<TabsLayout />);

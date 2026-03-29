@@ -10,6 +10,7 @@ import {
 import React from 'react';
 import i18n from '@/utils/i18n';
 import { Text, View } from 'react-native';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { styles } from '@/components/cloud-layer-viz/styles';
 import { getPalette } from '@/components/cloud-layer-viz/palette';
 import { ChartScene } from '@/components/cloud-layer-viz/ChartScene';
@@ -34,6 +35,7 @@ export function DetailedCloudLayerViz({
   isSunny = false,
   isDark,
 }: DetailedCloudLayerVizProps) {
+  useLanguage();
   const gap = getGap(viz);
   const gapIsPositive = gap > 0;
   const palette = getPalette(isDark, gapIsPositive);

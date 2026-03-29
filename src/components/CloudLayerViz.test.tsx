@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { getPalette } from '@/components/cloud-layer-viz/palette';
 import { __private__, CloudLayerViz } from '@/components/CloudLayerViz';
+import { __private__ as compactPrivate } from '@/components/cloud-layer-viz/CompactCloudLayerViz';
 
 jest.mock('@/utils/i18n', () => ({
   t: (key: string) => {
@@ -23,6 +24,10 @@ jest.mock('@/utils/i18n', () => ({
 
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ scheme: 'light' }),
+}));
+
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
 }));
 
 describe('CloudLayerViz', () => {
@@ -260,6 +265,17 @@ describe('CloudLayerViz', () => {
     );
 
     expect(screen.queryByTestId('cloud-layer-viz-sunny')).toBeNull();
+  });
+
+  it('aligne le nuage compact serré au voisinage du sommet', () => {
+    const cloud = __private__.getCompactCloudGeometry('tight');
+
+    expect(cloud.top).toBeLessThan(__private__.COMPACT_GEO.summitLineY);
+    expect(cloud.top + cloud.height).toBeGreaterThan(__private__.COMPACT_GEO.summitLineY);
+  });
+
+  it('force l etat compact serre quand la variante ridge est demandee', () => {
+    expect(compactPrivate.resolveCompactState('below', 'ridge')).toBe('tight');
   });
 
   it('calcule une palette cohérente dans les quatre combinaisons light/dark gap', () => {

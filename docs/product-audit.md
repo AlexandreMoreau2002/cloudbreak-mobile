@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-03-24_
+_Dernière mise à jour : 2026-03-28_
 
 ---
 
@@ -14,21 +14,24 @@ _Dernière mise à jour : 2026-03-24_
 | Auth Supabase (inscription, connexion, logout) | ✅ |
 | ThemeContext (light/dark) | ✅ |
 | AuthContext + AuthGuard | ✅ |
-| i18n (fr) | ✅ |
+| i18n FR/EN + toggle runtime | ✅ |
 | CI GitHub Actions (lint + tsc + jest + build check) | ✅ |
 | Recherche de sommets autocomplete (story 3.3) | ✅ |
 | Favoris — ajout, suppression, liste (story 3.3) | ✅ |
 | Toggle favori depuis la recherche (story 3.3) | ✅ |
 | Tri favoris en premier dans la recherche (story 3.3) | ✅ |
 | Écran principal ScoreCard + verdict mer de nuage (story 3.4) | ✅ |
-| Hook useScore + appel backend score (story 3.4) | ✅ |
-| Cache offline AsyncStorage TTL 2h (story 3.4) | ✅ |
+| Home refactorisée en composants (`PeakHeader`, `ConditionsSection`, `FavoritesGrid`) | ✅ |
+| Source de données unifiée `useWeekData` pour Home + weekly | ✅ |
+| Cache offline AsyncStorage 30 min sur les données semaine | ✅ |
 | SelectedPeakContext — sommet/date/heure partagés (story 3.4) | ✅ |
 | ScoreSkeleton — loader animé (story 3.4) | ✅ |
 | Détail conditions météo + fenêtre temporelle (story 3.5) | ✅ |
 | Lever du soleil + indicateur de stabilité (story 3.5) | ✅ |
 | WeekStrip — changement de jour sur l'écran principal (story 3.5) | ✅ |
 | CloudLayerViz — couche nuageuse vs altitude sommet (story 3.5) | ✅ |
+| Traduction des codes score i18n via normalizeScoreResponse() (refacto i18n) | ✅ |
+| Tests dédiés `cloud-layer-viz/*` + mocks peaks/user/types | ✅ |
 
 ## Ce qui n'existe pas encore
 

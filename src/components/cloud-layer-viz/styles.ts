@@ -75,6 +75,10 @@ export const styles = StyleSheet.create({
     borderRadius: Radius.full,
     zIndex: 2,
   },
+  cloudLayerCompact: {
+    left: 6,
+    right: 6,
+  },
   summitLine: {
     position: 'absolute',
     left: CHART_WIDTH_INSET,

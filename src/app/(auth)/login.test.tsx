@@ -42,6 +42,10 @@ jest.mock('@/contexts/ThemeContext', () => ({
   }),
 }));
 
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
+}));
+
 jest.mock('@/utils/i18n', () => ({
   __esModule: true,
   default: { t: (key: string) => key },
