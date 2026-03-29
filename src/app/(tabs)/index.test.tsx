@@ -702,8 +702,8 @@ describe('HomeScreen', () => {
 
     await waitFor(() =>
       expect(shareSpy).toHaveBeenCalledWith({
-        message: 'https://merdenua.ge/sommet/mont-blanc',
-        url: 'https://merdenua.ge/sommet/mont-blanc',
+        message: 'reminder_modify_before_mep@cloudbreak.com/sommet/mont-blanc',
+        url: 'reminder_modify_before_mep@cloudbreak.com/sommet/mont-blanc',
       }),
     );
     shareSpy.mockRestore();
@@ -744,7 +744,7 @@ describe('HomeScreen', () => {
     await shareForecast('mont-blanc');
 
     await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith('Partage indisponible', 'https://merdenua.ge/sommet/mont-blanc'),
+      expect(alertSpy).toHaveBeenCalledWith('Partage indisponible', 'reminder_modify_before_mep@cloudbreak.com/sommet/mont-blanc'),
     );
     shareSpy.mockRestore();
     alertSpy.mockRestore();
