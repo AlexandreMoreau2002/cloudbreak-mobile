@@ -147,7 +147,7 @@ export default function HomeScreen() {
     if (isLoading) {
       return (
         <View style={styles.forecastStack}>
-          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} />
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
           <ScoreSkeleton />
         </View>
       );
@@ -156,7 +156,7 @@ export default function HomeScreen() {
     if (displayScore) {
       return (
         <View style={[styles.forecastStack, isRefreshing && { opacity: 0.7 }]}>
-          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} />
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
           <ScoreCard
             score={displayScore}
             date={selectedDate}
@@ -177,7 +177,7 @@ export default function HomeScreen() {
         : i18n.t('home.errorGeneric');
       return (
         <View style={styles.forecastStack}>
-          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} />
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
           <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
             <Ionicons name="cloud-offline-outline" size={40} color={colors.textDisabled} style={{ marginBottom: spacing.sm }} />
             <Text style={[styles.emptyHint, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center', marginBottom: 0 }]}>
