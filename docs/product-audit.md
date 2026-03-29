@@ -45,4 +45,5 @@ _Dernière mise à jour : 2026-03-28_
 ## Prochaines étapes
 
 1. **Story 3.6** — Message contextuel hors-saison + partage deep link
-2. **Epic 4** — Paywall / freemium (StoreKit 2)
+2. **Story 3.x** — Composant générique d'erreur API (`400/500/service indisponible`) réutilisable sur score, search et favorites
+3. **Epic 4** — Paywall / freemium (StoreKit 2)
