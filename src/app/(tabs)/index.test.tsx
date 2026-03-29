@@ -26,6 +26,7 @@ jest.mock('@/utils/i18n', () => ({
       'home.selectPeak': 'Choisissez un sommet',
       'home.selectPeakHint': 'Recherchez un sommet pour voir la prévision',
       'home.goToSearch': 'Rechercher un sommet',
+      'home.today': "Aujourd'hui",
       'home.serviceUnavailable': 'Service momentanément indisponible',
       'home.errorGeneric': 'Impossible de charger la prévision',
       'home.shareForecast': 'Partager la prévision',
@@ -51,6 +52,25 @@ jest.mock('@/utils/i18n', () => ({
       'home.cloudBaseShort': 'Base',
       'home.searchPlaceholder': 'Rechercher un sommet...',
       'home.sectionFavorites': 'Favoris',
+      'home.calendar.weekdaysShort.sun': 'Dim.',
+      'home.calendar.weekdaysShort.mon': 'Lun.',
+      'home.calendar.weekdaysShort.tue': 'Mar.',
+      'home.calendar.weekdaysShort.wed': 'Mer.',
+      'home.calendar.weekdaysShort.thu': 'Jeu.',
+      'home.calendar.weekdaysShort.fri': 'Ven.',
+      'home.calendar.weekdaysShort.sat': 'Sam.',
+      'home.calendar.monthsShort.jan': 'jan.',
+      'home.calendar.monthsShort.feb': 'fév.',
+      'home.calendar.monthsShort.mar': 'mar.',
+      'home.calendar.monthsShort.apr': 'avr.',
+      'home.calendar.monthsShort.may': 'mai',
+      'home.calendar.monthsShort.jun': 'juin',
+      'home.calendar.monthsShort.jul': 'juil.',
+      'home.calendar.monthsShort.aug': 'août',
+      'home.calendar.monthsShort.sep': 'sept.',
+      'home.calendar.monthsShort.oct': 'oct.',
+      'home.calendar.monthsShort.nov': 'nov.',
+      'home.calendar.monthsShort.dec': 'déc.',
       'score.label.none': 'Pas de nuages',
       'score.label.high': 'Élevée',
       'score.label.medium': 'Moyenne',
@@ -63,6 +83,10 @@ jest.mock('@/utils/i18n', () => ({
     };
     return map[key] ?? key;
   },
+}));
+
+jest.mock('@/constants/devConfig', () => ({
+  MOCK_API: true,
 }));
 
 jest.mock('@/contexts/ThemeContext', () => ({
@@ -284,6 +308,49 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Conditions favorables : la couche est bien placée pour une mer de nuage.')).toBeTruthy();
     expect(screen.getByTestId('week-strip')).toBeTruthy();
     expect(screen.getByText('Activer une alerte')).toBeTruthy();
+  });
+
+  it("auto-synchronise l heure quand la date sélectionnée n existe pas dans le cache", async () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-23',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockUseWeekData.mockReturnValue({
+      data: makeWeekData(MOCK_SCORE_DATA, '2026-03-24', 14),
+      loading: false,
+      error: null,
+    });
+
+    render(<HomeScreen />);
+
+    await waitFor(() => {
+      expect(mockSetSelectedDate).toHaveBeenCalledWith('2026-03-24');
+      expect(mockSetSelectedHour).toHaveBeenCalledWith(14);
+    });
+  });
+
+  it("auto-synchronise à 6h quand le meilleur créneau est nul", () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-23',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockUseWeekData.mockReturnValue({
+      data: makeWeekData({ ...MOCK_SCORE_DATA, score: 0, verdict: 'none' }, '2026-03-24', 14),
+      loading: false,
+      error: null,
+    });
+    render(<HomeScreen />);
+
+    expect(mockSetSelectedDate).toHaveBeenCalledWith('2026-03-24');
+    expect(mockSetSelectedHour).toHaveBeenCalledWith(6);
   });
 
   it('affiche_la_region_dans_le_header_du_sommet', () => {

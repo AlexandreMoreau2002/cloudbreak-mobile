@@ -3,7 +3,6 @@
  */
 import i18n from '@/utils/i18n';
 import { useEffect } from 'react';
-import { DEBUG } from '@/constants/devConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWeekData } from '@/hooks/useWeekData';
@@ -76,7 +75,6 @@ export default function HomeScreen() {
     if (!hourHasData) {
       const best = weekData.bestByDate[effectiveDate];
       const newHour = best && best.score > 0 ? best.hour : 6;
-      if (DEBUG) console.debug('[HOME] auto-sync hour', { effectiveDate, selectedHour, newHour });
       setSelectedHour(newHour);
     }
   }, [weekData, selectedDate, selectedHour, setSelectedDate, setSelectedHour]);
@@ -94,10 +92,8 @@ export default function HomeScreen() {
 
   function handleSelectDate(date: string) {
     setSelectedDate(date);
-    if (weekData) {
-      const best = weekData.bestByDate[date];
-      setSelectedHour(best && best.score > 0 ? best.hour : 6);
-    }
+    const best = weekData?.bestByDate[date];
+    setSelectedHour(best && best.score > 0 ? best.hour : 6);
   }
 
   function handleToggleFavorite(peakId: string) {
@@ -110,16 +106,6 @@ export default function HomeScreen() {
   }
 
   function renderContent() {
-    if (DEBUG) console.debug('[HOME] renderContent', {
-      selectedPeak: selectedPeak?.id ?? null,
-      selectedDate,
-      selectedHour,
-      weekLoading,
-      weekError,
-      weekDataDates: weekData ? Object.keys(weekData.byDate) : null,
-      displayScoreRaw: weekData?.byDate[selectedDate]?.[selectedHour] ? 'PRESENT' : 'NULL',
-    });
-
     if (!selectedPeak) {
       return (
         <View style={styles.emptyContainer}>

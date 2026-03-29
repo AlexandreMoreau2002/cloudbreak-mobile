@@ -321,4 +321,79 @@ describe('useScore', () => {
 
     expect(mockFetchScore).toHaveBeenCalledWith('mock-token', 'peak-1', '2026-03-23', 6);
   });
+
+  it('ignore_un_cache_sans_context_code', async () => {
+    const entry = {
+      data: {
+        ...makeCacheableScore(),
+        context_code: undefined,
+      },
+      cachedAt: Date.now(),
+    };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(entry);
+    mockFetchScore.mockResolvedValue(MOCK_SCORE_RESPONSE);
+
+    const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('success');
+    });
+
+    expect(mockFetchScore).toHaveBeenCalledWith('mock-token', 'peak-1', '2026-03-23', 6);
+  });
+
+  it('accepte_un_cache_compatible_pour_le_verdict_none', async () => {
+    const cachedScore = {
+      ...MOCK_SCORE_RESPONSE,
+      verdict: 'none' as const,
+      score: 0,
+      label_code: 'score.label.none',
+      context_code: 'score.context.none.clear_window',
+    };
+    const entry = { data: cachedScore, cachedAt: Date.now() };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(entry);
+
+    const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('success');
+    });
+
+    expect(result.current.data).toEqual(cachedScore);
+    expect(mockFetchScore).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      verdict: 'medium' as const,
+      score: 52,
+      label_code: 'score.label.medium',
+      context_code: 'score.context.medium.neutral_window',
+    },
+    {
+      verdict: 'low' as const,
+      score: 18,
+      label_code: 'score.label.low',
+      context_code: 'score.context.low.narrow_window',
+    },
+  ])('accepte_un_cache_compatible_pour_le_verdict_$verdict', async ({ verdict, score, label_code, context_code }) => {
+    const cachedScore = {
+      ...MOCK_SCORE_RESPONSE,
+      verdict,
+      score,
+      label_code,
+      context_code,
+    };
+    const entry = { data: cachedScore, cachedAt: Date.now() };
+    asyncStorageStore['cache:score:v2:peak-1:2026-03-23:6'] = JSON.stringify(entry);
+
+    const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('success');
+    });
+
+    expect(result.current.data).toEqual(cachedScore);
+    expect(mockFetchScore).not.toHaveBeenCalled();
+  });
 });

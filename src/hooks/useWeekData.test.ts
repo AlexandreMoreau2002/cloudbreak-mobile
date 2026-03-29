@@ -1,15 +1,22 @@
+import React from 'react';
 import { fetchScore } from '@/services/api/score';
 import { useWeekData } from '@/hooks/useWeekData';
 import { renderHook, waitFor } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const mockReact = React;
 
 jest.mock('@/services/api/score', () => ({ fetchScore: jest.fn() }));
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn().mockResolvedValue(null),
   setItem: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/constants/devConfig', () => ({ DEBUG: false, MOCK_API: true }));
+jest.mock('@/constants/devConfig', () => ({ DEBUG: false, MOCK_API: false }));
 
 const mockFetchScore = fetchScore as jest.MockedFunction<typeof fetchScore>;
+const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
+let consoleDebugSpy: jest.SpyInstance;
+type WeekDataHookProps = { peakId: string; token: string };
 
 const MOCK_SCORE = {
   score: 72,
@@ -38,13 +45,50 @@ const MOCK_SCORE = {
 
 beforeEach(() => {
   jest.useFakeTimers().setSystemTime(new Date('2026-03-24T08:00:00Z'));
+  consoleDebugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
   mockFetchScore.mockResolvedValue(MOCK_SCORE);
+  mockAsyncStorage.getItem.mockResolvedValue(null);
+  mockAsyncStorage.setItem.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
   jest.useRealTimers();
+  consoleDebugSpy.mockRestore();
   jest.clearAllMocks();
 });
+
+function runIsolatedWeekDataTestWithDebug(
+  mockApi: boolean,
+  run: (deps: {
+    useWeekData: typeof useWeekData;
+    renderHook: typeof renderHook;
+    waitFor: typeof waitFor;
+    mockFetchScore: jest.MockedFunction<typeof fetchScore>;
+    mockAsyncStorage: jest.Mocked<typeof AsyncStorage>;
+  }) => Promise<void> | void,
+): Promise<void> {
+  jest.resetModules();
+  jest.doMock('react', () => mockReact);
+  jest.doMock('@/constants/devConfig', () => ({
+    DEBUG: true,
+    MOCK_API: mockApi,
+  }));
+  jest.doMock('@/services/api/score', () => ({ fetchScore: mockFetchScore }));
+  jest.doMock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
+
+  const { useWeekData: isolatedUseWeekData } =
+    jest.requireActual('@/hooks/useWeekData') as typeof import('@/hooks/useWeekData');
+
+  return Promise.resolve(
+    run({
+      useWeekData: isolatedUseWeekData,
+      renderHook,
+      waitFor,
+      mockFetchScore,
+      mockAsyncStorage,
+    }),
+  );
+}
 
 describe('useWeekData', () => {
   it('retourne_null_si_peakId_absent', async () => {
@@ -81,6 +125,134 @@ describe('useWeekData', () => {
       score: 72,
       verdict: 'high',
     });
+  });
+
+  it('lit le cache valide et applique le tie-breaker du cache hit', async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: {
+          [today]: {
+            '08': { ...MOCK_SCORE, score: 72 },
+            '06': { ...MOCK_SCORE, score: 72 },
+          },
+        },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    expect(result.current.data!.bestByDate[today].hour).toBe(6);
+    expect(mockFetchScore).not.toHaveBeenCalled();
+    expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('ignore un cache invalide puis refetch et reecrit le cache', async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: {
+          [today]: {},
+        },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+    expect(mockAsyncStorage.setItem).toHaveBeenCalledTimes(1);
+    expect(mockAsyncStorage.setItem.mock.calls[0][0]).toContain('cache:weekdata:v2:peak-1:2026-03-24');
+  });
+
+  it('ignore une erreur de lecture du cache et poursuit le fetch', async () => {
+    mockAsyncStorage.getItem.mockRejectedValueOnce(new Error('read failed'));
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+    expect(mockAsyncStorage.setItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('garde les donnees actuelles pendant un refresh du meme sommet', async () => {
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: {
+          '2026-03-24': {
+            6: MOCK_SCORE,
+          },
+        },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      (({ peakId, token }: WeekDataHookProps) => useWeekData(peakId, token)) as (
+        props: unknown,
+      ) => ReturnType<typeof useWeekData>,
+      {
+        initialProps: { peakId: 'peak-1', token: 'token-1' },
+      },
+    );
+    const typedResult = result as { current: ReturnType<typeof useWeekData> };
+    const typedRerender = rerender as (props: WeekDataHookProps) => void;
+
+    await waitFor(() => expect(typedResult.current.loading).toBe(false));
+    expect(typedResult.current.data).not.toBeNull();
+
+    mockAsyncStorage.getItem.mockResolvedValueOnce(null);
+    mockFetchScore.mockImplementationOnce(() => new Promise<never>(() => undefined));
+    typedRerender({ peakId: 'peak-1', token: 'token-2' });
+    expect(typedResult.current.data).not.toBeNull();
+    expect(typedResult.current.loading).toBe(true);
+  });
+
+  it('refetch si le cache est stale même quand la journée existe', async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: {
+          [today]: {
+            6: MOCK_SCORE,
+          },
+        },
+        cachedAt: Date.now() - 31 * 60 * 1000,
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+    expect(result.current.data).not.toBeNull();
+  });
+
+  it('refetch si la date du jour est absente du cache', async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: {
+          '2026-03-23': {
+            6: MOCK_SCORE,
+          },
+        },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+    expect(result.current.data).not.toBeNull();
+    expect(Object.keys(result.current.data!.byDate)).toContain(today);
   });
 
   it('tie-break : 06h gagne sur 08h si meme score', async () => {
@@ -134,5 +306,133 @@ describe('useWeekData', () => {
     const today = '2026-03-24';
     const hours = Object.keys(result.current.data!.byDate[today]).map(Number);
     expect(hours.sort((a, b) => a - b)).toEqual([6, 8, 10, 12, 14, 16]);
+  });
+
+  it('ignore les erreurs partielles de fetch et conserve les donnees restantes', async () => {
+    mockFetchScore.mockImplementation(async (_token, _peakId, date, hour) => {
+      if (date === '2026-03-24' && hour === 6) {
+        throw new Error('503 Service Unavailable');
+      }
+      if (date === '2026-03-24' && hour === 8) {
+        throw new Error('service unavailable');
+      }
+      return MOCK_SCORE;
+    });
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    expect(result.current.error).toBeNull();
+    expect(result.current.data!.byDate['2026-03-24']).not.toHaveProperty('6');
+    expect(result.current.data!.byDate['2026-03-24']).not.toHaveProperty('8');
+  });
+
+  it('ignore une erreur de cache write sans casser le résultat', async () => {
+    mockAsyncStorage.setItem.mockRejectedValueOnce(new Error('write failed'));
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+  });
+
+  it('utilise le fallback de tie-break pour des heures inconnues et ignore une date vide', async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: {
+          [today]: {
+            18: { ...MOCK_SCORE, score: 72 },
+            20: { ...MOCK_SCORE, score: 72 },
+          },
+          '2026-03-25': {},
+        },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    expect(result.current.data!.bestByDate[today].hour).toBe(18);
+    expect(result.current.data!.bestByDate['2026-03-25']).toBeUndefined();
+  });
+
+  it('ignore une rejection non Error pendant le fetch', async () => {
+    mockFetchScore.mockImplementation(async (_token, _peakId, _date, hour) => {
+      if (hour === 6) {
+        throw 'boom';
+      }
+      return MOCK_SCORE;
+    });
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    expect(result.current.error).toBeNull();
+  });
+
+  it('couvre les branches debug quand le cache est valide', async () => {
+    await runIsolatedWeekDataTestWithDebug(false, async ({ useWeekData: isolatedUseWeekData, renderHook: isolatedRenderHook, waitFor: isolatedWaitFor, mockAsyncStorage: isolatedAsyncStorage }) => {
+      isolatedAsyncStorage.getItem.mockResolvedValueOnce(
+        JSON.stringify({
+          byDate: {
+            '2026-03-24': {
+              6: MOCK_SCORE,
+            },
+          },
+          cachedAt: Date.now(),
+        }),
+      );
+
+      const { result } = isolatedRenderHook(() => isolatedUseWeekData('peak-1', 'token'));
+      await isolatedWaitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.data).not.toBeNull();
+    });
+  });
+
+  it('couvre la branche debug quand le cache est invalide', async () => {
+    await runIsolatedWeekDataTestWithDebug(false, async ({ useWeekData: isolatedUseWeekData, renderHook: isolatedRenderHook, waitFor: isolatedWaitFor, mockAsyncStorage: isolatedAsyncStorage }) => {
+      isolatedAsyncStorage.getItem.mockResolvedValueOnce(
+        JSON.stringify({
+          byDate: {
+            '2026-03-24': {},
+          },
+          cachedAt: Date.now(),
+        }),
+      );
+
+      const { result } = isolatedRenderHook(() => isolatedUseWeekData('peak-1', 'token'));
+      await isolatedWaitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.data).not.toBeNull();
+    });
+  });
+
+  it('couvre les branches debug et MOCK_API quand le cache est ignoré', async () => {
+    await runIsolatedWeekDataTestWithDebug(true, async ({ useWeekData: isolatedUseWeekData, renderHook: isolatedRenderHook, waitFor: isolatedWaitFor, mockFetchScore: isolatedFetchScore }) => {
+      isolatedFetchScore.mockResolvedValue(MOCK_SCORE);
+
+      const { result } = isolatedRenderHook(() => isolatedUseWeekData('peak-1', 'token'));
+      await isolatedWaitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.data).not.toBeNull();
+    });
+  });
+
+  it('couvre la branche debug en cas de fetch totalement en échec', async () => {
+    await runIsolatedWeekDataTestWithDebug(true, async ({ useWeekData: isolatedUseWeekData, renderHook: isolatedRenderHook, waitFor: isolatedWaitFor, mockFetchScore: isolatedFetchScore }) => {
+      isolatedFetchScore.mockRejectedValue(new Error('503 Service Unavailable'));
+
+      const { result } = isolatedRenderHook(() => isolatedUseWeekData('peak-1', 'token'));
+      await isolatedWaitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.error).toBe('Service momentanément indisponible');
+    });
   });
 });

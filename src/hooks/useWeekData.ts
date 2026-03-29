@@ -11,8 +11,8 @@
  * - Cache AsyncStorage 30 min (bypass si MOCK_API)
  * - Tie-break : 06h > 08h > 16h > 14h > 10h > 12h
  */
+import { MOCK_API } from '@/constants/devConfig';
 import { fetchScore } from '@/services/api/score';
-import { DEBUG, MOCK_API } from '@/constants/devConfig';
 import { addDays, getTodayISO } from '@/utils/dateUtils';
 import type { ScoreResponse } from '@/services/mockData/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -99,20 +99,17 @@ export function useWeekData(
             todayHours != null &&
             Object.keys(todayHours).length > 0;
           if (cacheValid) {
-            if (DEBUG) console.debug('[useWeekData] cache hit', { peakId });
             loadedPeakRef.current = peakId;
             setData({ byDate, bestByDate: computeBestByDate(byDate) });
             setLoading(false);
             return;
           }
-          if (DEBUG) console.debug('[useWeekData] cache invalid — refetch', { peakId, todayHours });
         }
       } catch {
         // Cache read failure — non-fatal
       }
     }
 
-    if (DEBUG) console.debug('[useWeekData] starting fetch', { peakId, today });
     // Fetch réseau : 7 jours × 6 créneaux en parallèle
     const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
     const byDate: Record<string, Record<number, ScoreResponse>> = {};
@@ -130,7 +127,6 @@ export function useWeekData(
                 if (msg.includes('503') || msg.toLowerCase().includes('unavailable')) {
                   isServiceUnavailable = true;
                 }
-                if (DEBUG) console.debug('[useWeekData] fetch failed', { date, hour, msg });
                 return null;
               }),
           ),
@@ -147,20 +143,12 @@ export function useWeekData(
     );
 
     loadedPeakRef.current = peakId;
-    // Log détaillé par date
-    for (const date of dates) {
-      const hours = Object.keys(byDate[date] ?? {});
-      if (DEBUG) console.debug('[useWeekData] date result', { date, hoursLoaded: hours.length, hours });
-    }
-    if (DEBUG) console.debug('[useWeekData] fetch done', { peakId, totalSuccess, isServiceUnavailable });
-
     if (totalSuccess === 0) {
       const errMsg = isServiceUnavailable
         ? 'Service momentanément indisponible'
         : 'Erreur de chargement';
       setError(errMsg);
       setLoading(false);
-      if (DEBUG) console.debug('[useWeekData] error — all fetches failed', { peakId });
       return;
     }
 
@@ -168,8 +156,6 @@ export function useWeekData(
     setData(weekData);
     setError(null);
     setLoading(false);
-
-    if (DEBUG) console.debug('[useWeekData] loaded', { peakId, days: dates.length, totalSuccess });
 
     if (!MOCK_API) {
       try {

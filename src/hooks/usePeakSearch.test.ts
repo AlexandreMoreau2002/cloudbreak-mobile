@@ -125,6 +125,20 @@ describe('usePeakSearch', () => {
     expect(mockSearchPeaks).toHaveBeenLastCalledWith('mock-token', 'mon', expect.any(AbortSignal));
   });
 
+  it('ignore les AbortError sans passer en erreur', async () => {
+    mockSearchPeaks.mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    const { result } = renderHook(() => usePeakSearch());
+
+    act(() => { result.current.setQuery('mo'); });
+    act(() => { jest.runAllTimers(); });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('loading');
+    });
+
+    expect(result.current.state).not.toHaveProperty('error');
+  });
+
   it('repasse en idle si query retombe sous 2 caractères', () => {
     const { result } = renderHook(() => usePeakSearch());
 
