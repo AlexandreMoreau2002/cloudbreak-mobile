@@ -5,6 +5,7 @@ import i18n from '@/utils/i18n';
 import { useEffect, useRef } from 'react';
 import { useScore } from '@/hooks/useScore';
 import { Ionicons } from '@expo/vector-icons';
+import { PeakHeader } from '@/components/PeakHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ScoreCard } from '@/components/ScoreCard';
@@ -13,39 +14,13 @@ import { useRouter, type Href } from 'expo-router';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useWeekScores } from '@/hooks/useWeekScores';
 import { ScoreSkeleton } from '@/components/ScoreSkeleton';
+import { shareForecast } from '@/services/shareForecast';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const SEARCH_ROUTE = '/(tabs)/search' as Href;
-
-export function getShareForecastUrl(slug: string | null): string | null {
-  return slug ? `https://merdenua.ge/sommet/${slug}` : null;
-}
-
-export async function shareForecast(
-  slug: string | null,
-  shareImpl?: typeof Share.share,
-  alertImpl?: typeof Alert.alert,
-): Promise<void> {
-  const shareUrl = getShareForecastUrl(slug);
-  if (!shareUrl) {
-    return;
-  }
-
-  const resolvedShareImpl = shareImpl ?? Share.share;
-  const resolvedAlertImpl = alertImpl ?? Alert.alert;
-
-  try {
-    await resolvedShareImpl({
-      message: shareUrl,
-      url: shareUrl,
-    });
-  } catch {
-    resolvedAlertImpl(i18n.t('home.shareFailedTitle'), shareUrl);
-  }
-}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -85,35 +60,6 @@ export default function HomeScreen() {
     } else {
       addFavorite(peakId);
     }
-  }
-
-  function renderPeakHeader(peak: Peak) {
-    /* istanbul ignore next - le header n'est jamais appelé sans sommet sélectionné */
-    const starred = isFavorite(peak.id);
-    return (
-      <View style={styles.peakHeader}>
-        <View style={styles.peakHeaderLeft}>
-          <Text style={[styles.peakHeaderName, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold, fontSize: typography.fontSize.lg }]} numberOfLines={1}>
-            {peak.name}
-          </Text>
-          <Text style={[styles.peakHeaderAlt, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm }]}>
-            {peak.altitude} m
-          </Text>
-        </View>
-        <TouchableOpacity
-          testID="favorite-toggle-button"
-          onPress={() => handleToggleFavorite(peak.id)}
-          activeOpacity={0.7}
-          style={[styles.favButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-        >
-          <Ionicons
-            name={starred ? 'star' : 'star-outline'}
-            size={18}
-            color={starred ? colors.accent : colors.textSecondary}
-          />
-        </TouchableOpacity>
-      </View>
-    );
   }
 
   function renderConditionsSection(score: ScoreResponse) {
@@ -250,9 +196,14 @@ export default function HomeScreen() {
     const isRefreshing = scoreState.status === 'loading' && displayScore != null;
 
     if (scoreState.status === 'loading' && !displayScore) {
-      return (
+          return (
         <View style={styles.forecastStack}>
-          {renderPeakHeader(selectedPeak)}
+          <PeakHeader
+            peak={selectedPeak}
+            starred={isFavorite(selectedPeak.id)}
+            onToggleFavorite={handleToggleFavorite}
+            onShare={shareForecast}
+          />
           <ScoreSkeleton />
         </View>
       );
@@ -261,7 +212,12 @@ export default function HomeScreen() {
     if (displayScore) {
       return (
         <View style={[styles.forecastStack, isRefreshing && { opacity: 0.7 }]}>
-          {renderPeakHeader(selectedPeak)}
+          <PeakHeader
+            peak={selectedPeak}
+            starred={isFavorite(selectedPeak.id)}
+            onToggleFavorite={handleToggleFavorite}
+            onShare={shareForecast}
+          />
           <ScoreCard
             score={displayScore}
             date={selectedDate}
@@ -282,7 +238,12 @@ export default function HomeScreen() {
         : i18n.t('home.errorGeneric');
       return (
         <View style={styles.forecastStack}>
-          {renderPeakHeader(selectedPeak)}
+          <PeakHeader
+            peak={selectedPeak}
+            starred={isFavorite(selectedPeak.id)}
+            onToggleFavorite={handleToggleFavorite}
+            onShare={shareForecast}
+          />
           <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
             <Ionicons name="cloud-offline-outline" size={40} color={colors.textDisabled} style={{ marginBottom: spacing.sm }} />
             <Text style={[styles.emptyHint, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center', marginBottom: 0 }]}>
@@ -384,29 +345,6 @@ const styles = StyleSheet.create({
     gap: 22,
     alignSelf: 'center',
     maxWidth: 540,
-  },
-  peakHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-  },
-  peakHeaderLeft: {
-    flex: 1,
-    gap: 2,
-  },
-  peakHeaderName: {
-    letterSpacing: 0.5,
-  },
-  peakHeaderAlt: {},
-  favButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
   },
   widgetsRow: {
     flexDirection: 'row',

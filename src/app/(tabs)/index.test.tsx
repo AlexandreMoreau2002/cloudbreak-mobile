@@ -1,8 +1,8 @@
 import React from 'react';
-import { Alert, Share } from 'react-native';
+import { Alert } from 'react-native';
 import type { ScoreResponse } from '@/services/mockData/types';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
-import HomeScreen, { getShareForecastUrl, shareForecast } from '@/app/(tabs)/index';
+import { render, screen, fireEvent } from '@testing-library/react-native';
+import HomeScreen from '@/app/(tabs)/index';
 
 // --- Mocks ---
 
@@ -559,33 +559,6 @@ describe('HomeScreen', () => {
     });
   });
 
-  it('partage le lien de prévision avec le slug du sommet', async () => {
-    const shareSpy = jest.spyOn(Share, 'share').mockResolvedValueOnce({} as never);
-    await shareForecast('mont-blanc');
-
-    await waitFor(() =>
-      expect(shareSpy).toHaveBeenCalledWith({
-        message: 'https://merdenua.ge/sommet/mont-blanc',
-        url: 'https://merdenua.ge/sommet/mont-blanc',
-      }),
-    );
-    shareSpy.mockRestore();
-  });
-
-  it('retourne_null_si_le_slug_de_partage_est_absent', () => {
-    expect(getShareForecastUrl(null)).toBeNull();
-  });
-
-  it('ignore le partage si aucun slug nest disponible', async () => {
-    const shareSpy = jest.fn();
-    const alertSpy = jest.fn();
-
-    await shareForecast(null, shareSpy, alertSpy);
-
-    expect(shareSpy).not.toHaveBeenCalled();
-    expect(alertSpy).not.toHaveBeenCalled();
-  });
-
   it("n'affiche pas le bouton share-forecast dans le nouveau layout", () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: { ...DEFAULT_PEAK, slug: undefined as unknown as string },
@@ -603,18 +576,6 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
     // Le bouton share a été retiré du layout
     expect(screen.queryByTestId('share-forecast-button')).toBeNull();
-  });
-
-  it("affiche une alerte si le partage natif échoue", async () => {
-    const shareSpy = jest.spyOn(Share, 'share').mockRejectedValueOnce(new Error('no share'));
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    await shareForecast('mont-blanc');
-
-    await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith('Partage indisponible', 'https://merdenua.ge/sommet/mont-blanc'),
-    );
-    shareSpy.mockRestore();
-    alertSpy.mockRestore();
   });
 
   it('change la date via le week strip', () => {
