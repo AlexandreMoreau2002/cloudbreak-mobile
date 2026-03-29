@@ -20,9 +20,10 @@ export interface PeakHeaderProps {
   peak: Peak;
   isFavorite: boolean;
   onToggleFavorite: (peakId: string) => void;
+  onShare?: (slug: string) => void;
 }
 
-export function PeakHeader({ peak, isFavorite, onToggleFavorite }: PeakHeaderProps) {
+export function PeakHeader({ peak, isFavorite, onToggleFavorite, onShare }: PeakHeaderProps) {
   const { colors, typography } = useTheme();
 
   return (
@@ -38,18 +39,30 @@ export function PeakHeader({ peak, isFavorite, onToggleFavorite }: PeakHeaderPro
           {peak.altitude} m{peak.region ? ` · ${peak.region}` : ''}
         </Text>
       </View>
-      <TouchableOpacity
-        testID="favorite-toggle-button"
-        onPress={() => onToggleFavorite(peak.id)}
-        activeOpacity={0.7}
-        style={[styles.favButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-      >
-        <Ionicons
-          name={isFavorite ? 'star' : 'star-outline'}
-          size={18}
-          color={isFavorite ? colors.accent : colors.textSecondary}
-        />
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TouchableOpacity
+          testID="favorite-toggle-button"
+          onPress={() => onToggleFavorite(peak.id)}
+          activeOpacity={0.7}
+          style={[styles.favButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
+          <Ionicons
+            name={isFavorite ? 'star' : 'star-outline'}
+            size={18}
+            color={isFavorite ? colors.accent : colors.textSecondary}
+          />
+        </TouchableOpacity>
+        {onShare ? (
+          <TouchableOpacity
+            testID="share-button"
+            onPress={() => onShare(peak.slug)}
+            activeOpacity={0.7}
+            style={[styles.favButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <Ionicons name="share-social-outline" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </View>
   );
 }
