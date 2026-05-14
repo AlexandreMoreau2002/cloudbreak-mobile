@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { getPalette } from '@/components/cloud-layer-viz/palette';
-import { __private__, CloudLayerViz } from '@/components/CloudLayerViz';
+import { __private__, CloudLayerViz } from '@/components/cloud-layer-viz';
 import { __private__ as compactPrivate } from '@/components/cloud-layer-viz/CompactCloudLayerViz';
 
 jest.mock('@/utils/i18n', () => ({

@@ -112,8 +112,8 @@ describe('useWeekData', () => {
     // 7 jours attendus
     expect(Object.keys(result.current.data!.byDate)).toHaveLength(7);
     expect(Object.keys(result.current.data!.bestByDate)).toHaveLength(7);
-    // fetchScore appelé 42 fois (7 jours × 6 créneaux)
-    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+    // fetchScore appelé 63 fois (7 jours × 9 créneaux)
+    expect(mockFetchScore).toHaveBeenCalledTimes(63);
   });
 
   it('bestByDate contient le score et le verdict corrects', async () => {
@@ -165,9 +165,9 @@ describe('useWeekData', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.data).not.toBeNull();
-    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+    expect(mockFetchScore).toHaveBeenCalledTimes(63);
     expect(mockAsyncStorage.setItem).toHaveBeenCalledTimes(1);
-    expect(mockAsyncStorage.setItem.mock.calls[0][0]).toContain('cache:weekdata:v2:peak-1:2026-03-24');
+    expect(mockAsyncStorage.setItem.mock.calls[0][0]).toContain('cache:weekdata:v3:peak-1:2026-03-24');
   });
 
   it('ignore une erreur de lecture du cache et poursuit le fetch', async () => {
@@ -177,7 +177,7 @@ describe('useWeekData', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.data).not.toBeNull();
-    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+    expect(mockFetchScore).toHaveBeenCalledTimes(63);
     expect(mockAsyncStorage.setItem).toHaveBeenCalledTimes(1);
   });
 
@@ -230,7 +230,7 @@ describe('useWeekData', () => {
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+    expect(mockFetchScore).toHaveBeenCalledTimes(63);
     expect(result.current.data).not.toBeNull();
   });
 
@@ -250,7 +250,7 @@ describe('useWeekData', () => {
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+    expect(mockFetchScore).toHaveBeenCalledTimes(63);
     expect(result.current.data).not.toBeNull();
     expect(Object.keys(result.current.data!.byDate)).toContain(today);
   });
@@ -305,7 +305,7 @@ describe('useWeekData', () => {
 
     const today = '2026-03-24';
     const hours = Object.keys(result.current.data!.byDate[today]).map(Number);
-    expect(hours.sort((a, b) => a - b)).toEqual([6, 8, 10, 12, 14, 16]);
+    expect(hours.sort((a, b) => a - b)).toEqual([6, 8, 10, 12, 14, 16, 18, 20, 22]);
   });
 
   it('ignore les erreurs partielles de fetch et conserve les donnees restantes', async () => {
@@ -335,7 +335,7 @@ describe('useWeekData', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.data).not.toBeNull();
-    expect(mockFetchScore).toHaveBeenCalledTimes(42);
+    expect(mockFetchScore).toHaveBeenCalledTimes(63);
   });
 
   it('utilise le fallback de tie-break pour des heures inconnues et ignore une date vide', async () => {
@@ -434,5 +434,108 @@ describe('useWeekData', () => {
 
       expect(result.current.error).toBe('Service momentanément indisponible');
     });
+  });
+
+  it('tie-break : 06h remplace 20h si traité après et même score (branche bestDay=candidate)', async () => {
+    const today = '2026-03-24';
+    // 20h traité en premier → bestDay=20h, puis 6h : TIEBREAKER[6]=0 < TIEBREAKER[20]=7 → bestDay=6h (ligne 53)
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: {
+          [today]: {
+            20: { ...MOCK_SCORE, score: 72 },
+            6: { ...MOCK_SCORE, score: 72 },
+          },
+        },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    expect(result.current.data!.bestByDate[today].hour).toBe(6);
+  });
+
+  it('tie-break : une heure inconnue en bestDay et heure inconnue en candidate (deux ?? 99)', async () => {
+    const today = '2026-03-24';
+    // heure 7 et 9 ne sont pas dans TIEBREAKER → TIEBREAKER[7] ?? 99 = 99, TIEBREAKER[9] ?? 99 = 99
+    // 7 traité en premier (bestDay=7), puis 9 : scores égaux, 99 < 99 = false → bestDay reste 7
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: {
+          [today]: {
+            7: { ...MOCK_SCORE, score: 72 },
+            9: { ...MOCK_SCORE, score: 72 },
+          },
+        },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    // bestDay reste 7 (premier traité) car les deux ?? 99 sont égaux
+    expect(result.current.data!.bestByDate[today].hour).toBe(7);
+  });
+
+  it('tie-break : couvre la branche ?? 99 pour une heure inconnue du TIEBREAKER', async () => {
+    const today = '2026-03-24';
+    // heure 7 n'est pas dans TIEBREAKER → TIEBREAKER[7] ?? 99 = 99
+    // heure 6 est dans TIEBREAKER → TIEBREAKER[6] ?? 99 = 0
+    // 7 traité en premier (bestDay=7 via !bestDay), puis 6: scores égaux, 0 < 99 → bestDay=6 (ligne 53, branche ??)
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: {
+          [today]: {
+            7: { ...MOCK_SCORE, score: 72 },
+            6: { ...MOCK_SCORE, score: 72 },
+          },
+        },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    expect(result.current.data!.bestByDate[today].hour).toBe(6);
+  });
+
+  it('retourne QUOTA_EXCEEDED quand tous les fetches echouent avec ce code', async () => {
+    const quotaErr = new Error('Quota exceeded') as Error & { code: string };
+    quotaErr.code = 'QUOTA_EXCEEDED';
+    mockFetchScore.mockRejectedValue(quotaErr);
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBe('QUOTA_EXCEEDED');
+    expect(result.current.quotaExceeded).toBe(true);
+    expect(result.current.data).toBeNull();
+  });
+
+  it('ouvre le paywall des le premier QUOTA_EXCEEDED meme si des donnees partielles existent', async () => {
+    const quotaErr = new Error('Quota exceeded') as Error & { code: string };
+    quotaErr.code = 'QUOTA_EXCEEDED';
+    let callCount = 0;
+    mockFetchScore.mockImplementation(async () => {
+      callCount++;
+      // Les 9 premiers appels reussissent, le reste echoue avec quota
+      if (callCount <= 9) {
+        return MOCK_SCORE;
+      }
+      throw quotaErr;
+    });
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.quotaExceeded).toBe(true);
+    expect(result.current.error).toBe('QUOTA_EXCEEDED');
   });
 });

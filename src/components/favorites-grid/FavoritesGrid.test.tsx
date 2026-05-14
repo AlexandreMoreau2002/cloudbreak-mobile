@@ -1,5 +1,5 @@
 import React from 'react';
-import { FavoritesGrid } from '@/components/FavoritesGrid';
+import { FavoritesGrid } from '@/components/favorites-grid';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 jest.mock('@/utils/i18n', () => ({

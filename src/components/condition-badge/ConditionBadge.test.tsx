@@ -1,5 +1,5 @@
 import React from 'react';
-import { ConditionBadge } from '@/components/ConditionBadge';
+import { ConditionBadge } from '@/components/condition-badge';
 import { render, screen } from '@testing-library/react-native';
 
 describe('ConditionBadge', () => {

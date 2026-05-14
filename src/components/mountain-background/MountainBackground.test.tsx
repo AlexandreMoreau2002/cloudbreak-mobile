@@ -1,6 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { MountainBackground } from '@/components/MountainBackground';
+import { MountainBackground } from '@/components/mountain-background';
 
 describe('MountainBackground', () => {
   it('s\'affiche avec l\'opacité par défaut (0.12)', () => {

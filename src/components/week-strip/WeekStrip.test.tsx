@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { WeekStrip } from '@/components/WeekStrip';
+import { WeekStrip } from '@/components/week-strip';
 import type { WeekScores } from '@/hooks/useWeekScores';
 
 let mockScheme: 'light' | 'dark' = 'light';

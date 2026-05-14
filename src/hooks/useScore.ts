@@ -93,7 +93,16 @@ export function useScore(
 
       setState({ status: 'success', data });
     } catch (err) {
-      const raw = err instanceof Error ? err.message : 'Erreur inconnue';
+      const errObj = err instanceof Error ? err : null;
+      const code: string | undefined = errObj ? (errObj as Error & { code?: string }).code : undefined;
+      const raw = errObj ? errObj.message : 'Erreur inconnue';
+
+      if (code === 'QUOTA_EXCEEDED') {
+        if (DEBUG) console.debug('[useScore] quota exceeded', { peakId, date, hour });
+        setState({ status: 'error', error: 'QUOTA_EXCEEDED' });
+        return;
+      }
+
       const message = raw.includes('503') || raw.toLowerCase().includes('unavailable')
         ? 'Service momentanément indisponible'
         : 'Erreur de chargement';

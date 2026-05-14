@@ -1,5 +1,5 @@
 import React from 'react';
-import { PeakHeader } from '@/components/PeakHeader';
+import { PeakHeader } from '@/components/peak-header';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
@@ -37,10 +37,26 @@ describe('PeakHeader', () => {
     expect(screen.getByText('4807 m · Massif du Mont-Blanc')).toBeTruthy();
   });
 
+  it('affiche altitude sans region quand region est absent', () => {
+    const peakWithoutRegion = { ...peak, region: undefined };
+    render(<PeakHeader peak={peakWithoutRegion} isFavorite={false} onToggleFavorite={jest.fn()} />);
+    expect(screen.getByText('Mont Blanc')).toBeTruthy();
+    expect(screen.getByText('4807 m')).toBeTruthy();
+  });
+
   it('déclenche le toggle favori', () => {
     const onToggleFavorite = jest.fn();
     render(<PeakHeader peak={peak} isFavorite onToggleFavorite={onToggleFavorite} />);
     fireEvent.press(screen.getByTestId('favorite-toggle-button'));
     expect(onToggleFavorite).toHaveBeenCalledWith('peak-1');
+  });
+
+  it('affiche le bouton share et appelle onShare avec le slug', () => {
+    const onShare = jest.fn();
+    render(<PeakHeader peak={peak} isFavorite={false} onToggleFavorite={jest.fn()} onShare={onShare} />);
+    const shareBtn = screen.getByTestId('share-button');
+    expect(shareBtn).toBeTruthy();
+    fireEvent.press(shareBtn);
+    expect(onShare).toHaveBeenCalledWith('mont-blanc');
   });
 });

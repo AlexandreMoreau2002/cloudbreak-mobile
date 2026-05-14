@@ -19,7 +19,7 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ signOut: mockSignOut }),
 }));
 
-jest.mock('@/components/CloudLayerViz', () => ({
+jest.mock('@/components/cloud-layer-viz', () => ({
   CloudLayerViz: () => null,
 }));
 

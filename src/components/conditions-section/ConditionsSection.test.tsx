@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert } from 'react-native';
 import type { ScoreResponse } from '@/services/mockData/types';
-import { ConditionsSection } from '@/components/ConditionsSection';
+import { ConditionsSection } from '@/components/conditions-section';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));

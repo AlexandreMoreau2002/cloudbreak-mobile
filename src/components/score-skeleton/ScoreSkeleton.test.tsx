@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScoreSkeleton } from '@/components/ScoreSkeleton';
+import { ScoreSkeleton } from '@/components/score-skeleton';
 import { render, screen } from '@testing-library/react-native';
 
 let mockScheme: 'light' | 'dark' = 'light';

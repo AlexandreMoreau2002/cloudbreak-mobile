@@ -2,7 +2,7 @@ import i18n from '@/utils/i18n';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { MountainBackground } from '@/components/MountainBackground';
+import { MountainBackground } from '@/components/mountain-background';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {

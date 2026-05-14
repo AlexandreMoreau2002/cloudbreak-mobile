@@ -80,6 +80,21 @@ jest.mock('@/utils/i18n', () => ({
       'score.medium': 'Moyenne',
       'score.low': 'Faible',
       'score.context.high.favorable_window': 'Conditions favorables : la couche est bien placée pour une mer de nuage.',
+      'paywall.quotaCounterNone': 'Quota épuisé',
+      'paywall.quotaTitle': 'Quota atteint',
+      'paywall.quotaSubtitle': 'Vous avez atteint votre limite quotidienne.',
+      'paywall.title': 'Débloquer les prévisions illimitées',
+      'paywall.subtitle': 'Accédez à toutes vos prévisions, sans limite quotidienne.',
+      'paywall.trialBadge': 'Essai gratuit 7 jours',
+      'paywall.premiumLabel': 'Premium',
+      'paywall.premiumPrice': '5€ / mois',
+      'paywall.premiumDescription': 'Prévisions illimitées, accès complet.',
+      'paywall.proLabel': 'Pro',
+      'paywall.proPrice': '45€ / an',
+      'paywall.proDescription': 'Le meilleur rapport qualité / prix.',
+      'paywall.ctaStart': "Commencer l'essai gratuit",
+      'paywall.ctaRestore': 'Restaurer un achat',
+      'paywall.dismiss': 'Continuer sans Premium',
     };
     return map[key] ?? key;
   },
@@ -91,6 +106,7 @@ jest.mock('@/constants/devConfig', () => ({
 
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
+    scheme: 'light',
     colors: {
       background: '#EFE8DC',
       surface: '#F7F5F1',
@@ -102,7 +118,7 @@ jest.mock('@/contexts/ThemeContext', () => ({
       textDisabled: '#9E9E9E',
     },
     typography: {
-      fontFamily: { regular: 'Josefin Sans', semiBold: 'Josefin Sans', bold: 'Josefin Sans' },
+      fontFamily: { regular: 'Josefin Sans', light: 'Josefin Sans', semiBold: 'Josefin Sans', bold: 'Josefin Sans' },
       fontSize: { xs: 12, sm: 14, md: 16, lg: 20, xl: 24, hero: 72 },
       lineHeight: { tight: 1.1 },
     },
@@ -200,24 +216,26 @@ function setupSuccess(
   score: Partial<ScoreResponse> = MOCK_SCORE_DATA,
   date = '2026-03-24',
   hour = 6,
+  quotaExceeded = false,
 ) {
   mockUseWeekData.mockReturnValue({
     data: makeWeekData({ ...MOCK_SCORE_DATA, ...score } as ScoreResponse, date, hour),
     loading: false,
     error: null,
+    quotaExceeded,
   });
 }
 
 function setupLoading(existingData: WeekData | null = null) {
-  mockUseWeekData.mockReturnValue({ data: existingData, loading: true, error: null });
+  mockUseWeekData.mockReturnValue({ data: existingData, loading: true, error: null, quotaExceeded: false });
 }
 
-function setupError(message = 'Erreur de chargement') {
-  mockUseWeekData.mockReturnValue({ data: null, loading: false, error: message });
+function setupError(message = 'Erreur de chargement', quotaExceeded = false) {
+  mockUseWeekData.mockReturnValue({ data: null, loading: false, error: message, quotaExceeded });
 }
 
 function setupIdle() {
-  mockUseWeekData.mockReturnValue({ data: null, loading: false, error: null });
+  mockUseWeekData.mockReturnValue({ data: null, loading: false, error: null, quotaExceeded: false });
 }
 
 // --- Tests ---
@@ -980,6 +998,98 @@ describe('HomeScreen', () => {
       lat: 45.1,
       lng: 5.6,
       altitude: 1901,
+    });
+  });
+
+  it('appelle setSelectedHour quand on presse un chip horaire dans la ScoreCard', () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess();
+
+    render(<HomeScreen />);
+    // Presser le chip "08h" pour déclencher onSelectHour (ligne 172)
+    fireEvent.press(screen.getByText('08h'));
+    expect(mockSetSelectedHour).toHaveBeenCalledWith(8);
+  });
+
+  it('ouvre le paywall automatiquement quand quotaExceeded passe a true', () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess(MOCK_SCORE_DATA, '2026-03-24', 6, true);
+
+    render(<HomeScreen />);
+    expect(screen.getByTestId('quota-counter-badge')).toBeTruthy();
+    expect(screen.getByTestId('paywall-dismiss-button')).toBeTruthy();
+  });
+
+  it('affiche le badge quota et ouvre le paywall au clic dessus', () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess(MOCK_SCORE_DATA, '2026-03-24', 6, true);
+
+    render(<HomeScreen />);
+    const badge = screen.getByTestId('quota-counter-badge');
+    expect(badge).toBeTruthy();
+    fireEvent.press(badge);
+    // Le paywall modal doit etre visible apres le press
+    expect(screen.getByTestId('paywall-modal')).toBeTruthy();
+  });
+
+  it('affiche la carte quota exceeded et ouvre le paywall au clic sur le bouton', () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupError('QUOTA_EXCEEDED', true);
+
+    render(<HomeScreen />);
+    const openPaywallBtn = screen.getByTestId('quota-open-paywall-button');
+    expect(openPaywallBtn).toBeTruthy();
+    fireEvent.press(openPaywallBtn);
+    expect(screen.getByTestId('paywall-modal')).toBeTruthy();
+  });
+
+  it('ferme le paywall via onDismiss apres ouverture manuelle', async () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess(MOCK_SCORE_DATA, '2026-03-24', 6, true);
+
+    render(<HomeScreen />);
+    // Ouvrir le paywall via le badge quota
+    fireEvent.press(screen.getByTestId('quota-counter-badge'));
+    expect(screen.getByTestId('paywall-dismiss-button')).toBeTruthy();
+    // Fermer le paywall via le bouton dismiss
+    fireEvent.press(screen.getByTestId('paywall-dismiss-button'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('paywall-dismiss-button')).toBeNull();
     });
   });
 });

@@ -111,9 +111,157 @@ describe('AuthContext', () => {
     expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 
+  it('signOut ignore les erreurs supabase.auth.signOut', async () => {
+    mockSignOut.mockRejectedValueOnce(new Error('network down'));
+
+    function TestSignOutError() {
+      const [done, setDone] = React.useState(false);
+      const { signOut } = useAuth();
+      return (
+        <>
+          <Text testID="done">{String(done)}</Text>
+          <TouchableOpacity
+            testID="signOut"
+            onPress={async () => {
+              await signOut();
+              setDone(true);
+            }}
+          />
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <AuthProvider><TestSignOutError /></AuthProvider>
+    );
+    fireEvent.press(getByTestId('signOut'));
+
+    await waitFor(() => expect(getByTestId('done').props.children).toBe('true'));
+  });
+
   it('useAuth lance une erreur hors AuthProvider', () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => render(<TestConsumer />)).toThrow('useAuth must be used within AuthProvider');
     consoleError.mockRestore();
+  });
+
+  it('signUp active authServiceUnavailable quand supabase.auth.signUp throw', async () => {
+    mockSignUp.mockRejectedValueOnce(new Error('network down'));
+
+    function TestUnavailable() {
+      const { authServiceUnavailable, signUp } = useAuth();
+      return (
+        <>
+          <Text testID="unavailable">{String(authServiceUnavailable)}</Text>
+          <TouchableOpacity testID="signUp" onPress={() => signUp('a@b.com', 'pass')} />
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <AuthProvider><TestUnavailable /></AuthProvider>
+    );
+    await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('false'));
+    fireEvent.press(getByTestId('signUp'));
+    await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('true'));
+  });
+
+  it('signIn active authServiceUnavailable quand supabase.auth.signInWithPassword throw', async () => {
+    mockSignIn.mockRejectedValueOnce(new Error('network down'));
+
+    function TestUnavailable() {
+      const { authServiceUnavailable, signIn } = useAuth();
+      return (
+        <>
+          <Text testID="unavailable">{String(authServiceUnavailable)}</Text>
+          <TouchableOpacity testID="signIn" onPress={() => signIn('a@b.com', 'pass')} />
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <AuthProvider><TestUnavailable /></AuthProvider>
+    );
+    await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('false'));
+    fireEvent.press(getByTestId('signIn'));
+    await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('true'));
+  });
+
+  it('getSession rejeté avec erreur réseau active authServiceUnavailable', async () => {
+    mockGetSession.mockRejectedValueOnce(new Error('network request failed'));
+
+    function TestUnavailable() {
+      const { authServiceUnavailable } = useAuth();
+      return <Text testID="unavailable">{String(authServiceUnavailable)}</Text>;
+    }
+
+    const { getByTestId } = render(
+      <AuthProvider><TestUnavailable /></AuthProvider>
+    );
+    await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('true'));
+  });
+
+  it('getSession rejeté avec valeur non-Error ne plante pas', async () => {
+    mockGetSession.mockRejectedValueOnce('plain string error');
+
+    function TestUnavailable() {
+      const { authServiceUnavailable, loading } = useAuth();
+      return (
+        <>
+          <Text testID="loading">{String(loading)}</Text>
+          <Text testID="unavailable">{String(authServiceUnavailable)}</Text>
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <AuthProvider><TestUnavailable /></AuthProvider>
+    );
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+    expect(getByTestId('unavailable').props.children).toBe('false');
+  });
+
+  it('signUp avec erreur réseau retournée active authServiceUnavailable', async () => {
+    const networkError = Object.assign(new Error('network request failed'), { status: 0 });
+    mockSignUp.mockResolvedValueOnce({ error: networkError });
+
+    function TestUnavailable() {
+      const { authServiceUnavailable, signUp } = useAuth();
+      return (
+        <>
+          <Text testID="unavailable">{String(authServiceUnavailable)}</Text>
+          <TouchableOpacity testID="signUp" onPress={() => signUp('a@b.com', 'pass')} />
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <AuthProvider><TestUnavailable /></AuthProvider>
+    );
+    await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('false'));
+    fireEvent.press(getByTestId('signUp'));
+    await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('true'));
+  });
+
+  it('signIn avec erreur réseau retournée active authServiceUnavailable', async () => {
+    const networkError = Object.assign(new Error('failed to fetch'), { status: 0 });
+    mockSignIn.mockResolvedValueOnce({ error: networkError });
+
+    function TestUnavailable() {
+      const { authServiceUnavailable, signIn } = useAuth();
+      return (
+        <>
+          <Text testID="unavailable">{String(authServiceUnavailable)}</Text>
+          <TouchableOpacity testID="signIn" onPress={() => signIn('a@b.com', 'pass')} />
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <AuthProvider><TestUnavailable /></AuthProvider>
+    );
+    await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('false'));
+    fireEvent.press(getByTestId('signIn'));
+    await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('true'));
   });
 });
