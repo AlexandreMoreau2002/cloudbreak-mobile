@@ -2,8 +2,8 @@ import i18n from '@/utils/i18n';
 import { Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { PaywallScreen } from '@/components/paywall';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { usePaywall, PaywallProvider } from '@/contexts/PaywallContext';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];

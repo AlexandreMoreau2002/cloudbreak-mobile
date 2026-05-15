@@ -2,6 +2,11 @@ import React from 'react';
 import ProfileScreen from '@/app/(tabs)/profile';
 import { render, fireEvent } from '@testing-library/react-native';
 
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 12, right: 0, bottom: 0, left: 0 }),
 }));
@@ -18,12 +23,18 @@ jest.mock('@/utils/i18n', () => ({
 const mockSignOut = jest.fn();
 const mockToggleScheme = jest.fn();
 const mockToggleLocale = jest.fn();
+let mockSession: { user: { email?: string } } | null = { user: { email: 'test@example.com' } };
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     signOut: mockSignOut,
-    session: { user: { email: 'test@example.com' } },
+    session: mockSession,
   }),
+}));
+
+const mockShowPaywall = jest.fn();
+jest.mock('@/contexts/PaywallContext', () => ({
+  usePaywall: () => ({ showPaywall: mockShowPaywall }),
 }));
 
 const mockSetSelectedPeak = jest.fn();
@@ -57,7 +68,12 @@ jest.mock('@/contexts/ThemeContext', () => ({
 }));
 
 describe('ProfileScreen', () => {
-  beforeEach(() => { jest.clearAllMocks(); mockScheme = 'light'; mockLocale = 'fr'; });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockScheme = 'light';
+    mockLocale = 'fr';
+    mockSession = { user: { email: 'test@example.com' } };
+  });
 
   it('s\'affiche sans erreur', () => {
     const { getByText } = render(<ProfileScreen />);
@@ -67,6 +83,15 @@ describe('ProfileScreen', () => {
   it('affiche la carte utilisateur avec email', () => {
     const { getByText } = render(<ProfileScreen />);
     expect(getByText('test@example.com')).toBeTruthy();
+  });
+
+  it('affiche le profil sans email quand la session est absente', () => {
+    mockSession = null;
+
+    const { getByText, queryByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.title')).toBeTruthy();
+    expect(queryByText('test@example.com')).toBeNull();
   });
 
   it('affiche le banner pro', () => {
@@ -119,5 +144,15 @@ describe('ProfileScreen', () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('profile.signOut'));
     expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('branche les boutons DEV sur le sandbox et le reset du sommet sélectionné', () => {
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('DEV · CloudLayerViz Sandbox'));
+    expect(mockPush).toHaveBeenCalledWith('/sandbox');
+
+    fireEvent.press(getByText('DEV · Reset sommet sélectionné'));
+    expect(mockSetSelectedPeak).toHaveBeenCalledWith(null);
   });
 });

@@ -2,12 +2,12 @@
  * HomeScreen — écran principal, affiche le score mer de nuage du sommet sélectionné.
  */
 import i18n from '@/utils/i18n';
+import { useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWeekData } from '@/hooks/useWeekData';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter, type Href } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
 import { ScoreCard } from '@/components/score-card';
 import { WeekStrip } from '@/components/week-strip';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -63,7 +63,7 @@ export default function HomeScreen() {
   const token = session?.access_token ?? null;
   const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded } = useWeekData(selectedPeak?.id ?? null, token);
 
-  const { showPaywall, hidePaywall, paywallVisible } = usePaywall();
+  const { showPaywall } = usePaywall();
   const userClickedHourRef = useRef(false);
 
   useEffect(() => {
