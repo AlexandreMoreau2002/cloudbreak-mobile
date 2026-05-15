@@ -1,109 +1,119 @@
 import i18n from '@/utils/i18n';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { usePaywall } from '@/contexts/PaywallContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { CloudLayerViz } from '@/components/cloud-layer-viz';
+import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MOCK_SCORE_HIGH, MOCK_SCORE_MEDIUM } from '@/services/mockData/score';
+import { ProBanner, SettingsRow, UserCard } from '@/components/profile';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
-  const { signOut } = useAuth();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showPaywall } = usePaywall();
+  const { session, signOut } = useAuth();
+  const { setSelectedPeak } = useSelectedPeak();
   const { locale, toggleLocale } = useLanguage();
   const { colors, typography, scheme, toggleScheme } = useTheme();
 
+  const email = session?.user?.email ?? '';
+
   return (
     <ScrollView
-      key={locale}
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
     >
-      <Text style={{ color: colors.textPrimary, fontSize: typography.fontSize.lg, fontFamily: typography.fontFamily.semiBold }}>
-        {i18n.t('profile.comingSoon')}
+      <Text style={[styles.eyebrow, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+        {i18n.t('profile.eyebrow')}
+      </Text>
+      <Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold }]}>
+        {i18n.t('profile.title')}
       </Text>
 
-      <TouchableOpacity style={[styles.button, { borderColor: colors.accent, backgroundColor: colors.surface }]} onPress={toggleScheme}>
-        <Text style={{ color: colors.accent, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }}>
-          {scheme === 'light' ? i18n.t('profile.darkMode') : i18n.t('profile.lightMode')}
-        </Text>
-      </TouchableOpacity>
+      <UserCard email={email} />
 
-      <TouchableOpacity
-        style={[styles.button, { borderColor: colors.accentSecondary ?? colors.accent, backgroundColor: colors.surface }]}
-        onPress={toggleLocale}
-      >
-        <Text style={{ color: colors.accent, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }}>
-          {locale === 'fr' ? i18n.t('profile.languageEn') : i18n.t('profile.languageFr')}
-        </Text>
-      </TouchableOpacity>
+      <ProBanner
+        label={i18n.t('profile.proBannerLabel')}
+        title={i18n.t('profile.proBannerTitle')}
+        subtitle={i18n.t('profile.proBannerSubtitle')}
+        onPress={showPaywall}
+      />
 
-      <TouchableOpacity style={[styles.button, { borderColor: colors.border }]} onPress={signOut}>
-        <Text style={{ color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm }}>
-          {i18n.t('profile.signOut')}
-        </Text>
-      </TouchableOpacity>
-
-      <View style={styles.sandbox}>
-        <Text style={[styles.sandboxTitle, { color: colors.textPrimary, fontFamily: typography.fontFamily.semiBold }]}>
-          CloudLayerViz Sandbox
-        </Text>
-
-        <View style={[styles.sandboxCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sandboxLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
-            Variante A · sommet au-dessus
-          </Text>
-          <CloudLayerViz viz={MOCK_SCORE_HIGH.cloud_layer_viz!} variant="focus" showVariantLabel />
-        </View>
-
-        <View style={[styles.sandboxCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sandboxLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
-            Variante B · marge serrée
-          </Text>
-          <CloudLayerViz viz={MOCK_SCORE_MEDIUM.cloud_layer_viz!} variant="ridge" showVariantLabel />
-        </View>
-
-        <View style={[styles.sandboxCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sandboxLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
-            Variante C · nuage couvrant
-          </Text>
-          <CloudLayerViz
-            viz={{
-              ...MOCK_SCORE_HIGH.cloud_layer_viz!,
-              cloud_base: 2600,
-            }}
-            variant="minimal"
-            showVariantLabel
-          />
-        </View>
-
-        <View style={[styles.sandboxCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sandboxLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
-            Variante D · ciel dégagé (WIP)
-          </Text>
-          <CloudLayerViz
-            viz={{ summit_altitude: 476, cloud_base: 5000, pressure_levels: [] }}
-            isSunny
-          />
-        </View>
+      <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+        {i18n.t('profile.sectionPreferences')}
+      </Text>
+      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SettingsRow
+          icon="sunny-outline"
+          label={i18n.t('profile.appearance')}
+          value={scheme === 'light' ? i18n.t('profile.appearanceLight') : i18n.t('profile.appearanceDark')}
+          onPress={toggleScheme}
+        />
+        <SettingsRow
+          icon="language-outline"
+          label={i18n.t('profile.language')}
+          value={locale === 'fr' ? i18n.t('profile.languageFrLabel') : i18n.t('profile.languageEnLabel')}
+          onPress={toggleLocale}
+          isLast
+        />
       </View>
+
+      <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+        {i18n.t('profile.sectionAccount')}
+      </Text>
+      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <TouchableOpacity style={styles.signOutRow} onPress={signOut} activeOpacity={0.7}>
+          <Ionicons name="log-out-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
+          <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
+            {i18n.t('profile.signOut')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {__DEV__ && (
+        <>
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: colors.border }]}
+            onPress={() => router.push('/sandbox' as import('expo-router').Href)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.devText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+              DEV · CloudLayerViz Sandbox
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: '#C25C4A' }]}
+            onPress={() => setSelectedPeak(null)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
+              DEV · Reset sommet sélectionné
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingHorizontal: 24, paddingBottom: 40, gap: 24 },
-  button: { borderWidth: 1, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24 },
-  sandbox: { gap: 16 },
-  sandboxTitle: { fontSize: 20 },
-  sandboxCard: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
-  },
-  sandboxLabel: {
-    fontSize: 13,
-  },
+  content: { paddingHorizontal: 24, paddingBottom: 48, gap: 12 },
+
+  eyebrow: { fontSize: 11, letterSpacing: 1.5, lineHeight: Math.round(11 * 1.5) },
+  title: { fontSize: 32, marginBottom: 4, lineHeight: Math.round(32 * 1.2) },
+
+  sectionLabel: { fontSize: 11, letterSpacing: 1.5, lineHeight: Math.round(11 * 1.5), marginTop: 8 },
+
+  group: { borderWidth: 1, borderRadius: 16, overflow: 'hidden' },
+
+  signOutRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
+  signOutIcon: { width: 20, textAlign: 'center' },
+  signOutLabel: { flex: 1, fontSize: 15, lineHeight: Math.round(15 * 1.5), color: '#C25C4A' },
+
+  devButton: { borderWidth: 1, borderRadius: 12, borderStyle: 'dashed', padding: 12, alignItems: 'center', marginTop: 8 },
+  devText: { fontSize: 12, lineHeight: Math.round(12 * 1.5) },
 });

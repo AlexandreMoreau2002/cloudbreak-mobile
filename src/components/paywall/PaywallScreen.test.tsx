@@ -5,6 +5,12 @@ import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { PaywallScreen } from '@/components/paywall';
 
+const mockDevConfigState = { DEBUG: false };
+
+jest.mock('@/constants/devConfig', () => ({
+  get DEBUG() { return mockDevConfigState.DEBUG; },
+}));
+
 jest.mock('@/utils/i18n', () => ({
   t: (key: string) => {
     const map: Record<string, string> = {
@@ -56,7 +62,12 @@ describe('PaywallScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDevConfigState.DEBUG = false;
     mockScheme = 'light';
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('affiche_le_paywall_quand_visible_true', () => {
@@ -64,6 +75,13 @@ describe('PaywallScreen', () => {
       <PaywallScreen visible onDismiss={mockOnDismiss} onSelectPlan={mockOnSelectPlan} />,
     );
     expect(screen.getByTestId('paywall-sheet')).toBeTruthy();
+  });
+
+  it('réinitialise_l_animation_quand_le_paywall_est_masqué', () => {
+    render(
+      <PaywallScreen visible={false} onDismiss={mockOnDismiss} onSelectPlan={mockOnSelectPlan} />,
+    );
+    expect(screen.queryByTestId('paywall-sheet')).toBeNull();
   });
 
   it('affiche_le_titre_et_le_badge_essai', () => {
@@ -87,13 +105,27 @@ describe('PaywallScreen', () => {
     expect(screen.getByText('−33%')).toBeTruthy();
   });
 
-  it('selectionne_annuel_par_defaut', () => {
+  it('selectionne_annuel_par_defaut_sans_log_quand_debug_desactive', () => {
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation();
     render(
       <PaywallScreen visible onDismiss={mockOnDismiss} onSelectPlan={mockOnSelectPlan} />,
     );
     // CTA par défaut déclenche 'annual'
     fireEvent.press(screen.getByTestId('paywall-cta-button'));
     expect(mockOnSelectPlan).toHaveBeenCalledWith('annual');
+    expect(debugSpy).not.toHaveBeenCalled();
+  });
+
+  it('log_le_plan_selectionne_quand_debug_est_actif', () => {
+    mockDevConfigState.DEBUG = true;
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation();
+
+    render(
+      <PaywallScreen visible onDismiss={mockOnDismiss} onSelectPlan={mockOnSelectPlan} />,
+    );
+
+    fireEvent.press(screen.getByTestId('paywall-cta-button'));
+    expect(debugSpy).toHaveBeenCalledWith('[PaywallScreen] commencer essai', { plan: 'annual' });
   });
 
   it('toggle_vers_mensuel_change_la_selection', () => {

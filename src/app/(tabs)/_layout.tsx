@@ -2,12 +2,19 @@ import i18n from '@/utils/i18n';
 import { Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { PaywallScreen } from '@/components/paywall';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { usePaywall, PaywallProvider } from '@/contexts/PaywallContext';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
 function TabIcon({ name, color }: { name: FeatherName; color: string }) {
   return <Feather name={name} size={22} color={color} />;
+}
+
+function GlobalPaywall() {
+  const { paywallVisible, hidePaywall } = usePaywall();
+  return <PaywallScreen visible={paywallVisible} onDismiss={hidePaywall} />;
 }
 
 export default function TabsLayout() {
@@ -32,6 +39,7 @@ export default function TabsLayout() {
   };
 
   return (
+    <PaywallProvider>
     <Tabs
       key={locale}
       screenOptions={{
@@ -71,5 +79,7 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    <GlobalPaywall />
+    </PaywallProvider>
   );
 }
