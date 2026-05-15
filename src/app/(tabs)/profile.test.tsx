@@ -26,6 +26,11 @@ jest.mock('@/contexts/AuthContext', () => ({
   }),
 }));
 
+const mockSetSelectedPeak = jest.fn();
+jest.mock('@/contexts/SelectedPeakContext', () => ({
+  useSelectedPeak: () => ({ setSelectedPeak: mockSetSelectedPeak }),
+}));
+
 let mockLocale: 'fr' | 'en' = 'fr';
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ locale: mockLocale, toggleLocale: mockToggleLocale }),

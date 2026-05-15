@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePaywall } from '@/contexts/PaywallContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -63,6 +64,7 @@ export default function ProfileScreen() {
   const { locale, toggleLocale } = useLanguage();
   const { colors, typography, scheme, toggleScheme } = useTheme();
   const { showPaywall } = usePaywall();
+  const { setSelectedPeak } = useSelectedPeak();
 
   const bannerBg = scheme === 'light' ? colors.surface : '#2A2A2A';
   const bannerBorder = scheme === 'light' ? colors.accent : '#3A3A3A';
@@ -162,15 +164,26 @@ export default function ProfileScreen() {
       </View>
 
       {__DEV__ && (
-        <TouchableOpacity
-          style={[styles.devButton, { borderColor: colors.border }]}
-          onPress={() => router.push('/sandbox' as import('expo-router').Href)}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.devButtonText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
-            DEV · CloudLayerViz Sandbox
-          </Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: colors.border }]}
+            onPress={() => router.push('/sandbox' as import('expo-router').Href)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.devButtonText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+              DEV · CloudLayerViz Sandbox
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: '#C25C4A' }]}
+            onPress={() => setSelectedPeak(null)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.devButtonText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
+              DEV · Reset sommet sélectionné
+            </Text>
+          </TouchableOpacity>
+        </>
       )}
     </ScrollView>
   );
