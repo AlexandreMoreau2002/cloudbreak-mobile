@@ -133,6 +133,7 @@ export default {
     altitude: 'm',
   },
   profile: {
+    eyebrow: 'PROFILE',
     comingSoon: 'Profile — coming soon',
     signOut: 'Sign out',
     darkMode: '🌙 Dark mode',

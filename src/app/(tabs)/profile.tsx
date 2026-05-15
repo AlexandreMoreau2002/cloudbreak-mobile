@@ -27,7 +27,7 @@ export default function ProfileScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
     >
       <Text style={[styles.eyebrow, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
-        PROFIL
+        {i18n.t('profile.eyebrow')}
       </Text>
       <Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold }]}>
         {i18n.t('profile.title')}
