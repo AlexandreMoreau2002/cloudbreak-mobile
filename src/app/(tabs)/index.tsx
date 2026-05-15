@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ScoreCard } from '@/components/score-card';
 import { WeekStrip } from '@/components/week-strip';
 import { useFavorites } from '@/hooks/useFavorites';
-import { PaywallScreen } from '@/components/paywall';
+import { usePaywall } from '@/contexts/PaywallContext';
 import { PeakHeader } from '@/components/peak-header';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { FavoritesGrid } from '@/components/favorites-grid';
@@ -63,12 +63,12 @@ export default function HomeScreen() {
   const token = session?.access_token ?? null;
   const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded } = useWeekData(selectedPeak?.id ?? null, token);
 
-  const [paywallVisible, setPaywallVisible] = useState(false);
+  const { showPaywall, hidePaywall, paywallVisible } = usePaywall();
   const userClickedHourRef = useRef(false);
 
   useEffect(() => {
-    if (quotaExceeded) setPaywallVisible(true);
-  }, [quotaExceeded]);
+    if (quotaExceeded) showPaywall();
+  }, [quotaExceeded, showPaywall]);
 
   // Auto-sync selectedDate + selectedHour — corrige si la date ou l'heure n'a pas de données
   useEffect(() => {
@@ -175,7 +175,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               testID="quota-counter-badge"
               style={[styles.quotaCounterBadge, { borderColor: colors.border, backgroundColor: colors.surface }]}
-              onPress={() => setPaywallVisible(true)}
+              onPress={() => showPaywall()}
               activeOpacity={0.8}
             >
               <Text style={[styles.quotaCounterText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs }]}>
@@ -205,12 +205,12 @@ export default function HomeScreen() {
               </Text>
               <TouchableOpacity
                 style={[styles.ctaButton, { backgroundColor: colors.accent }]}
-                onPress={() => setPaywallVisible(true)}
+                onPress={() => showPaywall()}
                 activeOpacity={0.8}
                 testID="quota-open-paywall-button"
               >
                 <Text style={[styles.ctaText, { color: colors.surface, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }]}>
-                  {i18n.t('paywall.title')}
+                  {i18n.t('paywall.quotaCta')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -272,10 +272,6 @@ export default function HomeScreen() {
         {renderContent()}
       </ScrollView>
 
-      <PaywallScreen
-        visible={paywallVisible}
-        onDismiss={() => setPaywallVisible(false)}
-      />
     </View>
   );
 }

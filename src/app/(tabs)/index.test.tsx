@@ -151,6 +151,17 @@ jest.mock('@/hooks/useFavorites', () => ({
   useFavorites: () => mockUseFavorites(),
 }));
 
+const mockShowPaywall = jest.fn();
+const mockHidePaywall = jest.fn();
+let mockPaywallVisible = false;
+jest.mock('@/contexts/PaywallContext', () => ({
+  usePaywall: () => ({
+    paywallVisible: mockPaywallVisible,
+    showPaywall: mockShowPaywall,
+    hidePaywall: mockHidePaywall,
+  }),
+}));
+
 // --- Helpers ---
 
 const DEFAULT_PEAK = {
@@ -1031,10 +1042,10 @@ describe('HomeScreen', () => {
 
     render(<HomeScreen />);
     expect(screen.getByTestId('quota-counter-badge')).toBeTruthy();
-    expect(screen.getByTestId('paywall-dismiss-button')).toBeTruthy();
+    expect(mockShowPaywall).toHaveBeenCalled();
   });
 
-  it('affiche le badge quota et ouvre le paywall au clic dessus', () => {
+  it('affiche le badge quota et appelle showPaywall au clic', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
@@ -1049,11 +1060,10 @@ describe('HomeScreen', () => {
     const badge = screen.getByTestId('quota-counter-badge');
     expect(badge).toBeTruthy();
     fireEvent.press(badge);
-    // Le paywall modal doit etre visible apres le press
-    expect(screen.getByTestId('paywall-modal')).toBeTruthy();
+    expect(mockShowPaywall).toHaveBeenCalled();
   });
 
-  it('affiche la carte quota exceeded et ouvre le paywall au clic sur le bouton', () => {
+  it('affiche la carte quota exceeded et appelle showPaywall au clic sur le bouton', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
@@ -1068,28 +1078,7 @@ describe('HomeScreen', () => {
     const openPaywallBtn = screen.getByTestId('quota-open-paywall-button');
     expect(openPaywallBtn).toBeTruthy();
     fireEvent.press(openPaywallBtn);
-    expect(screen.getByTestId('paywall-modal')).toBeTruthy();
+    expect(mockShowPaywall).toHaveBeenCalled();
   });
 
-  it('ferme le paywall via onDismiss apres ouverture manuelle', async () => {
-    mockUseSelectedPeak.mockReturnValue({
-      selectedPeak: DEFAULT_PEAK,
-      selectedDate: '2026-03-24',
-      selectedHour: 6,
-      setSelectedPeak: jest.fn(),
-      setSelectedDate: mockSetSelectedDate,
-      setSelectedHour: mockSetSelectedHour,
-    });
-    setupSuccess(MOCK_SCORE_DATA, '2026-03-24', 6, true);
-
-    render(<HomeScreen />);
-    // Ouvrir le paywall via le badge quota
-    fireEvent.press(screen.getByTestId('quota-counter-badge'));
-    expect(screen.getByTestId('paywall-dismiss-button')).toBeTruthy();
-    // Fermer le paywall via le bouton dismiss
-    fireEvent.press(screen.getByTestId('paywall-dismiss-button'));
-    await waitFor(() => {
-      expect(screen.queryByTestId('paywall-dismiss-button')).toBeNull();
-    });
-  });
 });
