@@ -128,4 +128,99 @@ describe('fetchService', () => {
     expect(done).toHaveBeenCalledTimes(1);
     jest.useRealTimers();
   });
+
+  it('attache le code erreur sur l objet Error quand il est present dans la reponse', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: jest.fn().mockResolvedValue({ detail: 'Quota exceeded', code: 'QUOTA_EXCEEDED' }),
+    });
+
+    try {
+      await apiFetch('/api/v1/score', 'token-123');
+      fail('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toBe('Quota exceeded');
+      expect((err as Error & { code: string }).code).toBe('QUOTA_EXCEEDED');
+    }
+  });
+
+  it('attache le code erreur quand il est imbriqué dans body.detail (format FastAPI HTTPException)', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: jest.fn().mockResolvedValue({
+        detail: { detail: 'Quota journalier atteint', code: 'QUOTA_EXCEEDED' },
+      }),
+    });
+
+    try {
+      await apiFetch('/api/v1/score', 'token-123');
+      fail('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toBe('Quota journalier atteint');
+      expect((err as Error & { code: string }).code).toBe('QUOTA_EXCEEDED');
+    }
+  });
+
+  it('lance NETWORK_UNREACHABLE quand fetch() rejette (backend injoignable)', async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(new TypeError('Network request failed'));
+
+    try {
+      await apiFetch('/api/v1/score', 'token-123');
+      fail('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toBe('Impossible de joindre le serveur');
+      expect((err as Error & { code: string }).code).toBe('NETWORK_UNREACHABLE');
+    }
+  });
+
+  it('attache httpStatus sur l erreur HTTP', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: jest.fn().mockResolvedValue({ detail: 'Base de données indisponible', code: 'DATABASE_UNAVAILABLE' }),
+    });
+
+    try {
+      await apiFetch('/api/v1/score', 'token-123');
+      fail('should have thrown');
+    } catch (err) {
+      expect((err as Error & { httpStatus: number }).httpStatus).toBe(503);
+      expect((err as Error & { code: string }).code).toBe('DATABASE_UNAVAILABLE');
+    }
+  });
+
+  it('log le réseau injoignable en mode debug', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    mockDevConfigState.DEBUG = true;
+    (global.fetch as jest.Mock).mockRejectedValue(new TypeError('Network request failed'));
+
+    await expect(apiFetch('/api/v1/score', 'token-123')).rejects.toThrow('Impossible de joindre le serveur');
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[fetchService] network unreachable',
+      expect.objectContaining({ url: expect.stringContaining('/api/v1/score') }),
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('passe le signal abort dans les options de fetch', async () => {
+    const controller = new AbortController();
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ ok: true }),
+    });
+
+    await apiFetch('/api/v1/test', 'token-123', undefined, { signal: controller.signal });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.cloudbreak.fr/api/v1/test',
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
 });

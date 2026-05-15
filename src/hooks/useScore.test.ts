@@ -97,6 +97,20 @@ describe('useScore', () => {
     expect(result.current.error).toBe('Erreur de chargement');
   });
 
+  it('retourne_QUOTA_EXCEEDED_si_api_retourne_429', async () => {
+    const quotaError = new Error('Quota journalier dépassé') as Error & { code: string };
+    quotaError.code = 'QUOTA_EXCEEDED';
+    mockFetchScore.mockRejectedValue(quotaError);
+
+    const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('error');
+    });
+
+    expect(result.current.error).toBe('QUOTA_EXCEEDED');
+  });
+
   it('message_service_indisponible', async () => {
     mockFetchScore.mockRejectedValue(new Error('HTTP 503 Service Unavailable'));
     const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
@@ -285,6 +299,23 @@ describe('useScore', () => {
     });
 
     expect(consoleSpy).toHaveBeenCalledWith('[useScore] error', expect.any(Object));
+    consoleSpy.mockRestore();
+  });
+
+  it('emet_log_debug_pour_quota_exceeded', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    mockDevConfigState.DEBUG = true;
+    const quotaError = new Error('Quota dépassé') as Error & { code: string };
+    quotaError.code = 'QUOTA_EXCEEDED';
+    mockFetchScore.mockRejectedValue(quotaError);
+
+    const { result } = renderHook(() => useScore('peak-1', '2026-03-23', 6, 'mock-token'));
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('error');
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith('[useScore] quota exceeded', expect.any(Object));
     consoleSpy.mockRestore();
   });
 

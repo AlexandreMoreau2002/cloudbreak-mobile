@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScoreDetails } from '@/components/ScoreDetails';
+import { ScoreDetails } from '@/components/score-details';
 import { render, screen } from '@testing-library/react-native';
 import type { ScoreResponse } from '@/services/mockData/types';
 

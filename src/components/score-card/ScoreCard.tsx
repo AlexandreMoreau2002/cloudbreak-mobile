@@ -13,12 +13,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Typography } from '@/constants/typography';
 import { Radius, Spacing } from '@/constants/spacing';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { CloudLayerViz } from '@/components/CloudLayerViz';
+import { CloudLayerViz } from '@/components/cloud-layer-viz';
 import type { ScoreResponse } from '@/services/mockData/types';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { CloudLayerVizVariant } from '@/components/cloud-layer-viz/types';
 
-const HOUR_OPTIONS = [6, 8, 10, 12, 14, 16];
+const HOUR_OPTIONS = [6, 8, 10, 12, 14, 16, 18, 20, 22];
 
 interface ScoreCardProps {
   score: ScoreResponse;
@@ -137,13 +137,13 @@ export function ScoreCard({
       </View>
 
       {onSelectHour ? (
-        <View style={styles.hourRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourRow}>
           {HOUR_OPTIONS.map((h) => {
             const isActive = h === selectedHour;
             return (
               <TouchableOpacity
                 key={h}
-                onPress={() => onSelectHour(h)}
+                onPress={() => onSelectHour?.(h)}
                 style={[
                   styles.hourChip,
                   { backgroundColor: chipBg, borderColor: chipBorder },
@@ -156,7 +156,7 @@ export function ScoreCard({
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
       ) : null}
 
     </View>
@@ -211,11 +211,11 @@ const styles = StyleSheet.create({
   },
   hourRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     gap: Spacing.xs,
+    paddingHorizontal: 0,
   },
   hourChip: {
-    flex: 1,
+    width: 52,
     alignItems: 'center',
     paddingVertical: 5,
     borderRadius: Radius.sm,

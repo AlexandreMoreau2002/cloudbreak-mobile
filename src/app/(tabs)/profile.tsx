@@ -2,7 +2,7 @@ import i18n from '@/utils/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { CloudLayerViz } from '@/components/CloudLayerViz';
+import { CloudLayerViz } from '@/components/cloud-layer-viz';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MOCK_SCORE_HIGH, MOCK_SCORE_MEDIUM } from '@/services/mockData/score';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';

@@ -16,8 +16,8 @@ import { Typography } from '@/constants/typography';
 import { Radius, Spacing } from '@/constants/spacing';
 import { StyleSheet, Text, View } from 'react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { CloudLayerViz } from '@/components/CloudLayerViz';
-import { ConditionBadge } from '@/components/ConditionBadge';
+import { CloudLayerViz } from '@/components/cloud-layer-viz';
+import { ConditionBadge } from '@/components/condition-badge';
 import type { ScoreResponse } from '@/services/mockData/types';
 
 const { background: CARD_BG, textPrimary: CARD_TEXT, textSecondary: CARD_TEXT_DIM } = Colors.dark;

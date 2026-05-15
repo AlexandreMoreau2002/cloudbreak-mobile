@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-03-28_
+_Dernière mise à jour : 2026-05-15_
 
 ---
 
@@ -32,10 +32,13 @@ _Dernière mise à jour : 2026-03-28_
 | CloudLayerViz — couche nuageuse vs altitude sommet (story 3.5) | ✅ |
 | Traduction des codes score i18n via normalizeScoreResponse() (refacto i18n) | ✅ |
 | Tests dédiés `cloud-layer-viz/*` + mocks peaks/user/types | ✅ |
+| Paywall freemium — modal slide-up déclenché sur QUOTA_EXCEEDED (story 4.2) | ✅ |
+| Toggle mensuel/annuel + badge essai gratuit + CTA + dismiss (story 4.2) | ✅ |
 
 ## Ce qui n'existe pas encore
 
-- Paywall / freemium (epic 4)
+- Compteur de consultations restantes avant quota (AC3 story 4.2 — à planifier)
+- StoreKit 2 — intégration achat In-App réel (epic 4, story suivante)
 - Notifications push (epic 5)
 - Validation terrain (epic 6)
 - Onboarding (epic 7)

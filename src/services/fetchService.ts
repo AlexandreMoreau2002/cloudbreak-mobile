@@ -41,16 +41,29 @@ export async function apiFetch<T>(
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(url.toString(), {
-    method,
-    headers,
-    signal: options?.signal,
-    body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      method,
+      headers,
+      signal: options?.signal,
+      body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
+    });
+  } catch (cause) {
+    if (DEBUG) console.debug('[fetchService] network unreachable', { url: url.toString(), cause });
+    const err = new Error('Impossible de joindre le serveur') as Error & { code: string };
+    err.code = 'NETWORK_UNREACHABLE';
+    throw err;
+  }
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `HTTP ${response.status}`);
+    const code: string | undefined = body?.code ?? (typeof body?.detail === 'object' ? body?.detail?.code : undefined);
+    const detail: string = (typeof body?.detail === 'string' ? body.detail : body?.detail?.detail) ?? `HTTP ${response.status}`;
+    const err = new Error(detail);
+    (err as Error & { code?: string; httpStatus: number }).httpStatus = response.status;
+    if (code) (err as Error & { code: string }).code = code;
+    throw err;
   }
 
   if (response.status === 204) return undefined as T;

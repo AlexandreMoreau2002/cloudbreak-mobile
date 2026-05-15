@@ -1,7 +1,7 @@
 /**
  * useWeekData — source de données unique pour WeekStrip et ScoreCard.
  *
- * Précharge les 7 prochains jours × 6 créneaux horaires en parallèle.
+ * Précharge les 7 prochains jours × 9 créneaux horaires en parallèle.
  * Garantit que le score affiché dans la card et dans le weekly proviennent
  * du même fetch, éliminant toute incohérence entre les deux composants.
  *
@@ -9,7 +9,7 @@
  * - Changement de sommet → reset immédiat (pas de score obsolète affiché)
  * - Même sommet, refresh → garde les données le temps du re-fetch
  * - Cache AsyncStorage 30 min (bypass si MOCK_API)
- * - Tie-break : 06h > 08h > 16h > 14h > 10h > 12h
+ * - Tie-break : 06h > 08h > 16h > 14h > 10h > 12h > 18h > 20h > 22h
  */
 import { MOCK_API } from '@/constants/devConfig';
 import { fetchScore } from '@/services/api/score';
@@ -24,10 +24,10 @@ export type WeekData = {
   bestByDate: WeekScores;
 };
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
-const DAY_HOURS = [6, 8, 10, 12, 14, 16] as const;
-const TIEBREAKER: Record<number, number> = { 6: 0, 8: 1, 16: 2, 14: 3, 10: 4, 12: 5 };
+const DAY_HOURS = [6, 8, 10, 12, 14, 16, 18, 20, 22] as const;
+const TIEBREAKER: Record<number, number> = { 6: 0, 8: 1, 16: 2, 14: 3, 10: 4, 12: 5, 18: 6, 20: 7, 22: 8 };
 
 function weekCacheKey(peakId: string, today: string): string {
   return `cache:weekdata:${CACHE_VERSION}:${peakId}:${today}`;
@@ -61,10 +61,11 @@ function computeBestByDate(
 export function useWeekData(
   peakId: string | null,
   token: string | null,
-): { data: WeekData | null; loading: boolean; error: string | null } {
+): { data: WeekData | null; loading: boolean; error: string | null; quotaExceeded: boolean } {
   const [data, setData] = useState<WeekData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
   const loadedPeakRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
@@ -79,6 +80,7 @@ export function useWeekData(
     if (peakId !== loadedPeakRef.current) {
       setData(null);
       setError(null);
+      setQuotaExceeded(false);
     }
     setLoading(true);
 
@@ -110,11 +112,12 @@ export function useWeekData(
       }
     }
 
-    // Fetch réseau : 7 jours × 6 créneaux en parallèle
+    // Fetch réseau : 7 jours × 9 créneaux en parallèle
     const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
     const byDate: Record<string, Record<number, ScoreResponse>> = {};
     let totalSuccess = 0;
     let isServiceUnavailable = false;
+    let isQuotaExceeded = false;
 
     await Promise.all(
       dates.map(async (date) => {
@@ -123,8 +126,12 @@ export function useWeekData(
             fetchScore(token, peakId, date, hour)
               .then((result) => ({ hour, result }))
               .catch((err: unknown) => {
-                const msg = err instanceof Error ? err.message : '';
-                if (msg.includes('503') || msg.toLowerCase().includes('unavailable')) {
+                const errObj = err instanceof Error ? err : null;
+                const code: string | undefined = errObj ? (errObj as Error & { code?: string }).code : undefined;
+                const msg = errObj ? errObj.message : '';
+                if (code === 'QUOTA_EXCEEDED') {
+                  isQuotaExceeded = true;
+                } else if (msg.includes('503') || msg.toLowerCase().includes('unavailable')) {
                   isServiceUnavailable = true;
                 }
                 return null;
@@ -143,6 +150,14 @@ export function useWeekData(
     );
 
     loadedPeakRef.current = peakId;
+
+    if (isQuotaExceeded) {
+      setQuotaExceeded(true);
+      setError('QUOTA_EXCEEDED');
+      setLoading(false);
+      return;
+    }
+
     if (totalSuccess === 0) {
       const errMsg = isServiceUnavailable
         ? 'Service momentanément indisponible'
@@ -170,5 +185,5 @@ export function useWeekData(
     load();
   }, [load]);
 
-  return { data, loading, error };
+  return { data, loading, error, quotaExceeded };
 }

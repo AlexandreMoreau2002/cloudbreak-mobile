@@ -2,23 +2,24 @@
  * HomeScreen — écran principal, affiche le score mer de nuage du sommet sélectionné.
  */
 import i18n from '@/utils/i18n';
-import { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWeekData } from '@/hooks/useWeekData';
 import { useTheme } from '@/contexts/ThemeContext';
-import { ScoreCard } from '@/components/ScoreCard';
-import { WeekStrip } from '@/components/WeekStrip';
 import { useRouter, type Href } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { ScoreCard } from '@/components/score-card';
+import { WeekStrip } from '@/components/week-strip';
 import { useFavorites } from '@/hooks/useFavorites';
-import { PeakHeader } from '@/components/PeakHeader';
+import { PaywallScreen } from '@/components/paywall';
+import { PeakHeader } from '@/components/peak-header';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { FavoritesGrid } from '@/components/FavoritesGrid';
-import { ScoreSkeleton } from '@/components/ScoreSkeleton';
+import { FavoritesGrid } from '@/components/favorites-grid';
+import { ScoreSkeleton } from '@/components/score-skeleton';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { localizeScoreResponse } from '@/services/mockData/score';
-import { ConditionsSection } from '@/components/ConditionsSection';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ConditionsSection } from '@/components/conditions-section';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
 import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -60,23 +61,29 @@ export default function HomeScreen() {
   const { selectedPeak, setSelectedPeak, selectedDate, selectedHour, setSelectedDate, setSelectedHour } = useSelectedPeak();
 
   const token = session?.access_token ?? null;
-  const { data: weekData, loading: weekLoading, error: weekError } = useWeekData(selectedPeak?.id ?? null, token);
+  const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded } = useWeekData(selectedPeak?.id ?? null, token);
+
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const userClickedHourRef = useRef(false);
+
+  useEffect(() => {
+    if (quotaExceeded) setPaywallVisible(true);
+  }, [quotaExceeded]);
 
   // Auto-sync selectedDate + selectedHour — corrige si la date ou l'heure n'a pas de données
   useEffect(() => {
     if (!weekData) return;
     const today = new Date().toISOString().slice(0, 10);
-    // 1. Date : revenir à aujourd'hui si absente
     const hasDateData = weekData.byDate[selectedDate] && Object.keys(weekData.byDate[selectedDate]).length > 0;
     const effectiveDate = hasDateData ? selectedDate : today;
     if (!hasDateData) setSelectedDate(effectiveDate);
-    // 2. Heure : si le créneau sélectionné n'a pas de données, prendre le meilleur
     const hourHasData = weekData.byDate[effectiveDate]?.[selectedHour] != null;
-    if (!hourHasData) {
+    if (!hourHasData && !userClickedHourRef.current) {
       const best = weekData.bestByDate[effectiveDate];
       const newHour = best && best.score > 0 ? best.hour : 6;
       setSelectedHour(newHour);
     }
+    userClickedHourRef.current = false;
   }, [weekData, selectedDate, selectedHour, setSelectedDate, setSelectedHour]);
 
   const { state: favoritesState, addFavorite, removeFavorite } = useFavorites();
@@ -162,8 +169,20 @@ export default function HomeScreen() {
             date={selectedDate}
             contextMessage={displayScore.context_message}
             selectedHour={selectedHour}
-            onSelectHour={setSelectedHour}
+            onSelectHour={(h) => { userClickedHourRef.current = true; setSelectedHour(h); }}
           />
+          {quotaExceeded ? (
+            <TouchableOpacity
+              testID="quota-counter-badge"
+              style={[styles.quotaCounterBadge, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              onPress={() => setPaywallVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.quotaCounterText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs }]}>
+                {i18n.t('paywall.quotaCounterNone')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           <WeekStrip selectedDate={selectedDate} onSelectDate={handleSelectDate} dayScores={weekData?.bestByDate} />
           <ConditionsSection score={displayScore} />
           <FavoritesGrid favorites={favorites} onSelectPeak={setSelectedPeak} />
@@ -172,6 +191,33 @@ export default function HomeScreen() {
     }
 
     if (weekError) {
+      if (weekError === 'QUOTA_EXCEEDED') {
+        return (
+          <View style={styles.forecastStack}>
+            <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
+            <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              <Ionicons name="lock-closed-outline" size={40} color={colors.textDisabled} style={{ marginBottom: spacing.sm }} />
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.md, textAlign: 'center', marginBottom: 4 }]}>
+                {i18n.t('paywall.quotaTitle')}
+              </Text>
+              <Text style={[styles.emptyHint, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center', marginBottom: spacing.md }]}>
+                {i18n.t('paywall.quotaSubtitle')}
+              </Text>
+              <TouchableOpacity
+                style={[styles.ctaButton, { backgroundColor: colors.accent }]}
+                onPress={() => setPaywallVisible(true)}
+                activeOpacity={0.8}
+                testID="quota-open-paywall-button"
+              >
+                <Text style={[styles.ctaText, { color: colors.surface, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }]}>
+                  {i18n.t('paywall.title')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        );
+      }
+
       const message = weekError.includes('indisponible')
         ? i18n.t('home.serviceUnavailable')
         : i18n.t('home.errorGeneric');
@@ -184,6 +230,16 @@ export default function HomeScreen() {
               {message}
             </Text>
           </View>
+        </View>
+      );
+    }
+
+    // Filet de sécurité : weekData existe mais heure sans données (cache partiel) → skeleton le temps du redirect
+    if (weekData) {
+      return (
+        <View style={styles.forecastStack}>
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
+          <ScoreSkeleton />
         </View>
       );
     }
@@ -215,6 +271,11 @@ export default function HomeScreen() {
       >
         {renderContent()}
       </ScrollView>
+
+      <PaywallScreen
+        visible={paywallVisible}
+        onDismiss={() => setPaywallVisible(false)}
+      />
     </View>
   );
 }
@@ -286,5 +347,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 28,
     alignItems: 'center',
+  },
+  quotaCounterBadge: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    alignSelf: 'center',
+  },
+  quotaCounterText: {
+    textAlign: 'center',
   },
 });
