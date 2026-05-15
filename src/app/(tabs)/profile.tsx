@@ -180,8 +180,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 24, paddingBottom: 48, gap: 12 },
 
-  sectionHeader: { fontSize: 11, letterSpacing: 1.5 },
-  pageTitle: { fontSize: 32, marginBottom: 4 },
+  sectionHeader: { fontSize: 11, letterSpacing: 1.5, lineHeight: Math.round(11 * 1.5) },
+  pageTitle: { fontSize: 32, marginBottom: 4, lineHeight: Math.round(32 * 1.2) },
 
   userCard: {
     flexDirection: 'row',
@@ -198,10 +198,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { color: '#fff', fontSize: 16 },
+  avatarText: { color: '#fff', fontSize: 16, lineHeight: Math.round(16 * 1.2) },
   userInfo: { flex: 1 },
-  userName: { fontSize: 15 },
-  userEmail: { fontSize: 12, marginTop: 1 },
+  userName: { fontSize: 15, lineHeight: Math.round(15 * 1.5) },
+  userEmail: { fontSize: 12, marginTop: 2, lineHeight: Math.round(12 * 1.5) },
 
   proBanner: {
     flexDirection: 'row',
@@ -212,10 +212,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
     overflow: 'hidden',
   },
-  proBannerContent: { flex: 1, gap: 2 },
-  proBannerLabel: { fontSize: 10, letterSpacing: 1.5 },
-  proBannerTitle: { fontSize: 18 },
-  proBannerSubtitle: { fontSize: 12 },
+  proBannerContent: { flex: 1, gap: 4 },
+  proBannerLabel: { fontSize: 10, letterSpacing: 1.5, lineHeight: Math.round(10 * 1.5) },
+  proBannerTitle: { fontSize: 18, lineHeight: Math.round(18 * 1.3) },
+  proBannerSubtitle: { fontSize: 12, lineHeight: Math.round(12 * 1.5) },
 
   mountainWrap: {
     position: 'absolute',
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
 
   bannerArrow: { marginLeft: 4 },
 
-  sectionLabel: { fontSize: 11, letterSpacing: 1.5, marginTop: 8 },
+  sectionLabel: { fontSize: 11, letterSpacing: 1.5, lineHeight: Math.round(11 * 1.5), marginTop: 8 },
 
   group: {
     borderWidth: 1,
@@ -268,9 +268,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rowIcon: { width: 20, textAlign: 'center' },
-  rowLabel: { flex: 1, fontSize: 15 },
-  rowValue: { fontSize: 15 },
+  rowLabel: { flex: 1, fontSize: 15, lineHeight: Math.round(15 * 1.5) },
+  rowValue: { fontSize: 15, lineHeight: Math.round(15 * 1.5) },
 
   devButton: { borderWidth: 1, borderRadius: 12, borderStyle: 'dashed', padding: 12, alignItems: 'center', marginTop: 8 },
-  devButtonText: { fontSize: 12 },
+  devButtonText: { fontSize: 12, lineHeight: Math.round(12 * 1.5) },
 });
