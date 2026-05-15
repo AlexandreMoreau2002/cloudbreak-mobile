@@ -6,12 +6,13 @@
  *   onDismiss    function — appelé quand l'utilisateur ferme le paywall
  *   onSelectPlan function — appelé avec 'monthly' ou 'annual' lors de la sélection
  */
-import { Colors } from '@/constants/colors';
-import { useTheme } from '@/contexts/ThemeContext';
-import { Radius, Spacing } from '@/constants/spacing';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Colors } from '@/constants/colors';
+import { Radius, Spacing } from '@/constants/spacing';
+import { DEBUG } from '@/constants/devConfig';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { PaywallCTA } from './PaywallCTA';
 import { PaywallHeader } from './PaywallHeader';
 import { PaywallFooter } from './PaywallFooter';
@@ -44,7 +45,7 @@ export function PaywallScreen({ visible, onDismiss, onSelectPlan }: PaywallScree
   }, [visible, overlayOpacity, sheetTranslateY]);
 
   function handleSelectPlan(plan: BillingPeriod) {
-    console.debug('[PaywallScreen] commencer essai', { plan });
+    if (DEBUG) console.debug('[PaywallScreen] commencer essai', { plan });
     onSelectPlan?.(plan);
   }
 
