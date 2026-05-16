@@ -154,6 +154,17 @@ export default {
     language: 'Language',
     languageFrLabel: 'Français',
     languageEnLabel: 'English',
+    deleteAccount: 'Delete my account',
+    deleteAccountModal: {
+      title: 'Delete my account',
+      warning: 'This action is irreversible. All your data will be permanently deleted.',
+      emailLabel: 'Confirm your email',
+      emailPlaceholder: 'your@email.com',
+      confirm: 'Delete permanently',
+      cancel: 'Cancel',
+      errorMismatch: 'Email does not match your account',
+      errorGeneric: 'Error during deletion. Please try again.',
+    },
   },
   paywall: {
     title: 'Unlock unlimited forecasts',

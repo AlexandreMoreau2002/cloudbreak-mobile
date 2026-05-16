@@ -21,6 +21,7 @@ jest.mock('@/utils/i18n', () => ({
 }));
 
 const mockSignOut = jest.fn();
+const mockDeleteAccount = jest.fn();
 const mockToggleScheme = jest.fn();
 const mockToggleLocale = jest.fn();
 let mockSession: { user: { email?: string } } | null = { user: { email: 'test@example.com' } };
@@ -28,6 +29,7 @@ let mockSession: { user: { email?: string } } | null = { user: { email: 'test@ex
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     signOut: mockSignOut,
+    deleteAccount: mockDeleteAccount,
     session: mockSession,
   }),
 }));
@@ -144,6 +146,29 @@ describe('ProfileScreen', () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('profile.signOut'));
     expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('ouvre puis ferme la modale de suppression de compte', () => {
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.deleteAccount'));
+    expect(getByText('profile.deleteAccountModal.title')).toBeTruthy();
+
+    fireEvent.press(getByText('profile.deleteAccountModal.cancel'));
+    expect(mockDeleteAccount).not.toHaveBeenCalled();
+  });
+
+  it('branche la confirmation de suppression sur deleteAccount', () => {
+    const { getByText, getByPlaceholderText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.deleteAccount'));
+    fireEvent.changeText(
+      getByPlaceholderText('profile.deleteAccountModal.emailPlaceholder'),
+      'test@example.com',
+    );
+    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
+
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
   });
 
   it('branche les boutons DEV sur le sandbox et le reset du sommet sélectionné', () => {

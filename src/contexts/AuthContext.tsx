@@ -1,6 +1,8 @@
 import { supabase } from '@/services/supabaseClient';
 import { Session, AuthError } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useState } from 'react';
+import { deleteAccount as deleteAccountService } from '@/services/api/user';
 
 function isNetworkError(e: unknown): boolean {
   if (!(e instanceof Error)) return false;
@@ -18,6 +20,7 @@ interface AuthContextValue extends AuthState {
   signUp: (email: string, password: string) => Promise<AuthError | null>;
   signIn: (email: string, password: string) => Promise<AuthError | null>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -69,8 +72,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut().catch(() => null);
   }
 
+  async function deleteAccount(): Promise<void> {
+    const token = session?.access_token;
+    if (!token) throw new Error('Non authentifié');
+    await deleteAccountService(token);
+    await supabase.auth.signOut().catch(() => null);
+    await AsyncStorage.clear();
+  }
+
   return (
-    <AuthContext.Provider value={{ session, loading, authServiceUnavailable, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, loading, authServiceUnavailable, signUp, signIn, signOut, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );
