@@ -1,4 +1,5 @@
 import React from 'react';
+import { deleteAccount } from '@/services/api/user';
 import { Text, TouchableOpacity } from 'react-native';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { render, waitFor, fireEvent } from '@testing-library/react-native';
@@ -11,6 +12,18 @@ const mockOnAuthStateChange = jest.fn().mockReturnValue({
 const mockSignOut = jest.fn().mockResolvedValue(undefined);
 const mockSignIn = jest.fn().mockResolvedValue({ error: null });
 const mockSignUp = jest.fn().mockResolvedValue({ error: null });
+const mockAsyncStorageClear = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  get clear() { return mockAsyncStorageClear; },
+  get default() { return { clear: mockAsyncStorageClear }; },
+}));
+
+jest.mock('@/services/api/user', () => ({
+  deleteAccount: jest.fn().mockResolvedValue(undefined),
+}));
+
+const mockDeleteAccount = deleteAccount as jest.MockedFunction<typeof deleteAccount>;
 
 jest.mock('@/services/supabaseClient', () => ({
   supabase: {
@@ -25,7 +38,7 @@ jest.mock('@/services/supabaseClient', () => ({
 }));
 
 function TestConsumer() {
-  const { session, loading, signIn, signUp, signOut } = useAuth();
+  const { session, loading, signIn, signUp, signOut, deleteAccount: deleteUserAccount } = useAuth();
   return (
     <>
       <Text testID="loading">{String(loading)}</Text>
@@ -33,12 +46,21 @@ function TestConsumer() {
       <TouchableOpacity testID="signIn" onPress={() => signIn('a@b.com', 'pass')} />
       <TouchableOpacity testID="signUp" onPress={() => signUp('a@b.com', 'pass')} />
       <TouchableOpacity testID="signOut" onPress={() => signOut()} />
+      <TouchableOpacity testID="deleteAccount" onPress={() => deleteUserAccount()} />
     </>
   );
 }
 
 describe('AuthContext', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockSignOut.mockResolvedValue(undefined);
+    mockSignIn.mockResolvedValue({ error: null });
+    mockSignUp.mockResolvedValue({ error: null });
+    mockDeleteAccount.mockResolvedValue(undefined);
+    mockAsyncStorageClear.mockResolvedValue(undefined);
+  });
 
   it('démarre en état loading puis résout sans session', async () => {
     const { getByTestId } = render(
@@ -137,6 +159,78 @@ describe('AuthContext', () => {
     fireEvent.press(getByTestId('signOut'));
 
     await waitFor(() => expect(getByTestId('done').props.children).toBe('true'));
+  });
+
+  it('deleteAccount rejette quand aucune session authentifiée n\'existe', async () => {
+    function TestDeleteWithoutSession() {
+      const [error, setError] = React.useState('');
+      const { deleteAccount: deleteUserAccount } = useAuth();
+      return (
+        <>
+          <Text testID="error">{error}</Text>
+          <TouchableOpacity
+            testID="deleteAccount"
+            onPress={async () => {
+              try {
+                await deleteUserAccount();
+              } catch (e) {
+                setError(e instanceof Error ? e.message : 'unknown');
+              }
+            }}
+          />
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <AuthProvider><TestDeleteWithoutSession /></AuthProvider>
+    );
+
+    await waitFor(() => expect(mockGetSession).toHaveBeenCalledTimes(1));
+    fireEvent.press(getByTestId('deleteAccount'));
+
+    await waitFor(() => expect(getByTestId('error').props.children).toBe('Non authentifié'));
+    expect(mockDeleteAccount).not.toHaveBeenCalled();
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(mockAsyncStorageClear).not.toHaveBeenCalled();
+  });
+
+  it('deleteAccount supprime le compte, déconnecte puis vide le stockage local', async () => {
+    const fakeSession = {
+      access_token: 'token-123',
+      user: { id: '123' },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: fakeSession } });
+
+    const { getByTestId } = render(
+      <AuthProvider><TestConsumer /></AuthProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('session').props.children).toBe('connected'));
+    fireEvent.press(getByTestId('deleteAccount'));
+
+    await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalledWith('token-123'));
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockAsyncStorageClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('deleteAccount vide le stockage local même si signOut rejette', async () => {
+    const fakeSession = {
+      access_token: 'token-123',
+      user: { id: '123' },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: fakeSession } });
+    mockSignOut.mockRejectedValueOnce(new Error('network down'));
+
+    const { getByTestId } = render(
+      <AuthProvider><TestConsumer /></AuthProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('session').props.children).toBe('connected'));
+    fireEvent.press(getByTestId('deleteAccount'));
+
+    await waitFor(() => expect(mockAsyncStorageClear).toHaveBeenCalledTimes(1));
+    expect(mockDeleteAccount).toHaveBeenCalledWith('token-123');
   });
 
   it('useAuth lance une erreur hors AuthProvider', () => {

@@ -1,4 +1,5 @@
 import i18n from '@/utils/i18n';
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,17 +8,31 @@ import { usePaywall } from '@/contexts/PaywallContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ProBanner, SettingsRow, UserCard } from '@/components/profile';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { DeleteAccountModal, ProBanner, SettingsRow, UserCard } from '@/components/profile';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showPaywall } = usePaywall();
-  const { session, signOut } = useAuth();
+  const { session, signOut, deleteAccount } = useAuth();
   const { setSelectedPeak } = useSelectedPeak();
   const { locale, toggleLocale } = useLanguage();
   const { colors, typography, scheme, toggleScheme } = useTheme();
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteConfirm = async () => {
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount();
+    } catch {
+      setDeleteError(i18n.t('profile.deleteAccountModal.errorGeneric'));
+      setDeleteLoading(false);
+    }
+  };
 
   const email = session?.user?.email ?? '';
 
@@ -71,7 +86,22 @@ export default function ProfileScreen() {
             {i18n.t('profile.signOut')}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.signOutRow} onPress={() => setDeleteModalVisible(true)} activeOpacity={0.7}>
+          <Ionicons name="trash-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
+          <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
+            {i18n.t('profile.deleteAccount')}
+          </Text>
+        </TouchableOpacity>
       </View>
+
+      <DeleteAccountModal
+        visible={deleteModalVisible}
+        userEmail={email}
+        onCancel={() => { setDeleteModalVisible(false); setDeleteError(null); }}
+        onConfirm={handleDeleteConfirm}
+        error={deleteError}
+        loading={deleteLoading}
+      />
 
       {__DEV__ && (
         <>

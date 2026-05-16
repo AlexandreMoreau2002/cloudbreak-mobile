@@ -55,3 +55,12 @@ export async function addFavorite(token: string, peak_id: string): Promise<Favor
     body: { peak_id },
   });
 }
+
+export async function deleteAccount(token: string): Promise<void> {
+  if (MOCK_API) {
+    if (DEBUG) console.debug('[api/user] MOCK deleteAccount');
+    await _delay(500);
+    return;
+  }
+  await apiFetch<void>('/api/v1/user', token, undefined, { method: 'DELETE' });
+}

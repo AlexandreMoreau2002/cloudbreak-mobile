@@ -1,5 +1,6 @@
 import {
   addFavorite,
+  deleteAccount,
   fetchUserSubscription,
   updateNotificationPreferences,
   updatePushToken,
@@ -101,6 +102,36 @@ describe('updatePushToken', () => {
     await updatePushToken(TOKEN, 'push-token-123');
 
     expect(consoleSpy).toHaveBeenCalledWith('[api/user] MOCK updatePushToken');
+    consoleSpy.mockRestore();
+  });
+});
+
+describe('deleteAccount', () => {
+  it('appelle DELETE /api/v1/user avec le token', async () => {
+    mockApiFetch.mockResolvedValueOnce(undefined);
+    await deleteAccount(TOKEN);
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/user', TOKEN, undefined, { method: 'DELETE' });
+  });
+
+  it('propage les erreurs API', async () => {
+    mockApiFetch.mockRejectedValueOnce(new Error('Network error'));
+    await expect(deleteAccount(TOKEN)).rejects.toThrow('Network error');
+  });
+
+  it('résout sans appel réseau en mode MOCK_API', async () => {
+    mockDevConfigState.MOCK_API = true;
+    await expect(deleteAccount(TOKEN)).resolves.toBeUndefined();
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
+  it('log deleteAccount en mode debug', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    mockDevConfigState.MOCK_API = true;
+    mockDevConfigState.DEBUG = true;
+
+    await deleteAccount(TOKEN);
+
+    expect(consoleSpy).toHaveBeenCalledWith('[api/user] MOCK deleteAccount');
     consoleSpy.mockRestore();
   });
 });

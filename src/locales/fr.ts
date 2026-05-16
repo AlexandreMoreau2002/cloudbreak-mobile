@@ -154,6 +154,17 @@ export default {
     language: 'Langue',
     languageFrLabel: 'Français',
     languageEnLabel: 'English',
+    deleteAccount: 'Supprimer mon compte',
+    deleteAccountModal: {
+      title: 'Supprimer mon compte',
+      warning: 'Cette action est irréversible. Toutes vos données seront supprimées définitivement.',
+      emailLabel: 'Confirmez votre email',
+      emailPlaceholder: 'votre@email.com',
+      confirm: 'Supprimer définitivement',
+      cancel: 'Annuler',
+      errorMismatch: "L'email ne correspond pas à votre compte",
+      errorGeneric: 'Erreur lors de la suppression. Réessayez.',
+    },
   },
   paywall: {
     title: 'Débloquer les prévisions illimitées',
