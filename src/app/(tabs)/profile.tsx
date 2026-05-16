@@ -20,6 +20,19 @@ export default function ProfileScreen() {
   const { locale, toggleLocale } = useLanguage();
   const { colors, typography, scheme, toggleScheme } = useTheme();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteConfirm = async () => {
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount();
+    } catch {
+      setDeleteError(i18n.t('profile.deleteAccountModal.errorGeneric'));
+      setDeleteLoading(false);
+    }
+  };
 
   const email = session?.user?.email ?? '';
 
@@ -84,8 +97,10 @@ export default function ProfileScreen() {
       <DeleteAccountModal
         visible={deleteModalVisible}
         userEmail={email}
-        onCancel={() => setDeleteModalVisible(false)}
-        onConfirm={deleteAccount}
+        onCancel={() => { setDeleteModalVisible(false); setDeleteError(null); }}
+        onConfirm={handleDeleteConfirm}
+        error={deleteError}
+        loading={deleteLoading}
       />
 
       {__DEV__ && (

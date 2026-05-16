@@ -1,5 +1,6 @@
 import i18n from '@/utils/i18n';
 import { useState } from 'react';
+import { DEBUG } from '@/constants/devConfig';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -8,34 +9,23 @@ interface Props {
   userEmail: string;
   onCancel: () => void;
   onConfirm: () => Promise<void>;
+  error?: string | null;
+  loading?: boolean;
 }
 
-export function DeleteAccountModal({ visible, userEmail, onCancel, onConfirm }: Props) {
+export function DeleteAccountModal({ visible, userEmail, onCancel, onConfirm, error, loading = false }: Props) {
   const { colors } = useTheme();
   const [emailInput, setEmailInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const emailMatch = emailInput.trim() === userEmail;
 
-  const handleConfirm = async () => {
-    if (!emailMatch) {
-      setError(i18n.t('profile.deleteAccountModal.errorMismatch'));
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      await onConfirm();
-    } catch {
-      setError(i18n.t('profile.deleteAccountModal.errorGeneric'));
-      setLoading(false);
-    }
+  const handleConfirm = () => {
+    if (DEBUG) console.debug('[DeleteAccountModal] confirm start', { emailMatch });
+    onConfirm();
   };
 
   const handleCancel = () => {
     setEmailInput('');
-    setError(null);
     onCancel();
   };
 
@@ -64,9 +54,9 @@ export function DeleteAccountModal({ visible, userEmail, onCancel, onConfirm }: 
           />
           {error && <Text style={styles.error}>{error}</Text>}
           <TouchableOpacity
-            style={[styles.confirmBtn, !emailMatch && styles.confirmBtnDisabled]}
+            style={[styles.confirmBtn, (!emailMatch || loading) && styles.confirmBtnDisabled]}
             onPress={handleConfirm}
-            disabled={loading}
+            disabled={loading || !emailMatch}
           >
             {loading
               ? <ActivityIndicator color="#fff" />

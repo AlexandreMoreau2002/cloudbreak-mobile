@@ -1,6 +1,6 @@
 import React from 'react';
 import ProfileScreen from '@/app/(tabs)/profile';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -168,6 +168,23 @@ describe('ProfileScreen', () => {
     );
     fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
 
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche une erreur et arrête le chargement si deleteAccount rejette', async () => {
+    mockDeleteAccount.mockRejectedValueOnce(new Error('Server error'));
+    const { getByText, getByPlaceholderText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.deleteAccount'));
+    fireEvent.changeText(
+      getByPlaceholderText('profile.deleteAccountModal.emailPlaceholder'),
+      'test@example.com',
+    );
+    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
+
+    await waitFor(() => {
+      expect(getByText('profile.deleteAccountModal.errorGeneric')).toBeTruthy();
+    });
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
   });
 

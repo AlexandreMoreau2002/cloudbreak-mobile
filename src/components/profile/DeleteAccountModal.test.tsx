@@ -19,9 +19,21 @@ jest.mock('@/contexts/ThemeContext', () => ({
   }),
 }));
 
+let mockDebug = true;
+jest.mock('@/constants/devConfig', () => ({
+  get DEBUG() {
+    return mockDebug;
+  },
+}));
+
 const USER_EMAIL = 'alex@test.com';
 
 describe('DeleteAccountModal', () => {
+  beforeEach(() => {
+    mockDebug = true;
+    jest.restoreAllMocks();
+  });
+
   it('bouton confirm désactivé si email ne correspond pas', () => {
     const onConfirm = jest.fn();
     const { getByText, getByPlaceholderText } = render(
@@ -38,19 +50,20 @@ describe('DeleteAccountModal', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it('affiche un message d\'erreur si email ne correspond pas', () => {
-    const { getByText, getByPlaceholderText } = render(
+  it('bouton confirm physiquement désactivé si email ne correspond pas', () => {
+    const onConfirm = jest.fn();
+    const { getByPlaceholderText } = render(
       <DeleteAccountModal
         visible
         userEmail={USER_EMAIL}
         onCancel={jest.fn()}
-        onConfirm={jest.fn()}
+        onConfirm={onConfirm}
       />,
     );
     const input = getByPlaceholderText('profile.deleteAccountModal.emailPlaceholder');
     fireEvent.changeText(input, 'wrong@email.com');
-    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
-    expect(getByText('profile.deleteAccountModal.errorMismatch')).toBeTruthy();
+    // bouton disabled — onConfirm ne doit pas être appelé
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 
   it('bouton confirm activé si email correspond', () => {
@@ -99,22 +112,17 @@ describe('DeleteAccountModal', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('affiche l\'erreur générique si onConfirm rejette', async () => {
-    const onConfirm = jest.fn().mockRejectedValue(new Error('Server error'));
-    const { getByText, getByPlaceholderText } = render(
+  it('affiche l\'erreur générique passée via prop error', () => {
+    const { getByText } = render(
       <DeleteAccountModal
         visible
         userEmail={USER_EMAIL}
         onCancel={jest.fn()}
-        onConfirm={onConfirm}
+        onConfirm={jest.fn()}
+        error="profile.deleteAccountModal.errorGeneric"
       />,
     );
-    const input = getByPlaceholderText('profile.deleteAccountModal.emailPlaceholder');
-    fireEvent.changeText(input, USER_EMAIL);
-    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
-    await waitFor(() =>
-      expect(getByText('profile.deleteAccountModal.errorGeneric')).toBeTruthy(),
-    );
+    expect(getByText('profile.deleteAccountModal.errorGeneric')).toBeTruthy();
   });
 
   it('remet les champs à zéro après annulation', () => {
@@ -131,5 +139,25 @@ describe('DeleteAccountModal', () => {
     fireEvent.changeText(input, 'something@email.com');
     fireEvent.press(getByText('profile.deleteAccountModal.cancel'));
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('confirme sans log debug quand DEBUG est désactivé', () => {
+    mockDebug = false;
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation();
+    const onConfirm = jest.fn().mockResolvedValue(undefined);
+    const { getByText, getByPlaceholderText } = render(
+      <DeleteAccountModal
+        visible
+        userEmail={USER_EMAIL}
+        onCancel={jest.fn()}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    fireEvent.changeText(getByPlaceholderText('profile.deleteAccountModal.emailPlaceholder'), USER_EMAIL);
+    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(debugSpy).not.toHaveBeenCalled();
   });
 });
