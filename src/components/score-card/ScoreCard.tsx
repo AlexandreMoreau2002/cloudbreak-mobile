@@ -73,6 +73,7 @@ export function ScoreCard({
   const { scheme } = useTheme();
   const isDark = scheme === 'dark';
   const isSunny = score.verdict === 'none' && score.cloud_base > score.peak_altitude;
+  const hideCloudInViz = score.verdict === 'none';
   const verdictColor = getScoreColor(score.verdict);
   const pillBg = verdictColor + '2E'; // ~18% opacity hex
   const hasContextMessage = Boolean(contextMessage?.trim());
@@ -130,7 +131,7 @@ export function ScoreCard({
             viz={viz}
             compact
             variant={compactVizVariant}
-            isSunny={isSunny}
+            isSunny={hideCloudInViz}
             tone={isDark ? 'dark' : 'light'}
           />
         </View>
