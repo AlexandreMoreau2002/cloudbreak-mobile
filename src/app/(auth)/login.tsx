@@ -3,7 +3,7 @@ import { useAuthForm } from '@/hooks/useAuthForm';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { MountainBackground } from '@/components/mountain-background';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {
   useLanguage();
@@ -53,9 +53,14 @@ export default function LoginScreen() {
           disabled={loading}
           accessibilityRole="button"
         >
-          <Text style={[styles.buttonText, { color: colors.surface, fontFamily: typography.fontFamily.bold }]}>
-            {loading ? i18n.t('auth.loading') : i18n.t(mode === 'login' ? 'auth.login' : 'auth.signup')}
-          </Text>
+          {loading
+            ? <ActivityIndicator color={colors.surface} size="small" />
+            : (
+              <Text style={[styles.buttonText, { color: colors.surface, fontFamily: typography.fontFamily.bold }]}>
+                {i18n.t(mode === 'login' ? 'auth.login' : 'auth.signup')}
+              </Text>
+            )
+          }
         </TouchableOpacity>
         <TouchableOpacity style={styles.toggle} onPress={toggleMode}>
           <Text style={[styles.toggleText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Alert, Share } from 'react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import type { WeekData } from '@/hooks/useWeekData';
 import type { ScoreResponse } from '@/services/mockData/types';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import HomeScreen, { getShareForecastUrl, shareForecast } from '@/app/(tabs)/index';
 
 // --- Mocks ---
@@ -29,6 +29,10 @@ jest.mock('@/utils/i18n', () => ({
       'home.today': "Aujourd'hui",
       'home.serviceUnavailable': 'Service momentanément indisponible',
       'home.errorGeneric': 'Impossible de charger la prévision',
+      'home.quotaUpgrade': 'Passe à Cloudbreak Pro pour consulter des sommets illimités.',
+      'home.discoverPro': 'Découvrir Cloudbreak Pro',
+      'home.notNow': 'Pas maintenant',
+      'common.networkHint': 'Vérifie ta connexion et réessaie.',
       'home.shareForecast': 'Partager la prévision',
       'home.shareFailedTitle': 'Partage indisponible',
       'home.optimalWindow': 'Fenêtre',
@@ -102,6 +106,38 @@ jest.mock('@/utils/i18n', () => ({
 
 jest.mock('@/constants/devConfig', () => ({
   MOCK_API: true,
+}));
+
+jest.mock('@/components/error-state', () => ({
+  ErrorState: function MockErrorState(props: {
+    title: string;
+    message?: string;
+    action?: { label: string; onPress: () => void };
+    actionTestID?: string;
+    secondaryAction?: { label: string; onPress: () => void };
+  }) {
+    const React = require('react');
+    const { Text, TouchableOpacity, View } = require('react-native');
+    return React.createElement(
+      View,
+      null,
+      React.createElement(Text, null, props.title),
+      props.action
+        ? React.createElement(
+            TouchableOpacity,
+            { testID: props.actionTestID, onPress: props.action.onPress },
+            React.createElement(Text, null, props.action.label),
+          )
+        : null,
+      props.secondaryAction
+        ? React.createElement(
+            TouchableOpacity,
+            { testID: 'secondary-action-btn', onPress: props.secondaryAction.onPress },
+            React.createElement(Text, null, props.secondaryAction.label),
+          )
+        : null,
+    );
+  },
 }));
 
 jest.mock('@/contexts/ThemeContext', () => ({
@@ -317,8 +353,11 @@ describe('HomeScreen', () => {
     setupLoading();
 
     render(<HomeScreen />);
+    expect(screen.getByTestId('home-skeleton')).toBeTruthy();
     expect(screen.getByTestId('score-skeleton')).toBeTruthy();
     expect(screen.queryByTestId('week-strip')).toBeNull();
+    expect(screen.queryByTestId('favorite-toggle-button')).toBeNull();
+    expect(screen.queryByTestId('share-button')).toBeNull();
   });
 
   it('affiche_scorecard_en_succes', () => {
@@ -439,7 +478,7 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Impossible de charger la prévision')).toBeTruthy();
   });
 
-  it('affiche_service_indisponible_si_erreur_503', () => {
+  it('affiche_erreur_generique_quelle_que_soit_le_message', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
@@ -451,7 +490,7 @@ describe('HomeScreen', () => {
     setupError('Service momentanément indisponible');
 
     render(<HomeScreen />);
-    expect(screen.getByText('Service momentanément indisponible')).toBeTruthy();
+    expect(screen.getByText('Impossible de charger la prévision')).toBeTruthy();
   });
 
   it('navigue_vers_recherche_au_tap_sur_cta', () => {
@@ -1075,10 +1114,29 @@ describe('HomeScreen', () => {
     setupError('QUOTA_EXCEEDED', true);
 
     render(<HomeScreen />);
+    expect(screen.getByText('Quota atteint')).toBeTruthy();
     const openPaywallBtn = screen.getByTestId('quota-open-paywall-button');
     expect(openPaywallBtn).toBeTruthy();
     fireEvent.press(openPaywallBtn);
     expect(mockShowPaywall).toHaveBeenCalled();
   });
 
+  it('affiche le bouton Pas maintenant sur la carte quota et masque la carte au clic', () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupError('QUOTA_EXCEEDED', true);
+
+    render(<HomeScreen />);
+    expect(screen.getByText('Quota atteint')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('secondary-action-btn'));
+    expect(screen.queryByText('Quota atteint')).toBeNull();
+  });
+
 });
+

@@ -9,9 +9,6 @@ let mockPeakSearch = {
 };
 let mockFavoritesState: { status: string; data: unknown[] } = { status: 'success', data: [] };
 
-// Shared mock fns declared before jest.mock so hoisting can capture them via closure.
-// jest.mock is hoisted, but module-level let variables are initialized before tests run.
-// Using jest.fn() stored in an object allows the mock factory to reference them by object property.
 const mockFavCallbacks = {
   addFavorite: jest.fn(),
   removeFavorite: jest.fn(),
@@ -61,6 +58,47 @@ jest.mock('@/contexts/SelectedPeakContext', () => ({
   useSelectedPeak: () => ({ setSelectedPeak: mockSetSelectedPeak }),
 }));
 
+jest.mock('@/components/error-state', () => {
+  const React = jest.requireActual('react');
+  const { Text } = jest.requireActual('react-native');
+  return {
+    ErrorState: function MockErrorState(props: { title: string }) {
+      return React.createElement(Text, null, props.title);
+    },
+  };
+});
+jest.mock('@/components/empty-state', () => {
+  const React = jest.requireActual('react');
+  const { Text } = jest.requireActual('react-native');
+  return {
+    EmptyState: function MockEmptyState(props: { title: string }) {
+      return React.createElement(Text, null, props.title);
+    },
+  };
+});
+jest.mock('@/components/async-state-view', () => {
+  const React = jest.requireActual('react');
+  const { View } = jest.requireActual('react-native');
+  return {
+    AsyncStateView: function MockAsyncStateView(props: {
+      isLoading: boolean;
+      isEmpty: boolean;
+      error?: string | null;
+      loadingComponent?: unknown;
+      emptyComponent: unknown;
+      errorComponent?: unknown;
+      children: unknown;
+    }) {
+      if (props.isLoading) {
+        return props.loadingComponent ?? React.createElement(View, { testID: 'loading-spinner' });
+      }
+      if (props.error) return props.errorComponent ?? null;
+      if (props.isEmpty) return props.emptyComponent;
+      return props.children;
+    },
+  };
+});
+
 const FAV_ID = 'fav-peak';
 const peaks = [
   { id: 'other', name: 'Autre', slug: 'autre', lat: 0, lng: 0, altitude: 1000 },
@@ -79,28 +117,29 @@ describe('SearchScreen', () => {
     expect(getByText('search.minChars')).toBeTruthy();
   });
 
-  it('affiche_spinner_en_etat_loading', () => {
+  it('affiche LoadingSpinner en état loading', () => {
     mockPeakSearch = {
       state: { status: 'loading' },
       query: 'al',
       setQuery: jest.fn(),
     };
-    const { queryByText } = render(<SearchScreen />);
+    const { queryByText, getByTestId } = render(<SearchScreen />);
     expect(queryByText('search.minChars')).toBeNull();
     expect(queryByText('search.noResults')).toBeNull();
+    expect(getByTestId('loading-spinner')).toBeTruthy();
   });
 
-  it('affiche_erreur_avec_message', () => {
+  it('affiche ErrorState en cas d\'erreur', () => {
     mockPeakSearch = {
       state: { status: 'error', error: 'Erreur réseau' },
       query: 'al',
       setQuery: jest.fn(),
     };
     const { getByText } = render(<SearchScreen />);
-    expect(getByText('Erreur réseau')).toBeTruthy();
+    expect(getByText('common.error')).toBeTruthy();
   });
 
-  it('affiche_erreur_generique_si_message_absent', () => {
+  it('affiche ErrorState même si message absent', () => {
     mockPeakSearch = {
       state: { status: 'error' },
       query: 'al',
@@ -110,7 +149,7 @@ describe('SearchScreen', () => {
     expect(getByText('common.error')).toBeTruthy();
   });
 
-  it('affiche_no_results_si_liste_vide', () => {
+  it('affiche EmptyState si liste vide', () => {
     mockPeakSearch = {
       state: { status: 'success', data: [] },
       query: 'al',
@@ -120,7 +159,7 @@ describe('SearchScreen', () => {
     expect(getByText('search.noResults')).toBeTruthy();
   });
 
-  it('selectionne_le_sommet_et_navigue_vers_home_au_tap', () => {
+  it('sélectionne le sommet et navigue vers home au tap', () => {
     mockPeakSearch = {
       state: { status: 'success', data: peaks },
       query: 'test',
@@ -132,19 +171,18 @@ describe('SearchScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/');
   });
 
-  it('ajoute_favori_au_tap_sur_bouton_coeur_non_favori', () => {
+  it('ajoute un favori au tap sur le bouton coeur non favori', () => {
     mockPeakSearch = {
       state: { status: 'success', data: [{ id: 'other', name: 'Autre', slug: 'autre', lat: 0, lng: 0, altitude: 1000 }] },
       query: 'test',
       setQuery: jest.fn(),
     };
-    // No favorites — heart button calls addFavorite
     const { getByLabelText } = render(<SearchScreen />);
     fireEvent.press(getByLabelText('search.addFavorite'));
     expect(mockFavCallbacks.addFavorite).toHaveBeenCalledWith('other');
   });
 
-  it('supprime_favori_au_tap_sur_bouton_coeur_favori', () => {
+  it('supprime un favori au tap sur le bouton coeur favori', () => {
     mockPeakSearch = {
       state: { status: 'success', data: [{ id: FAV_ID, name: 'Favori', slug: 'favori', lat: 0, lng: 0, altitude: 800 }] },
       query: 'test',
@@ -159,8 +197,7 @@ describe('SearchScreen', () => {
     expect(mockFavCallbacks.removeFavorite).toHaveBeenCalledWith(FAV_ID);
   });
 
-  it('gere_favstate_data_null', () => {
-    // favState.data is null → favoriteIds built from empty array via ?? []
+  it('gère favState.data null', () => {
     mockPeakSearch = {
       state: { status: 'success', data: [{ id: 'other', name: 'Autre', slug: 'autre', lat: 0, lng: 0, altitude: 1000 }] },
       query: 'al',
@@ -171,21 +208,17 @@ describe('SearchScreen', () => {
     expect(getByText('Autre')).toBeTruthy();
   });
 
-  it('gere_state_data_undefined_dans_sorted', () => {
-    // When state is in an unknown status with no data, reaches line 111 sorted fallback
+  it('gère state.data undefined dans sorted', () => {
     mockPeakSearch = {
       state: { status: 'unknown' as string, data: undefined },
       query: 'al',
       setQuery: jest.fn(),
     };
     const { queryByText } = render(<SearchScreen />);
-    // Unknown status with no data reaches the sorted path with ?? [] fallback — renders FlatList with empty data
     expect(queryByText('search.minChars')).toBeNull();
   });
 
-  it('trie_trois_items_mix_favoris_non_favoris', () => {
-    // 3 items: FAV_ID (fav), other1 (non-fav), other2 (non-fav)
-    // Sorting will call comparator multiple times, covering both bFav=0 and bFav=1 branches
+  it('trie trois items — mix favoris / non-favoris', () => {
     const threePeaks = [
       { id: 'other1', name: 'Autre1', slug: 'autre1', lat: 0, lng: 0, altitude: 1000 },
       { id: FAV_ID, name: 'Favori', slug: 'favori', lat: 0, lng: 0, altitude: 800 },
@@ -219,5 +252,15 @@ describe('SearchScreen', () => {
     const { getByText } = render(<SearchScreen />);
     expect(getByText('Favori')).toBeTruthy();
     expect(getByText('Autre')).toBeTruthy();
+  });
+
+  it('gère state.data undefined quand status success', () => {
+    mockPeakSearch = {
+      state: { status: 'success', data: undefined },
+      query: 'al',
+      setQuery: jest.fn(),
+    };
+    const { queryByText } = render(<SearchScreen />);
+    expect(queryByText('search.minChars')).toBeNull();
   });
 });

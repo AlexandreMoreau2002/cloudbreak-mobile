@@ -23,9 +23,7 @@ describe('supabaseClient module', () => {
 
   it('crée le client avec les paramètres Expo et AsyncStorage', () => {
     jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const AsyncStorage = require('@react-native-async-storage/async-storage');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { supabase } = require('@/services/supabaseClient');
 
       expect(mockCreateClient).toHaveBeenCalledWith(

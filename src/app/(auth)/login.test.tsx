@@ -80,10 +80,11 @@ describe('LoginScreen', () => {
     mockAuthForm.mode = 'login';
   });
 
-  it('affiche Chargement quand loading = true', () => {
+  it('masque le texte du bouton et affiche un spinner quand loading = true', () => {
     mockAuthForm.loading = true;
-    const { getByText } = render(<LoginScreen />);
-    expect(getByText('auth.loading')).toBeTruthy();
+    const { queryByText } = render(<LoginScreen />);
+    expect(queryByText('auth.login')).toBeNull();
+    expect(queryByText('auth.loading')).toBeNull();
     mockAuthForm.loading = false;
   });
 });

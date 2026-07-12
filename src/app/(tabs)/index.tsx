@@ -1,27 +1,28 @@
 /**
  * HomeScreen — écran principal, affiche le score mer de nuage du sommet sélectionné.
  */
-import i18n from '@/utils/i18n';
-import { useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter, type Href } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import i18n from '@/utils/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWeekData } from '@/hooks/useWeekData';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useRouter, type Href } from 'expo-router';
 import { ScoreCard } from '@/components/score-card';
 import { WeekStrip } from '@/components/week-strip';
 import { useFavorites } from '@/hooks/useFavorites';
-import { usePaywall } from '@/contexts/PaywallContext';
+import { ErrorState } from '@/components/error-state';
 import { PeakHeader } from '@/components/peak-header';
+import { usePaywall } from '@/contexts/PaywallContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { HomeSkeleton } from '@/components/home-skeleton';
 import { FavoritesGrid } from '@/components/favorites-grid';
-import { ScoreSkeleton } from '@/components/score-skeleton';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { localizeScoreResponse } from '@/services/mockData/score';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConditionsSection } from '@/components/conditions-section';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const SEARCH_ROUTE = '/(tabs)/search' as Href;
 
@@ -58,6 +59,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { colors, typography, spacing } = useTheme();
+  const [quotaDismissed, setQuotaDismissed] = useState(false);
   const { selectedPeak, setSelectedPeak, selectedDate, selectedHour, setSelectedDate, setSelectedHour } = useSelectedPeak();
 
   const token = session?.access_token ?? null;
@@ -154,8 +156,7 @@ export default function HomeScreen() {
     if (isLoading) {
       return (
         <View style={styles.forecastStack}>
-          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
-          <ScoreSkeleton />
+          <HomeSkeleton />
         </View>
       );
     }
@@ -191,44 +192,32 @@ export default function HomeScreen() {
     }
 
     if (weekError) {
-      if (weekError === 'QUOTA_EXCEEDED') {
+      if (weekError === 'QUOTA_EXCEEDED' && !quotaDismissed) {
         return (
           <View style={styles.forecastStack}>
             <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
             <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-              <Ionicons name="lock-closed-outline" size={40} color={colors.textDisabled} style={{ marginBottom: spacing.sm }} />
-              <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.md, textAlign: 'center', marginBottom: 4 }]}>
-                {i18n.t('paywall.quotaTitle')}
-              </Text>
-              <Text style={[styles.emptyHint, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center', marginBottom: spacing.md }]}>
-                {i18n.t('paywall.quotaSubtitle')}
-              </Text>
-              <TouchableOpacity
-                style={[styles.ctaButton, { backgroundColor: colors.accent }]}
-                onPress={() => showPaywall()}
-                activeOpacity={0.8}
-                testID="quota-open-paywall-button"
-              >
-                <Text style={[styles.ctaText, { color: colors.surface, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }]}>
-                  {i18n.t('paywall.quotaCta')}
-                </Text>
-              </TouchableOpacity>
+              <ErrorState
+                icon="lock-closed-outline"
+                title={i18n.t('paywall.quotaTitle')}
+                message={i18n.t('home.quotaUpgrade')}
+                action={{ label: i18n.t('home.discoverPro'), onPress: () => showPaywall() }}
+                actionTestID="quota-open-paywall-button"
+                secondaryAction={{ label: i18n.t('home.notNow'), onPress: () => setQuotaDismissed(true) }}
+              />
             </View>
           </View>
         );
       }
 
-      const message = weekError.includes('indisponible')
-        ? i18n.t('home.serviceUnavailable')
-        : i18n.t('home.errorGeneric');
       return (
         <View style={styles.forecastStack}>
           <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
           <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            <Ionicons name="cloud-offline-outline" size={40} color={colors.textDisabled} style={{ marginBottom: spacing.sm }} />
-            <Text style={[styles.emptyHint, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center', marginBottom: 0 }]}>
-              {message}
-            </Text>
+            <ErrorState
+              title={i18n.t('home.errorGeneric')}
+              message={i18n.t('common.networkHint')}
+            />
           </View>
         </View>
       );
@@ -238,8 +227,7 @@ export default function HomeScreen() {
     if (weekData) {
       return (
         <View style={styles.forecastStack}>
-          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
-          <ScoreSkeleton />
+          <HomeSkeleton />
         </View>
       );
     }

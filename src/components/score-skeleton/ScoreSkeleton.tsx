@@ -1,74 +1,50 @@
 /**
- * ScoreSkeleton — skeleton loader animé pour la ScoreCard.
+ * ScoreSkeleton — skeleton loader anime pour la ScoreCard.
  *
- * Reproduit la structure de ScoreCard avec des blocs animés en pulsation.
- * Affiché pendant le chargement du score (status === 'loading').
+ * Reproduit la structure actuelle de ScoreCard : score + pill verdict a gauche,
+ * visualisation nuage a droite, rangee de chips horaires en bas.
+ * Affiche pendant le chargement du score (status === 'loading').
  */
-import { useEffect, useRef } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Radius, Spacing } from '@/constants/spacing';
-import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
+import { SkeletonBlock, useSkeletonColor } from '@/components/skeleton-block';
 
-function SkeletonBlock({
-  width,
-  height,
-  color,
-  style,
-}: {
-  width: ViewStyle['width'];
-  height: number;
-  color: string;
-  style?: ViewStyle;
-}) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.7, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.3, duration: 700, useNativeDriver: true }),
-      ]),
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [opacity]);
-
-  return (
-    <Animated.View
-      style={[
-        styles.block,
-        { width, height, backgroundColor: color, borderRadius: Radius.sm, opacity },
-        style,
-      ]}
-    />
-  );
-}
+const HOUR_CHIP_COUNT = 4;
 
 export function ScoreSkeleton() {
-  const { colors, scheme } = useTheme();
-  const blockColor = scheme === 'dark' ? '#3A3A3A' : '#E9E4DA';
+  const { colors } = useTheme();
+  const blockColor = useSkeletonColor();
 
   return (
     <View
       testID="score-skeleton"
       style={[
         styles.card,
-        {
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-        },
+        { backgroundColor: colors.surface, borderColor: colors.border },
       ]}
     >
-      {/* Peak name */}
-      <SkeletonBlock width={160} height={22} color={blockColor} />
-      {/* Altitude */}
-      <SkeletonBlock width={60} height={14} color={blockColor} />
-      {/* Score hero */}
-      <SkeletonBlock width={120} height={72} color={blockColor} style={{ marginVertical: Spacing.sm }} />
-      {/* Verdict pill */}
-      <SkeletonBlock width={180} height={36} color={blockColor} style={{ borderRadius: Radius.full }} />
-      {/* Date */}
-      <SkeletonBlock width={200} height={14} color={blockColor} style={{ marginTop: Spacing.xs }} />
+      <View style={styles.topRow}>
+        <View style={styles.heroColumn}>
+          <SkeletonBlock width={120} height={54} color={blockColor} />
+          <SkeletonBlock width={100} height={28} color={blockColor} style={{ borderRadius: Radius.full }} />
+        </View>
+        <View style={styles.vizWrapper}>
+          <SkeletonBlock width={108} height={164} color={blockColor} style={{ borderRadius: Radius.md }} />
+        </View>
+      </View>
+      <View style={styles.hourRow}>
+        {Array.from({ length: HOUR_CHIP_COUNT }, (_, i) => (
+          <SkeletonBlock
+            key={i}
+            testID={`score-skeleton-hour-${i}`}
+            width={52}
+            height={28}
+            color={blockColor}
+            style={{ borderRadius: Radius.sm }}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -76,11 +52,26 @@ export function ScoreSkeleton() {
 const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xl,
-    alignItems: 'center',
-    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
     borderWidth: 1,
   },
-  block: {},
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: Spacing.sm,
+  },
+  heroColumn: {
+    flex: 1,
+    gap: Spacing.xs,
+    justifyContent: 'center',
+  },
+  vizWrapper: {
+    width: 108,
+  },
+  hourRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
 });

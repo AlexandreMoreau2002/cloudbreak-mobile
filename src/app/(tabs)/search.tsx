@@ -1,24 +1,16 @@
-/**
- * SearchScreen — recherche de sommets et gestion des favoris depuis la liste de résultats.
- */
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { useFavorites } from '@/hooks/useFavorites';
 import { usePeakSearch } from '@/hooks/usePeakSearch';
 import type { Peak } from '@/services/mockData/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { AsyncStateView } from '@/components/async-state-view';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -78,55 +70,52 @@ export default function SearchScreen() {
           <Text style={{ color: colors.textDisabled, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center' }}>
             {i18n.t('search.minChars')}
           </Text>
-        </View>
-      );
-    }
-
-    if (state.status === 'loading') {
-      return (
-        <View style={styles.hint}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
-      );
-    }
-
-    if (state.status === 'error') {
-      return (
-        <View style={styles.hint}>
-          <Ionicons name="cloud-offline-outline" size={32} color={colors.textDisabled} style={{ marginBottom: spacing.sm }} />
-          <Text style={{ color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center' }}>
-            {state.error ?? i18n.t('common.error')}
+          <Text style={{ color: colors.textDisabled, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center', marginTop: spacing.xs }}>
+            {i18n.t('search.minCharsHint')}
           </Text>
         </View>
       );
     }
 
-    if (state.status === 'success' && (!state.data || state.data.length === 0)) {
-      return (
-        <View style={styles.hint}>
-          <Ionicons name="telescope-outline" size={32} color={colors.textDisabled} style={{ marginBottom: spacing.sm }} />
-          <Text style={{ color: colors.textDisabled, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center' }}>
-            {i18n.t('search.noResults')}
-          </Text>
-        </View>
-      );
-    }
-
-    const sorted = [...(state.data ?? [])].sort((a, b) => {
+    const data = state.status === 'success' ? (state.data ?? []) : [];
+    const sorted = [...data].sort((a, b) => {
       const aFav = favoriteIds.has(a.id) ? 0 : 1;
       const bFav = favoriteIds.has(b.id) ? 0 : 1;
       return aFav - bFav;
     });
 
     return (
-      <FlatList
-        data={sorted}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: spacing.xl }}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
-        showsVerticalScrollIndicator={false}
-      />
+      <AsyncStateView
+        isLoading={state.status === 'loading'}
+        isEmpty={state.status === 'success' && data.length === 0}
+        error={state.status === 'error' ? (state.error ?? i18n.t('common.error')) : null}
+        emptyComponent={
+          <View style={styles.hint}>
+            <EmptyState
+              icon="telescope-outline"
+              title={i18n.t('search.noResults')}
+              subtitle={i18n.t('search.noResultsHint')}
+            />
+          </View>
+        }
+        errorComponent={
+          <View style={styles.hint}>
+            <ErrorState
+              title={i18n.t('common.error')}
+              message={i18n.t('common.networkHint')}
+            />
+          </View>
+        }
+      >
+        <FlatList
+          data={sorted}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingBottom: spacing.xl }}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
+          showsVerticalScrollIndicator={false}
+        />
+      </AsyncStateView>
     );
   }
 

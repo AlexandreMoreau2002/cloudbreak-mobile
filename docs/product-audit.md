@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-05-15_
+_Dernière mise à jour : 2026-07-01_
 
 ---
 
@@ -34,6 +34,15 @@ _Dernière mise à jour : 2026-05-15_
 | Tests dédiés `cloud-layer-viz/*` + mocks peaks/user/types | ✅ |
 | Paywall freemium — modal slide-up déclenché sur QUOTA_EXCEEDED (story 4.2) | ✅ |
 | Toggle mensuel/annuel + badge essai gratuit + CTA + dismiss (story 4.2) | ✅ |
+| ErrorState — composant générique erreur (icône, titre, message, CTA primaire + secondaire) (story 7.3) | ✅ |
+| LoadingSpinner — ActivityIndicator centré générique (story 7.3) | ✅ |
+| FavoritesSkeleton — skeleton animé pour la liste favoris (story 7.3) | ✅ |
+| AsyncStateView — routing déclaratif loading/error/empty/children (story 7.3) | ✅ |
+| HomeSkeleton composite — skeleton fidèle par section de la Home (PeakHeader + ScoreCard + WeekStrip + Conditions + FavoritesGrid) (story 7.3 complément) | ✅ |
+| EmptyState branché sur Favorites (était défini, jamais utilisé) (story 7.3) | ✅ |
+| États UI unifiés dans Home (quota dismissable, erreur générique) (story 7.3) | ✅ |
+| États UI unifiés dans Search et Favorites (story 7.3) | ✅ |
+| Login : ActivityIndicator dans bouton submit pendant loading (story 7.3) | ✅ |
 
 ## Ce qui n'existe pas encore
 
@@ -48,5 +57,4 @@ _Dernière mise à jour : 2026-05-15_
 ## Prochaines étapes
 
 1. **Story 3.6** — Message contextuel hors-saison + partage deep link
-2. **Story 3.x** — Composant générique d'erreur API (`400/500/service indisponible`) réutilisable sur score, search et favorites
-3. **Epic 4** — Paywall / freemium (StoreKit 2)
+2. **Epic 4** — Paywall / freemium (StoreKit 2)
