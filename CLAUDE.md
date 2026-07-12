@@ -73,6 +73,58 @@ Alias @/ obligatoire — jamais de chemins relatifs ../ ou ../../.
 
 ---
 
+## Composants UI états — règle STRICTE
+
+Pour tout écran ou section qui charge des données, utiliser **obligatoirement** ces composants :
+
+| Besoin | Composant | Import |
+|--------|-----------|--------|
+| État d'erreur (réseau, API, quota) | `ErrorState` | `@/components/error-state` |
+| Spinner générique (bouton submit, chargement inline) | `LoadingSpinner` | `@/components/loading-spinner` |
+| État vide (liste vide, aucun résultat) | `EmptyState` | `@/components/empty-state` |
+| Routing déclaratif loading/error/empty/data | `AsyncStateView` | `@/components/async-state-view` |
+| Skeleton liste favoris | `FavoritesSkeleton` | `@/components/favorites-skeleton` |
+| Skeleton écran Home complet | `HomeSkeleton` | `@/components/home-skeleton` |
+
+**Ne jamais faire :**
+```tsx
+// ❌ états inline
+{loading && <ActivityIndicator />}
+{error && <Text>Erreur</Text>}
+{data.length === 0 && <Text>Vide</Text>}
+```
+
+**Toujours faire :**
+```tsx
+// ✅ composants unifiés
+<AsyncStateView
+  isLoading={state.status === 'loading'}
+  error={state.status === 'error' ? state.error : null}
+  isEmpty={state.status === 'success' && items.length === 0}
+  loadingComponent={<FavoritesSkeleton />}
+  emptyComponent={<EmptyState icon="heart-outline" title={i18n.t('favorites.empty')} />}
+  errorComponent={<ErrorState title={i18n.t('favorites.errorTitle')} action={{ label: i18n.t('common.retry'), onPress: reload }} />}
+>
+  <FlatList data={items} ... />
+</AsyncStateView>
+```
+
+**`ErrorState` — props disponibles :**
+```tsx
+<ErrorState
+  icon="cloud-offline-outline"   // Ionicons, optionnel
+  title="..."                    // obligatoire
+  message="..."                  // optionnel
+  action={{ label, onPress }}    // CTA primaire
+  actionTestID="..."             // pour les tests
+  secondaryAction={{ label, onPress }}  // ex: "Pas maintenant" — dismissable sans bloquer
+/>
+```
+
+**Règle quota/info :** une carte quota n'est jamais bloquante — toujours proposer un `secondaryAction` "Pas maintenant" qui dismiss la carte et revient aux données déjà en cache.
+
+---
+
 ## Règles de code
 
 Ne jamais faire :
