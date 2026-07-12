@@ -53,39 +53,90 @@ jest.mock('@/contexts/SelectedPeakContext', () => ({
   useSelectedPeak: () => ({ setSelectedPeak: mockSetSelectedPeak }),
 }));
 
+jest.mock('@/components/error-state', () => {
+  const React = jest.requireActual('react');
+  const { Text } = jest.requireActual('react-native');
+  return {
+    ErrorState: function MockErrorState(props: { title: string }) {
+      return React.createElement(Text, null, props.title);
+    },
+  };
+});
+jest.mock('@/components/empty-state', () => {
+  const React = jest.requireActual('react');
+  const { Text, TouchableOpacity } = jest.requireActual('react-native');
+  return {
+    EmptyState: function MockEmptyState(props: { title: string; onCta?: () => void }) {
+      return React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(Text, null, props.title),
+        props.onCta
+          ? React.createElement(TouchableOpacity, { testID: 'empty-state-cta', onPress: props.onCta })
+          : null,
+      );
+    },
+  };
+});
+jest.mock('@/components/favorites-skeleton', () => {
+  const React = jest.requireActual('react');
+  const { View } = jest.requireActual('react-native');
+  return {
+    FavoritesSkeleton: function MockFavoritesSkeleton() {
+      return React.createElement(View, { testID: 'favorites-skeleton' });
+    },
+  };
+});
+jest.mock('@/components/async-state-view', () => ({
+  AsyncStateView: function MockAsyncStateView(props: {
+    isLoading: boolean;
+    isEmpty: boolean;
+    error?: string | null;
+    loadingComponent?: unknown;
+    emptyComponent: unknown;
+    errorComponent?: unknown;
+    children: unknown;
+  }) {
+    if (props.isLoading) return props.loadingComponent ?? null;
+    if (props.error) return props.errorComponent ?? null;
+    if (props.isEmpty) return props.emptyComponent;
+    return props.children;
+  },
+}));
+
 describe('FavoritesScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockState = { status: 'success', data: [] };
   });
 
-  it('affiche l\'état vide quand aucun favori', () => {
+  it("affiche l'état vide quand aucun favori", () => {
     const { getByText } = render(<FavoritesScreen />);
     expect(getByText('favorites.empty')).toBeTruthy();
   });
 
-  it('affiche le spinner en état loading', () => {
+  it('affiche FavoritesSkeleton en état loading', () => {
     mockState = { status: 'loading' };
-    const { queryByText } = render(<FavoritesScreen />);
-    expect(queryByText('favorites.empty')).toBeNull();
+    const { getByTestId } = render(<FavoritesScreen />);
+    expect(getByTestId('favorites-skeleton')).toBeTruthy();
   });
 
-  it('affiche_spinner_en_etat_idle', () => {
+  it('affiche FavoritesSkeleton en état idle', () => {
     mockState = { status: 'idle' };
-    const { queryByText } = render(<FavoritesScreen />);
-    expect(queryByText('favorites.empty')).toBeNull();
+    const { getByTestId } = render(<FavoritesScreen />);
+    expect(getByTestId('favorites-skeleton')).toBeTruthy();
   });
 
-  it('affiche_erreur_si_state_error_avec_message', () => {
+  it("affiche ErrorState en cas d'erreur réseau", () => {
     mockState = { status: 'error', error: 'Erreur réseau' };
     const { getByText } = render(<FavoritesScreen />);
-    expect(getByText('Erreur réseau')).toBeTruthy();
+    expect(getByText('favorites.errorTitle')).toBeTruthy();
   });
 
-  it('affiche_erreur_generique_si_message_absent', () => {
+  it('affiche ErrorState même si message absent', () => {
     mockState = { status: 'error' };
     const { getByText } = render(<FavoritesScreen />);
-    expect(getByText('common.error')).toBeTruthy();
+    expect(getByText('favorites.errorTitle')).toBeTruthy();
   });
 
   it('affiche les favoris quand data présente', () => {
@@ -97,7 +148,7 @@ describe('FavoritesScreen', () => {
     expect(getByText('Mont Blanc')).toBeTruthy();
   });
 
-  it('affiche_separateur_entre_plusieurs_favoris', () => {
+  it('affiche plusieurs favoris', () => {
     mockState = {
       status: 'success',
       data: [
@@ -110,7 +161,7 @@ describe('FavoritesScreen', () => {
     expect(getByText('Aiguille Verte')).toBeTruthy();
   });
 
-  it('supprime_favori_au_tap_sur_bouton_supprimer', () => {
+  it('supprime un favori au tap sur le bouton supprimer', () => {
     mockState = {
       status: 'success',
       data: [{ id: '1', name: 'Mont Blanc', slug: 'mont-blanc', lat: 0, lng: 0, altitude: 4807 }],
@@ -120,12 +171,25 @@ describe('FavoritesScreen', () => {
     expect(mockRemoveFavorite).toHaveBeenCalledWith('1');
   });
 
-  it('selectionne_le_sommet_et_navigue_vers_home_au_tap', () => {
+  it('sélectionne le sommet et navigue vers home au tap', () => {
     const peak = { id: '1', name: 'Mont Blanc', slug: 'mont-blanc', lat: 0, lng: 0, altitude: 4807 };
     mockState = { status: 'success', data: [peak] };
     const { getByText } = render(<FavoritesScreen />);
     fireEvent.press(getByText('Mont Blanc'));
     expect(mockSetSelectedPeak).toHaveBeenCalledWith(peak);
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/');
+  });
+
+  it("navigue vers search au tap sur le CTA de l'état vide", () => {
+    mockState = { status: 'success', data: [] };
+    const { getByTestId } = render(<FavoritesScreen />);
+    fireEvent.press(getByTestId('empty-state-cta'));
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/search');
+  });
+
+  it('gère state.data undefined quand status success', () => {
+    mockState = { status: 'success', data: undefined };
+    const { queryByText } = render(<FavoritesScreen />);
+    expect(queryByText('favorites.empty')).toBeTruthy();
   });
 });

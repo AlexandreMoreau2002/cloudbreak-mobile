@@ -11,7 +11,7 @@
  * Usage :
  *   import { apiFetch } from '@/services/fetchService';
  */
-import { DEBUG } from '@/constants/devConfig';
+import { DEBUG, SIMULATE_DELAY_MS } from '@/constants/devConfig';
 
 // ── Config API ────────────────────────────────────────────────────────────────
 
@@ -65,6 +65,8 @@ export async function apiFetch<T>(
     if (code) (err as Error & { code: string }).code = code;
     throw err;
   }
+
+  if (SIMULATE_DELAY_MS > 0) await _delay(SIMULATE_DELAY_MS);
 
   if (response.status === 204) return undefined as T;
 

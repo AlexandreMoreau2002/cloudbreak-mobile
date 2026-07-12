@@ -9,7 +9,6 @@ describe('i18n', () => {
     mockGetLocales.mockReturnValue([{ languageCode: 'en' }]);
     let i18n: any;
     jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       i18n = require('@/utils/i18n').default;
     });
     expect(i18n.locale).toBe('en');
@@ -19,7 +18,6 @@ describe('i18n', () => {
     mockGetLocales.mockReturnValue([]);
     let i18n: any;
     jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       i18n = require('@/utils/i18n').default;
     });
     expect(i18n.locale).toBe('fr');

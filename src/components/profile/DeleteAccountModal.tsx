@@ -59,7 +59,7 @@ export function DeleteAccountModal({ visible, userEmail, onCancel, onConfirm, er
             disabled={loading || !emailMatch}
           >
             {loading
-              ? <ActivityIndicator color="#fff" />
+              ? <ActivityIndicator color={colors.surface} />
               : <Text style={styles.confirmText}>{i18n.t('profile.deleteAccountModal.confirm')}</Text>
             }
           </TouchableOpacity>

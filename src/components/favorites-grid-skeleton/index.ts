@@ -1,0 +1,1 @@
+export { FavoritesGridSkeleton } from './FavoritesGridSkeleton';

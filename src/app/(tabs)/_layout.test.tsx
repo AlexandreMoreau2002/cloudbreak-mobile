@@ -3,9 +3,7 @@ import TabsLayout from '@/app/(tabs)/_layout';
 import { render } from '@testing-library/react-native';
 
 jest.mock('expo-router', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { View } = require('react-native');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { createElement, Fragment } = require('react');
   const MockScreen = (props: { options?: { tabBarIcon?: (p: { color: string }) => unknown } }) => {
     const icon = props.options?.tabBarIcon?.({ color: '#000' });

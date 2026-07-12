@@ -1,9 +1,14 @@
 import { Alert } from 'react-native';
-import { useAuthForm } from '@/hooks/useAuthForm';
 import { renderHook, act } from '@testing-library/react-native';
+import { useAuthForm } from '@/hooks/useAuthForm';
 
 const mockSignIn = jest.fn();
 const mockSignUp = jest.fn();
+const mockDevConfigState = { SIMULATE_DELAY_MS: 0 };
+
+jest.mock('@/constants/devConfig', () => ({
+  get SIMULATE_DELAY_MS() { return mockDevConfigState.SIMULATE_DELAY_MS; },
+}));
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ signIn: mockSignIn, signUp: mockSignUp }),
@@ -21,6 +26,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
 describe('useAuthForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDevConfigState.SIMULATE_DELAY_MS = 0;
   });
 
   it('démarre en mode login', () => {
@@ -84,5 +90,27 @@ describe('useAuthForm', () => {
     await act(async () => { await result.current.handleSubmit(); });
 
     expect(alertSpy).toHaveBeenCalledWith('auth.error', 'Invalid credentials');
+  });
+
+  it('handleSubmit attend SIMULATE_DELAY_MS avant de couper le loading', async () => {
+    jest.useFakeTimers();
+    mockDevConfigState.SIMULATE_DELAY_MS = 2000;
+    mockSignIn.mockResolvedValue(null);
+    const { result } = renderHook(() => useAuthForm());
+
+    act(() => {
+      result.current.setEmail('test@test.com');
+      result.current.setPassword('password123');
+    });
+
+    let submitPromise!: Promise<void>;
+    act(() => { submitPromise = result.current.handleSubmit(); });
+
+    expect(result.current.loading).toBe(true);
+    await act(async () => { await jest.runAllTimersAsync(); });
+    await act(async () => { await submitPromise; });
+
+    expect(result.current.loading).toBe(false);
+    jest.useRealTimers();
   });
 });

@@ -1,28 +1,23 @@
-/**
- * FavoritesScreen — liste des sommets favoris de l'utilisateur.
- */
 import { useCallback } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { useFavorites } from '@/hooks/useFavorites';
 import type { Peak } from '@/services/mockData/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { AsyncStateView } from '@/components/async-state-view';
 import { useFocusEffect } from '@react-navigation/native';
+import { FavoritesSkeleton } from '@/components/favorites-skeleton';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const HOME_ROUTE = '/(tabs)/' as Href;
+const SEARCH_ROUTE = '/(tabs)/search' as Href;
 
 export default function FavoritesScreen() {
   useLanguage();
@@ -72,49 +67,49 @@ export default function FavoritesScreen() {
     );
   }
 
-  if (state.status === 'loading' || state.status === 'idle') {
-    return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator color={colors.accent} />
-      </View>
-    );
-  }
-
-  if (state.status === 'error') {
-    return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <Ionicons name="cloud-offline-outline" size={40} color={colors.textDisabled} style={{ marginBottom: spacing.md }} />
-        <Text style={{ color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center' }}>
-          {state.error ?? i18n.t('common.error')}
-        </Text>
-      </View>
-    );
-  }
-
-  if (!state.data || state.data.length === 0) {
-    return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <Ionicons name="heart-outline" size={48} color={colors.textDisabled} style={{ marginBottom: spacing.md }} />
-        <Text style={{ color: colors.textPrimary, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.md }}>
-          {i18n.t('favorites.empty')}
-        </Text>
-        <Text style={{ color: colors.textDisabled, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, textAlign: 'center', marginTop: spacing.sm }}>
-          {i18n.t('favorites.emptyHint')}
-        </Text>
-      </View>
-    );
-  }
+  const data = state.status === 'success' ? (state.data ?? []) : [];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 16 }]}>
-      <FlatList
-        data={state.data}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: spacing.xl }}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
-        showsVerticalScrollIndicator={false}
-      />
+      <AsyncStateView
+        isLoading={state.status === 'loading' || state.status === 'idle'}
+        isEmpty={state.status === 'success' && data.length === 0}
+        error={state.status === 'error' ? (state.error ?? i18n.t('common.error')) : null}
+        loadingComponent={
+          <View style={styles.centered}>
+            <FavoritesSkeleton />
+          </View>
+        }
+        emptyComponent={
+          <View style={styles.centered}>
+            <EmptyState
+              icon="heart-outline"
+              title={i18n.t('favorites.empty')}
+              subtitle={i18n.t('favorites.emptyHint')}
+              ctaLabel={i18n.t('favorites.goToSearch')}
+              onCta={() => router.push(SEARCH_ROUTE)}
+            />
+          </View>
+        }
+        errorComponent={
+          <View style={styles.centered}>
+            <ErrorState
+              title={i18n.t('favorites.errorTitle')}
+              message={i18n.t('common.networkHint')}
+              action={{ label: i18n.t('common.retry'), onPress: refresh }}
+            />
+          </View>
+        }
+      >
+        <FlatList
+          data={data}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingBottom: spacing.xl }}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
+          showsVerticalScrollIndicator={false}
+        />
+      </AsyncStateView>
     </View>
   );
 }

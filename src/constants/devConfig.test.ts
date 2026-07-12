@@ -13,7 +13,6 @@ describe('devConfig', () => {
     (globalThis as { __DEV__?: boolean }).__DEV__ = true;
 
     jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { MOCK_API, DEBUG } = require('@/constants/devConfig');
       expect(MOCK_API).toBe(true);
       expect(DEBUG).toBe(true);
@@ -25,7 +24,6 @@ describe('devConfig', () => {
     (globalThis as { __DEV__?: boolean }).__DEV__ = false;
 
     jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { MOCK_API, DEBUG } = require('@/constants/devConfig');
       expect(MOCK_API).toBe(false);
       expect(DEBUG).toBe(false);

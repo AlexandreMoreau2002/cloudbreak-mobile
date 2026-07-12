@@ -45,3 +45,6 @@ app-example
 
 # coverage
 coverage/
+
+# plans et specs internes (superpowers — ne pas versionner)
+docs/superpowers/

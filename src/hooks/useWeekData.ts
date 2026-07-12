@@ -11,20 +11,20 @@
  * - Cache AsyncStorage 30 min (bypass si MOCK_API)
  * - Tie-break : 06h > 08h > 16h > 14h > 10h > 12h > 18h > 20h > 22h
  */
+import { useCallback, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MOCK_API } from '@/constants/devConfig';
 import { fetchScore } from '@/services/api/score';
 import { addDays, getTodayISO } from '@/utils/dateUtils';
 import type { ScoreResponse } from '@/services/mockData/types';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DayScore, WeekScores } from '@/hooks/useWeekScores';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type WeekData = {
   byDate: Record<string, Record<number, ScoreResponse>>;
   bestByDate: WeekScores;
 };
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 const DAY_HOURS = [6, 8, 10, 12, 14, 16, 18, 20, 22] as const;
 const TIEBREAKER: Record<number, number> = { 6: 0, 8: 1, 16: 2, 14: 3, 10: 4, 12: 5, 18: 6, 20: 7, 22: 8 };

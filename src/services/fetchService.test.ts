@@ -1,15 +1,17 @@
 import { API_BASE, _delay, apiFetch } from '@/services/fetchService';
 
-const mockDevConfigState = { DEBUG: false };
+const mockDevConfigState = { DEBUG: false, SIMULATE_DELAY_MS: 0 };
 
 jest.mock('@/constants/devConfig', () => ({
   get DEBUG() { return mockDevConfigState.DEBUG; },
+  get SIMULATE_DELAY_MS() { return mockDevConfigState.SIMULATE_DELAY_MS; },
 }));
 
 describe('fetchService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDevConfigState.DEBUG = false;
+    mockDevConfigState.SIMULATE_DELAY_MS = 0;
     global.fetch = jest.fn();
   });
 
@@ -125,6 +127,30 @@ describe('fetchService', () => {
 
     jest.advanceTimersByTime(1);
     await promise;
+    expect(done).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  it('applique SIMULATE_DELAY_MS avant de résoudre la réponse', async () => {
+    jest.useFakeTimers();
+    mockDevConfigState.SIMULATE_DELAY_MS = 2000;
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ ok: true }),
+    });
+
+    const promise = apiFetch<{ ok: boolean }>('/api/v1/test', 'token-123');
+    const done = jest.fn();
+    promise.then(done);
+
+    await Promise.resolve();
+    expect(done).not.toHaveBeenCalled();
+
+    await jest.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result).toEqual({ ok: true });
     expect(done).toHaveBeenCalledTimes(1);
     jest.useRealTimers();
   });

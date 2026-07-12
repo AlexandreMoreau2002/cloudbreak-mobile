@@ -1,8 +1,8 @@
 import React from 'react';
-import { fetchScore } from '@/services/api/score';
-import { useWeekData } from '@/hooks/useWeekData';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchScore } from '@/services/api/score';
+import { useWeekData } from '@/hooks/useWeekData';
 
 const mockReact = React;
 
@@ -167,7 +167,7 @@ describe('useWeekData', () => {
     expect(result.current.data).not.toBeNull();
     expect(mockFetchScore).toHaveBeenCalledTimes(63);
     expect(mockAsyncStorage.setItem).toHaveBeenCalledTimes(1);
-    expect(mockAsyncStorage.setItem.mock.calls[0][0]).toContain('cache:weekdata:v3:peak-1:2026-03-24');
+    expect(mockAsyncStorage.setItem.mock.calls[0][0]).toContain('cache:weekdata:v4:peak-1:2026-03-24');
   });
 
   it('ignore une erreur de lecture du cache et poursuit le fetch', async () => {
