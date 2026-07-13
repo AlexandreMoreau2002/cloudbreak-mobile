@@ -60,6 +60,7 @@ export default function HomeScreen() {
   const { session } = useAuth();
   const { colors, typography, spacing } = useTheme();
   const [quotaDismissed, setQuotaDismissed] = useState(false);
+  const [lastSuccessfulPeak, setLastSuccessfulPeak] = useState<Peak | null>(null);
   const { selectedPeak, setSelectedPeak, selectedDate, selectedHour, setSelectedDate, setSelectedHour } = useSelectedPeak();
 
   const token = session?.access_token ?? null;
@@ -67,6 +68,11 @@ export default function HomeScreen() {
 
   const { showPaywall } = usePaywall();
   const userClickedHourRef = useRef(false);
+
+  // Sommet différent sélectionné → la carte quota doit pouvoir se réafficher pour lui aussi
+  useEffect(() => {
+    setQuotaDismissed(false);
+  }, [selectedPeak?.id]);
 
   useEffect(() => {
     if (quotaExceeded) showPaywall();
@@ -91,6 +97,28 @@ export default function HomeScreen() {
   const { state: favoritesState, addFavorite, removeFavorite } = useFavorites();
   const favorites: Peak[] = favoritesState.status === 'success' ? favoritesState.data || [] : [];
 
+  // Si la date sélectionnée n'a pas de données (cache périmé / date hors fenêtre),
+  // on se rabat sur aujourd'hui
+  const today = new Date().toISOString().slice(0, 10);
+  const effectiveDate =
+    weekData && (!weekData.byDate[selectedDate] || Object.keys(weekData.byDate[selectedDate]).length === 0)
+      ? today
+      : selectedDate;
+  const rawDisplayScore: ScoreResponse | null = weekData?.byDate[effectiveDate]?.[selectedHour] ?? null;
+  const displayScore: ScoreResponse | null = rawDisplayScore
+    ? localizeScoreResponse(rawDisplayScore)
+    : null;
+  const isLoading = weekLoading && displayScore == null;
+  const isRefreshing = weekLoading && displayScore != null;
+
+  // Retient le dernier sommet affiché avec succès — permet d'y revenir si un
+  // sommet sans cache tombe sur le quota (voir handleDismissQuota)
+  useEffect(() => {
+    if (displayScore && selectedPeak) {
+      setLastSuccessfulPeak(selectedPeak);
+    }
+  }, [displayScore, selectedPeak]);
+
   function isFavorite(peakId: string): boolean {
     return favorites.some((p) => p.id === peakId);
   }
@@ -112,6 +140,16 @@ export default function HomeScreen() {
     } else {
       addFavorite(peakId);
     }
+  }
+
+  function handleDismissQuota() {
+    // Pas de cache pour ce sommet mais un autre a déjà été chargé avec succès
+    // aujourd'hui → on y revient plutôt que d'afficher une erreur trompeuse
+    if (!displayScore && lastSuccessfulPeak && lastSuccessfulPeak.id !== selectedPeak?.id) {
+      setSelectedPeak(lastSuccessfulPeak);
+      return;
+    }
+    setQuotaDismissed(true);
   }
 
   function renderContent() {
@@ -138,20 +176,6 @@ export default function HomeScreen() {
         </View>
       );
     }
-
-    // Si la date sélectionnée n'a pas de données (cache périmé / date hors fenêtre),
-    // on se rabat sur aujourd'hui
-    const today = new Date().toISOString().slice(0, 10);
-    const effectiveDate =
-      weekData && (!weekData.byDate[selectedDate] || Object.keys(weekData.byDate[selectedDate]).length === 0)
-        ? today
-        : selectedDate;
-    const rawDisplayScore: ScoreResponse | null = weekData?.byDate[effectiveDate]?.[selectedHour] ?? null;
-    const displayScore: ScoreResponse | null = rawDisplayScore
-      ? localizeScoreResponse(rawDisplayScore)
-      : null;
-    const isLoading = weekLoading && displayScore == null;
-    const isRefreshing = weekLoading && displayScore != null;
 
     if (isLoading) {
       return (
@@ -192,18 +216,36 @@ export default function HomeScreen() {
     }
 
     if (weekError) {
-      if (weekError === 'QUOTA_EXCEEDED' && !quotaDismissed) {
+      if (weekError === 'QUOTA_EXCEEDED') {
+        if (!quotaDismissed) {
+          return (
+            <View style={styles.forecastStack}>
+              <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
+              <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <ErrorState
+                  icon="lock-closed-outline"
+                  title={i18n.t('paywall.quotaTitle')}
+                  message={i18n.t('home.quotaUpgrade')}
+                  action={{ label: i18n.t('home.discoverPro'), onPress: () => showPaywall() }}
+                  actionTestID="quota-open-paywall-button"
+                  secondaryAction={{ label: i18n.t('home.notNow'), onPress: handleDismissQuota }}
+                />
+              </View>
+            </View>
+          );
+        }
+
+        // Dismiss sans cache pour ce sommet ni sommet précédent à proposer :
+        // état neutre honnête (quota), jamais l'erreur réseau générique
         return (
           <View style={styles.forecastStack}>
             <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
             <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
               <ErrorState
-                icon="lock-closed-outline"
-                title={i18n.t('paywall.quotaTitle')}
-                message={i18n.t('home.quotaUpgrade')}
-                action={{ label: i18n.t('home.discoverPro'), onPress: () => showPaywall() }}
-                actionTestID="quota-open-paywall-button"
-                secondaryAction={{ label: i18n.t('home.notNow'), onPress: () => setQuotaDismissed(true) }}
+                icon="cloud-outline"
+                title={i18n.t('home.quotaNoCacheTitle')}
+                message={i18n.t('home.quotaNoCacheMessage')}
+                action={{ label: i18n.t('home.goToSearch'), onPress: handleGoToSearch }}
               />
             </View>
           </View>

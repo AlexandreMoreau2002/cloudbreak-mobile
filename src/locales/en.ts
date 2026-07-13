@@ -62,6 +62,8 @@ export default {
     quotaUpgrade: 'Upgrade to Cloudbreak Pro for unlimited summits.',
     discoverPro: 'Discover Cloudbreak Pro',
     notNow: 'Not now',
+    quotaNoCacheTitle: 'No data for this summit',
+    quotaNoCacheMessage: 'You\'ve reached your daily limit and this summit hasn\'t been checked yet today.',
     showConditions: 'View conditions',
     hideConditions: 'Hide conditions',
     shareForecast: 'Share forecast',

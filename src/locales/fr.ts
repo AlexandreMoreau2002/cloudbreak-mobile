@@ -62,6 +62,8 @@ export default {
     quotaUpgrade: 'Passe à Cloudbreak Pro pour consulter des sommets illimités.',
     discoverPro: 'Découvrir Cloudbreak Pro',
     notNow: 'Pas maintenant',
+    quotaNoCacheTitle: 'Aucune donnée pour ce sommet',
+    quotaNoCacheMessage: 'Ta limite quotidienne est atteinte et ce sommet n\'a pas encore été consulté aujourd\'hui.',
     showConditions: 'Voir les conditions',
     hideConditions: 'Masquer les conditions',
     shareForecast: 'Partager la prévision',

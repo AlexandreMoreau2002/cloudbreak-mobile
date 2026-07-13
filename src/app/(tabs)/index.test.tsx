@@ -32,6 +32,8 @@ jest.mock('@/utils/i18n', () => ({
       'home.quotaUpgrade': 'Passe à Cloudbreak Pro pour consulter des sommets illimités.',
       'home.discoverPro': 'Découvrir Cloudbreak Pro',
       'home.notNow': 'Pas maintenant',
+      'home.quotaNoCacheTitle': 'Aucune donnée pour ce sommet',
+      'home.quotaNoCacheMessage': "Ta limite quotidienne est atteinte et ce sommet n'a pas encore été consulté aujourd'hui.",
       'common.networkHint': 'Vérifie ta connexion et réessaie.',
       'home.shareForecast': 'Partager la prévision',
       'home.shareFailedTitle': 'Partage indisponible',
@@ -1135,6 +1137,83 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Quota atteint')).toBeTruthy();
     fireEvent.press(screen.getByTestId('secondary-action-btn'));
     expect(screen.queryByText('Quota atteint')).toBeNull();
+  });
+
+  it('affiche un état neutre (pas l\'erreur réseau générique) quand le quota est dismiss sans cache ni sommet précédent', () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupError('QUOTA_EXCEEDED', true);
+
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('secondary-action-btn'));
+
+    expect(screen.getByText('Aucune donnée pour ce sommet')).toBeTruthy();
+    expect(screen.queryByText('Impossible de charger la prévision')).toBeNull();
+  });
+
+  it('revient automatiquement sur le dernier sommet chargé avec succès quand on dismiss sans cache', () => {
+    const peakA = DEFAULT_PEAK;
+    const peakB = { ...DEFAULT_PEAK, id: 'peak-2', name: 'Aiguille Verte' };
+    const mockSetSelectedPeak = jest.fn();
+
+    let currentSelectedPeak = peakA;
+    mockUseSelectedPeak.mockImplementation(() => ({
+      selectedPeak: currentSelectedPeak,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: mockSetSelectedPeak,
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    }));
+
+    let currentWeekDataState: { data: WeekData | null; loading: boolean; error: string | null; quotaExceeded: boolean } = {
+      data: makeWeekData(MOCK_SCORE_DATA),
+      loading: false,
+      error: null,
+      quotaExceeded: false,
+    };
+    mockUseWeekData.mockImplementation(() => currentWeekDataState);
+
+    const { rerender } = render(<HomeScreen />);
+    expect(screen.getByTestId('score-card')).toBeTruthy();
+
+    // Sommet B sélectionné — pas de cache, quota dépassé
+    currentSelectedPeak = peakB;
+    currentWeekDataState = { data: null, loading: false, error: 'QUOTA_EXCEEDED', quotaExceeded: true };
+    rerender(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('secondary-action-btn'));
+
+    expect(mockSetSelectedPeak).toHaveBeenCalledWith(peakA);
+  });
+
+  it('réaffiche la carte quota pour un nouveau sommet même si elle avait été dismiss pour le précédent', () => {
+    const peakA = DEFAULT_PEAK;
+    const peakB = { ...DEFAULT_PEAK, id: 'peak-2', name: 'Aiguille Verte' };
+
+    let currentSelectedPeak = peakA;
+    mockUseSelectedPeak.mockImplementation(() => ({
+      selectedPeak: currentSelectedPeak,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    }));
+    setupError('QUOTA_EXCEEDED', true);
+
+    const { rerender } = render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('secondary-action-btn'));
+    expect(screen.queryByText('Quota atteint')).toBeNull();
+
+    currentSelectedPeak = peakB;
+    rerender(<HomeScreen />);
+    expect(screen.getByText('Quota atteint')).toBeTruthy();
   });
 
 });
