@@ -13,4 +13,4 @@ export const MOCK_API = process.env.EXPO_PUBLIC_MOCK_API === 'true';
 export const DEBUG = __DEV__ && true;
 
 // Délai artificiel pour visualiser les états de chargement en dev (0 = désactivé)
-export const SIMULATE_DELAY_MS = __DEV__ ? 3000 : 0;
+export const SIMULATE_DELAY_MS = 0;

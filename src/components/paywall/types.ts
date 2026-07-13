@@ -38,5 +38,6 @@ export interface PaywallFooterProps {
   onDismiss: () => void;
   colors: {
     textSecondary: string;
+    border: string;
   };
 }

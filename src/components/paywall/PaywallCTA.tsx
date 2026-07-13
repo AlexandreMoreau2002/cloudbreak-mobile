@@ -1,9 +1,16 @@
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
+import { DEBUG } from '@/constants/devConfig';
 import { Typography } from '@/constants/typography';
 import { Radius, Spacing } from '@/constants/spacing';
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import type { PaywallCTAProps } from './types';
+
+function restorePurchases() {
+  // Stub en attente de la story 4.3 (StoreKit 2 réel)
+  if (DEBUG) console.debug('[Paywall] restorePurchases stub');
+  Alert.alert(i18n.t('paywall.restoreSuccess'));
+}
 
 export function PaywallCTA({ billingPeriod, onSelectPlan, colors }: PaywallCTAProps) {
   return (
@@ -22,7 +29,7 @@ export function PaywallCTA({ billingPeriod, onSelectPlan, colors }: PaywallCTAPr
       <TouchableOpacity
         testID="paywall-restore-button"
         style={styles.restoreButton}
-        onPress={() => {}}
+        onPress={restorePurchases}
         activeOpacity={0.7}
       >
         <Text style={[styles.restoreText, { color: colors.textSecondary, fontFamily: Typography.fontFamily.regular }]}>
