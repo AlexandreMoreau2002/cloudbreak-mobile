@@ -89,7 +89,6 @@ jest.mock('@/utils/i18n', () => ({
       'paywall.quotaSubtitle': 'Vous avez atteint votre limite quotidienne.',
       'paywall.title': 'Débloquer les prévisions illimitées',
       'paywall.subtitle': 'Accédez à toutes vos prévisions, sans limite quotidienne.',
-      'paywall.trialBadge': 'Essai gratuit 7 jours',
       'paywall.premiumLabel': 'Premium',
       'paywall.premiumPrice': '5€ / mois',
       'paywall.premiumDescription': 'Prévisions illimitées, accès complet.',

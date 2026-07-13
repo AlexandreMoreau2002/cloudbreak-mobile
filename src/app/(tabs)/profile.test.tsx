@@ -49,6 +49,11 @@ jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ locale: mockLocale, toggleLocale: mockToggleLocale }),
 }));
 
+const mockOpenLegalLink = jest.fn();
+jest.mock('@/hooks/useLegalLinks', () => ({
+  useLegalLinks: () => ({ openLegalLink: mockOpenLegalLink }),
+}));
+
 let mockScheme = 'light';
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
@@ -186,6 +191,32 @@ describe('ProfileScreen', () => {
       expect(getByText('profile.deleteAccountModal.errorGeneric')).toBeTruthy();
     });
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche la section légale avec les trois entrées', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('legal.sectionTitle')).toBeTruthy();
+    expect(getByText('legal.privacy')).toBeTruthy();
+    expect(getByText('legal.cgu')).toBeTruthy();
+    expect(getByText('legal.support')).toBeTruthy();
+  });
+
+  it('ouvre la politique de confidentialité au clic', () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('legal.privacy'));
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak.fr/fr/privacy');
+  });
+
+  it("ouvre les conditions d'utilisation au clic", () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('legal.cgu'));
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak.fr/fr/cgu');
+  });
+
+  it('ouvre le lien mailto du support au clic', () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('legal.support'));
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('mailto:support@cloudbreak.app');
   });
 
   it('branche les boutons DEV sur le sandbox et le reset du sommet sélectionné', () => {

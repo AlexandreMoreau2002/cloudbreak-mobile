@@ -26,6 +26,7 @@ export function PaywallHeader({ colors }: PaywallHeaderProps) {
 
 const styles = StyleSheet.create({
   trialBadge: {
+    alignSelf: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: Radius.full,
@@ -46,7 +47,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: Typography.fontSize.sm,
     textAlign: 'center',
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
     lineHeight: Typography.fontSize.sm * Typography.lineHeight.normal,
   },
 });

@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { LEGAL_URLS } from '@/constants/legalUrls';
+import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { usePaywall } from '@/contexts/PaywallContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
@@ -18,6 +20,7 @@ export default function ProfileScreen() {
   const { session, signOut, deleteAccount } = useAuth();
   const { setSelectedPeak } = useSelectedPeak();
   const { locale, toggleLocale } = useLanguage();
+  const { openLegalLink } = useLegalLinks();
   const { colors, typography, scheme, toggleScheme } = useTheme();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -72,6 +75,28 @@ export default function ProfileScreen() {
           label={i18n.t('profile.language')}
           value={locale === 'fr' ? i18n.t('profile.languageFrLabel') : i18n.t('profile.languageEnLabel')}
           onPress={toggleLocale}
+          isLast
+        />
+      </View>
+
+      <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+        {i18n.t('legal.sectionTitle')}
+      </Text>
+      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SettingsRow
+          icon="shield-checkmark-outline"
+          label={i18n.t('legal.privacy')}
+          onPress={() => openLegalLink(LEGAL_URLS.privacy)}
+        />
+        <SettingsRow
+          icon="document-text-outline"
+          label={i18n.t('legal.cgu')}
+          onPress={() => openLegalLink(LEGAL_URLS.cgu)}
+        />
+        <SettingsRow
+          icon="mail-outline"
+          label={i18n.t('legal.support')}
+          onPress={() => openLegalLink(LEGAL_URLS.support)}
           isLast
         />
       </View>

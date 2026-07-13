@@ -45,7 +45,7 @@ export function PaywallScreen({ visible, onDismiss, onSelectPlan }: PaywallScree
   }, [visible, overlayOpacity, sheetTranslateY]);
 
   function handleSelectPlan(plan: BillingPeriod) {
-    if (DEBUG) console.debug('[PaywallScreen] commencer essai', { plan });
+    if (DEBUG) console.debug('[PaywallScreen] plan sélectionné', { plan });
     onSelectPlan?.(plan);
   }
 
@@ -106,7 +106,7 @@ export function PaywallScreen({ visible, onDismiss, onSelectPlan }: PaywallScree
 
             <PaywallFooter
               onDismiss={onDismiss}
-              colors={{ textSecondary: colors.textSecondary }}
+              colors={{ textSecondary: colors.textSecondary, border: colors.border }}
             />
           </ScrollView>
         </Animated.View>
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: Radius.lg,
     borderTopRightRadius: Radius.lg,
-    paddingBottom: Spacing.xxxl,
+    paddingBottom: Spacing.xl,
     maxHeight: '92%',
   },
   handle: {
