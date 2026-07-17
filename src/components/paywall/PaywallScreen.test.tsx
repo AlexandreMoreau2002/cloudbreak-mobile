@@ -13,7 +13,7 @@ jest.mock('@/constants/devConfig', () => ({
 }));
 
 jest.mock('@/utils/i18n', () => ({
-  t: (key: string) => {
+  t: (key: string, options?: Record<string, string>) => {
     const map: Record<string, string> = {
       'paywall.trialBadge': 'Essai gratuit 7 jours',
       'paywall.title': 'Débloquer les prévisions illimitées',
@@ -24,6 +24,7 @@ jest.mock('@/utils/i18n', () => ({
       'paywall.priceMonthly': '5€ / mois',
       'paywall.priceAnnual': '45€ / an',
       'paywall.ctaStart': "Commencer l'essai gratuit",
+      'paywall.ctaTrialEndNote': 'Puis {{price}}',
       'paywall.ctaRestore': 'Restaurer un achat',
       'paywall.restoreSuccess': 'Achats restaurés',
       'paywall.dismiss': 'Continuer sans abonnement',
@@ -31,7 +32,12 @@ jest.mock('@/utils/i18n', () => ({
       'legal.privacy': 'Politique de confidentialité',
       'legal.cgu': "Conditions d'utilisation",
     };
-    return map[key] ?? key;
+    const template = map[key] ?? key;
+    if (!options) return template;
+    return Object.keys(options).reduce(
+      (acc, optionKey) => acc.replace(`{{${optionKey}}}`, options[optionKey]),
+      template,
+    );
   },
 }));
 
@@ -120,6 +126,22 @@ describe('PaywallScreen', () => {
     expect(screen.getByText('5€ / mois')).toBeTruthy();
     expect(screen.getByText('45€ / an')).toBeTruthy();
     expect(screen.getByText('−33%')).toBeTruthy();
+  });
+
+  it('affiche_le_prix_apres_essai_pour_le_plan_annuel_par_defaut', () => {
+    render(
+      <PaywallScreen visible onDismiss={mockOnDismiss} onSelectPlan={mockOnSelectPlan} />,
+    );
+    expect(screen.getByText('Puis 45€ / an')).toBeTruthy();
+  });
+
+  it('met_a_jour_le_prix_apres_essai_quand_le_plan_mensuel_est_selectionne', () => {
+    render(
+      <PaywallScreen visible onDismiss={mockOnDismiss} onSelectPlan={mockOnSelectPlan} />,
+    );
+    fireEvent.press(screen.getByTestId('paywall-billing-monthly'));
+    expect(screen.getByText('Puis 5€ / mois')).toBeTruthy();
+    expect(screen.queryByText('Puis 45€ / an')).toBeNull();
   });
 
   it('selectionne_annuel_par_defaut_sans_log_quand_debug_desactive', () => {

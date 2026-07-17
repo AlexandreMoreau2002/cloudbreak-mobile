@@ -194,6 +194,7 @@ export default {
     priceMonthly: '€5 / month',
     priceAnnual: '€45 / year',
     ctaStart: 'Start free trial',
+    ctaTrialEndNote: 'Then {{price}}',
     ctaRestore: 'Restore purchase',
     restoreSuccess: 'Purchases restored',
     dismiss: 'Continue without subscription',

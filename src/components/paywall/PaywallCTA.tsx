@@ -24,6 +24,14 @@ export function PaywallCTA({ billingPeriod, onSelectPlan, colors }: PaywallCTAPr
         <Text style={[styles.ctaButtonText, { color: Colors.light.surface, fontFamily: Typography.fontFamily.bold }]}>
           {i18n.t('paywall.ctaStart')}
         </Text>
+        <Text
+          testID="paywall-cta-trial-end-note"
+          style={[styles.trialEndNote, { color: Colors.light.surface, fontFamily: Typography.fontFamily.regular }]}
+        >
+          {i18n.t('paywall.ctaTrialEndNote', {
+            price: i18n.t(billingPeriod === 'monthly' ? 'paywall.priceMonthly' : 'paywall.priceAnnual'),
+          })}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -59,5 +67,10 @@ const styles = StyleSheet.create({
   },
   restoreText: {
     fontSize: Typography.fontSize.sm,
+  },
+  trialEndNote: {
+    fontSize: Typography.fontSize.xs,
+    opacity: 0.85,
+    marginTop: Spacing.xs,
   },
 });
