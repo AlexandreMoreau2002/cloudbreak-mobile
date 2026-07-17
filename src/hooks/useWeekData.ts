@@ -8,7 +8,7 @@
  * Comportement :
  * - Changement de sommet → reset immédiat (pas de score obsolète affiché)
  * - Même sommet, refresh → garde les données le temps du re-fetch
- * - Cache AsyncStorage 30 min (bypass si MOCK_API)
+ * - Cache AsyncStorage 3h (bypass si MOCK_API)
  * - Tie-break : 06h > 08h > 16h > 14h > 10h > 12h > 18h > 20h > 22h
  */
 import NetInfo from '@react-native-community/netinfo';
@@ -137,9 +137,6 @@ export function useWeekData(
       return;
     }
 
-    setFromCache(false);
-    setCachedAt(null);
-
     // Fetch réseau : 7 jours × 9 créneaux en parallèle
     const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
     const byDate: Record<string, Record<number, ScoreResponse>> = {};
@@ -201,6 +198,8 @@ export function useWeekData(
 
     const weekData: WeekData = { byDate, bestByDate: computeBestByDate(byDate) };
     setData(weekData);
+    setFromCache(false);
+    setCachedAt(null);
     setError(null);
     setLoading(false);
 

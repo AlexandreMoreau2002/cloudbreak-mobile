@@ -597,10 +597,11 @@ describe('useWeekData', () => {
 
   it('refresh() garde les données de cache affichées si le fetch échoue', async () => {
     const today = '2026-03-24';
+    const cachedAt = Date.now();
     mockAsyncStorage.getItem.mockResolvedValueOnce(
       JSON.stringify({
         byDate: { [today]: { 6: MOCK_SCORE } },
-        cachedAt: Date.now(),
+        cachedAt,
       }),
     );
 
@@ -611,8 +612,36 @@ describe('useWeekData', () => {
     mockFetchScore.mockRejectedValue(new Error('Network error'));
     await result.current.refresh();
 
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.data).toEqual(cachedData);
+    await waitFor(() => expect(result.current.fromCache).toBe(true));
+    expect(result.current.cachedAt).toBe(cachedAt);
+  });
+
+  it('refresh() en ligne mais fetch totalement en échec garde fromCache et cachedAt intacts', async () => {
+    const today = '2026-03-24';
+    const cachedAt = Date.now();
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: { [today]: { 6: MOCK_SCORE } },
+        cachedAt,
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.fromCache).toBe(true);
+    expect(result.current.cachedAt).toBe(cachedAt);
+
+    // Toujours en ligne, mais tous les appels réseau du refresh échouent
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: true } as never);
+    mockFetchScore.mockRejectedValue(new Error('Network error'));
+    await result.current.refresh();
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.fromCache).toBe(true);
+    expect(result.current.cachedAt).toBe(cachedAt);
+    expect(result.current.data).not.toBeNull();
   });
 
   it("retourne OFFLINE_NO_CACHE si hors-ligne et aucun cache valide, sans appeler fetchScore", async () => {
