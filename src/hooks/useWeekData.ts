@@ -25,7 +25,7 @@ export type WeekData = {
 };
 
 const CACHE_VERSION = 'v4';
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
+const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3h
 const DAY_HOURS = [6, 8, 10, 12, 14, 16, 18, 20, 22] as const;
 const TIEBREAKER: Record<number, number> = { 6: 0, 8: 1, 16: 2, 14: 3, 10: 4, 12: 5, 18: 6, 20: 7, 22: 8 };
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { fetchScore } from '@/services/api/score';
 import { useWeekData } from '@/hooks/useWeekData';
 
@@ -12,9 +13,14 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   setItem: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/constants/devConfig', () => ({ DEBUG: false, MOCK_API: false }));
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: { fetch: jest.fn() },
+}));
 
 const mockFetchScore = fetchScore as jest.MockedFunction<typeof fetchScore>;
 const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
+const mockNetInfoFetch = NetInfo.fetch as jest.MockedFunction<typeof NetInfo.fetch>;
 let consoleDebugSpy: jest.SpyInstance;
 type WeekDataHookProps = { peakId: string; token: string };
 
@@ -49,6 +55,7 @@ beforeEach(() => {
   mockFetchScore.mockResolvedValue(MOCK_SCORE);
   mockAsyncStorage.getItem.mockResolvedValue(null);
   mockAsyncStorage.setItem.mockResolvedValue(undefined);
+  mockNetInfoFetch.mockResolvedValue({ isConnected: true } as never);
 });
 
 afterEach(() => {
@@ -223,7 +230,7 @@ describe('useWeekData', () => {
             6: MOCK_SCORE,
           },
         },
-        cachedAt: Date.now() - 31 * 60 * 1000,
+        cachedAt: Date.now() - (3 * 60 * 60 * 1000 + 60 * 1000),
       }),
     );
 
