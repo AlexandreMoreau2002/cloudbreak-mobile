@@ -318,7 +318,7 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl
             testID="home-refresh-control"
-            refreshing={weekLoading && fromCache}
+            refreshing={weekLoading && (fromCache || weekError === 'OFFLINE_NO_CACHE')}
             onRefresh={refresh}
             tintColor={colors.accent}
           />

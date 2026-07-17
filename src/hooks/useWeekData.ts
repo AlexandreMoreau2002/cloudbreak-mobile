@@ -14,7 +14,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MOCK_API } from '@/constants/devConfig';
+import { DEBUG, MOCK_API } from '@/constants/devConfig';
 import { fetchScore } from '@/services/api/score';
 import { addDays, getTodayISO } from '@/utils/dateUtils';
 import type { ScoreResponse } from '@/services/mockData/types';
@@ -112,6 +112,7 @@ export function useWeekData(
             todayHours != null &&
             Object.keys(todayHours).length > 0;
           if (cacheValid) {
+            if (DEBUG) console.debug('[useWeekData] cache', { key: cacheK, hit: true, age: Date.now() - cachedAt });
             loadedPeakRef.current = peakId;
             setData({ byDate, bestByDate: computeBestByDate(byDate) });
             setFromCache(true);
@@ -124,6 +125,8 @@ export function useWeekData(
         // Cache read failure — non-fatal
       }
     }
+
+    if (DEBUG) console.debug('[useWeekData] cache', { key: cacheK, hit: false });
 
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
@@ -143,6 +146,8 @@ export function useWeekData(
     let totalSuccess = 0;
     let isServiceUnavailable = false;
     let isQuotaExceeded = false;
+
+    if (DEBUG) console.debug('[useWeekData] fetch', { peakId, dates: dates.length });
 
     await Promise.all(
       dates.map(async (date) => {
@@ -175,6 +180,8 @@ export function useWeekData(
     );
 
     loadedPeakRef.current = peakId;
+
+    if (DEBUG) console.debug('[useWeekData] result', { totalSuccess, isQuotaExceeded, isServiceUnavailable });
 
     if (isQuotaExceeded) {
       setQuotaExceeded(true);

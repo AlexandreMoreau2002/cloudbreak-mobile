@@ -59,3 +59,7 @@ npm run validate    # tsc + lint + test --coverage + build:check
 - [x] **AC2** — Même prévision consultée sans réseau → cache retourné (`fromCache: true`), bandeau "Données du [heure] — connexion requise pour actualiser" affiché en < 100ms. Couvert par `useWeekData.test.ts` (`fromCache`/`cachedAt`), `OfflineBanner.test.tsx` (rendu du bandeau) et `index.test.tsx` (affichage conditionnel dans l'écran).
 - [x] **AC3** — Cache expiré (> 3h) et absence de réseau → message clair "Données non disponibles", pas de crash, pas de données obsolètes affichées sans avertissement. Couvert par `useWeekData.test.ts` (code `OFFLINE_NO_CACHE`) et `index.test.tsx` (état `EmptyState` sans CTA).
 - [x] **AC4** — Retour du réseau + pull-to-refresh → données fraîches récupérées, bandeau disparaît. Couvert par `useWeekData.test.ts` (`refresh()` bypasse le cache) et `index.test.tsx` (pull-to-refresh déclenche `refresh()`).
+
+## Dette technique
+
+`useWeekData` utilise 5 `useState` séparés (`data`, `loading`, `error`, `quotaExceeded`, `fromCache`/`cachedAt`) plutôt que le pattern `AsyncState<T>` standard du projet. Ce choix pré-existe à la story 7.2 — le hook fonctionnait déjà ainsi avant cette story, et son interface publique (`{ data, loading, error, quotaExceeded, fromCache, cachedAt, refresh }`) est consommée par `index.tsx` et mockée dans une trentaine de tests. Migrer vers `AsyncState<T>` est un refactor à part entière, hors scope de cette story — à planifier séparément si jugé prioritaire.
