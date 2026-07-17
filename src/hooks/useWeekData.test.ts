@@ -82,6 +82,10 @@ function runIsolatedWeekDataTestWithDebug(
   }));
   jest.doMock('@/services/api/score', () => ({ fetchScore: mockFetchScore }));
   jest.doMock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
+  jest.doMock('@react-native-community/netinfo', () => ({
+    __esModule: true,
+    default: { fetch: mockNetInfoFetch },
+  }));
 
   const { useWeekData: isolatedUseWeekData } =
     jest.requireActual('@/hooks/useWeekData') as typeof import('@/hooks/useWeekData');
@@ -569,5 +573,45 @@ describe('useWeekData', () => {
 
     expect(result.current.quotaExceeded).toBe(true);
     expect(result.current.error).toBe('QUOTA_EXCEEDED');
+  });
+
+  it('refresh() force un fetch réseau même si le cache est valide', async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: { [today]: { 6: MOCK_SCORE } },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.fromCache).toBe(true);
+    expect(mockFetchScore).not.toHaveBeenCalled();
+
+    await result.current.refresh();
+    await waitFor(() => expect(result.current.fromCache).toBe(false));
+
+    expect(mockFetchScore).toHaveBeenCalledTimes(63);
+  });
+
+  it('refresh() garde les données de cache affichées si le fetch échoue', async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: { [today]: { 6: MOCK_SCORE } },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const cachedData = result.current.data;
+
+    mockFetchScore.mockRejectedValue(new Error('Network error'));
+    await result.current.refresh();
+
+    expect(result.current.data).toEqual(cachedData);
+    expect(result.current.fromCache).toBe(true);
   });
 });

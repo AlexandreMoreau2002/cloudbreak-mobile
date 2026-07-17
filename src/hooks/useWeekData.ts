@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { MOCK_API } from '@/constants/devConfig';
 import { fetchScore } from '@/services/api/score';
 import { addDays, getTodayISO } from '@/utils/dateUtils';
@@ -78,7 +79,7 @@ export function useWeekData(
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   const loadedPeakRef = useRef<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     if (!peakId || !token) {
       setData(null);
       setLoading(false);
@@ -97,7 +98,7 @@ export function useWeekData(
     const today = getTodayISO();
     const cacheK = weekCacheKey(peakId, today);
 
-    if (!MOCK_API) {
+    if (!MOCK_API && !force) {
       try {
         const raw = await AsyncStorage.getItem(cacheK);
         if (raw) {
@@ -122,6 +123,18 @@ export function useWeekData(
       } catch {
         // Cache read failure — non-fatal
       }
+    }
+
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      if (force) {
+        // Refresh manuel hors-ligne : on garde les données déjà affichées, pas d'erreur bloquante
+        setLoading(false);
+        return;
+      }
+      setError('OFFLINE_NO_CACHE');
+      setLoading(false);
+      return;
     }
 
     setFromCache(false);
@@ -174,6 +187,10 @@ export function useWeekData(
     }
 
     if (totalSuccess === 0) {
+      if (force) {
+        setLoading(false);
+        return;
+      }
       const errMsg = isServiceUnavailable
         ? 'Service momentanément indisponible'
         : 'Erreur de chargement';
@@ -196,9 +213,11 @@ export function useWeekData(
     }
   }, [peakId, token]);
 
+  const refresh = useCallback(() => load(true), [load]);
+
   useEffect(() => {
     load();
   }, [load]);
 
-  return { data, loading, error, quotaExceeded, fromCache, cachedAt, refresh: load };
+  return { data, loading, error, quotaExceeded, fromCache, cachedAt, refresh };
 }
