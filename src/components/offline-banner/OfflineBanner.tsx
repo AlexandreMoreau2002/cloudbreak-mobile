@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { StyleSheet, Text, View } from 'react-native';
 
 export interface OfflineBannerProps {
   cachedAt: number;

@@ -11,9 +11,9 @@
  * - Cache AsyncStorage 30 min (bypass si MOCK_API)
  * - Tie-break : 06h > 08h > 16h > 14h > 10h > 12h > 18h > 20h > 22h
  */
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
 import { MOCK_API } from '@/constants/devConfig';
 import { fetchScore } from '@/services/api/score';
 import { addDays, getTodayISO } from '@/utils/dateUtils';

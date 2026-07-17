@@ -1,7 +1,7 @@
 import React from 'react';
+import NetInfo from '@react-native-community/netinfo';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
 import { fetchScore } from '@/services/api/score';
 import { useWeekData } from '@/hooks/useWeekData';
 
