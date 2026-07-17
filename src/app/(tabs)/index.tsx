@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWeekData } from '@/hooks/useWeekData';
@@ -15,6 +15,8 @@ import { WeekStrip } from '@/components/week-strip';
 import { useFavorites } from '@/hooks/useFavorites';
 import { ErrorState } from '@/components/error-state';
 import { PeakHeader } from '@/components/peak-header';
+import { EmptyState } from '@/components/empty-state';
+import { OfflineBanner } from '@/components/offline-banner';
 import { usePaywall } from '@/contexts/PaywallContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HomeSkeleton } from '@/components/home-skeleton';
@@ -64,7 +66,7 @@ export default function HomeScreen() {
   const { selectedPeak, setSelectedPeak, selectedDate, selectedHour, setSelectedDate, setSelectedHour } = useSelectedPeak();
 
   const token = session?.access_token ?? null;
-  const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded } = useWeekData(selectedPeak?.id ?? null, token);
+  const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded, fromCache, cachedAt, refresh } = useWeekData(selectedPeak?.id ?? null, token);
 
   const { showPaywall } = usePaywall();
   const userClickedHourRef = useRef(false);
@@ -188,6 +190,7 @@ export default function HomeScreen() {
     if (displayScore) {
       return (
         <View style={[styles.forecastStack, isRefreshing && { opacity: 0.7 }]}>
+          {fromCache && cachedAt ? <OfflineBanner cachedAt={cachedAt} /> : null}
           <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
           <ScoreCard
             score={displayScore}
@@ -252,6 +255,19 @@ export default function HomeScreen() {
         );
       }
 
+      if (weekError === 'OFFLINE_NO_CACHE') {
+        return (
+          <View style={styles.forecastStack}>
+            <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
+            <EmptyState
+              icon="cloud-offline-outline"
+              title={i18n.t('home.offlineNoCacheTitle')}
+              subtitle={i18n.t('home.offlineNoCacheMessage')}
+            />
+          </View>
+        );
+      }
+
       return (
         <View style={styles.forecastStack}>
           <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
@@ -292,12 +308,21 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
+        testID="home-scroll-view"
         style={styles.content}
         contentContainerStyle={[
           styles.contentContainer,
           { paddingBottom: Math.max(insets.bottom + 40, 56) },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            testID="home-refresh-control"
+            refreshing={weekLoading && fromCache}
+            onRefresh={refresh}
+            tintColor={colors.accent}
+          />
+        }
       >
         {renderContent()}
       </ScrollView>

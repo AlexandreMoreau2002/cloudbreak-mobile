@@ -34,6 +34,9 @@ jest.mock('@/utils/i18n', () => ({
       'home.notNow': 'Pas maintenant',
       'home.quotaNoCacheTitle': 'Aucune donnée pour ce sommet',
       'home.quotaNoCacheMessage': "Ta limite quotidienne est atteinte et ce sommet n'a pas encore été consulté aujourd'hui.",
+      'home.offlineBanner': 'Données de %{time} · connexion requise pour actualiser',
+      'home.offlineNoCacheTitle': 'Données non disponibles',
+      'home.offlineNoCacheMessage': 'Connexion requise pour voir une prévision fraîche.',
       'common.networkHint': 'Vérifie ta connexion et réessaie.',
       'home.shareForecast': 'Partager la prévision',
       'home.shareFailedTitle': 'Partage indisponible',
@@ -271,19 +274,46 @@ function setupSuccess(
     loading: false,
     error: null,
     quotaExceeded,
+    fromCache: false,
+    cachedAt: null,
+    refresh: jest.fn(),
   });
 }
 
 function setupLoading(existingData: WeekData | null = null) {
-  mockUseWeekData.mockReturnValue({ data: existingData, loading: true, error: null, quotaExceeded: false });
+  mockUseWeekData.mockReturnValue({
+    data: existingData,
+    loading: true,
+    error: null,
+    quotaExceeded: false,
+    fromCache: false,
+    cachedAt: null,
+    refresh: jest.fn(),
+  });
 }
 
 function setupError(message = 'Erreur de chargement', quotaExceeded = false) {
-  mockUseWeekData.mockReturnValue({ data: null, loading: false, error: message, quotaExceeded });
+  mockUseWeekData.mockReturnValue({
+    data: null,
+    loading: false,
+    error: message,
+    quotaExceeded,
+    fromCache: false,
+    cachedAt: null,
+    refresh: jest.fn(),
+  });
 }
 
 function setupIdle() {
-  mockUseWeekData.mockReturnValue({ data: null, loading: false, error: null, quotaExceeded: false });
+  mockUseWeekData.mockReturnValue({
+    data: null,
+    loading: false,
+    error: null,
+    quotaExceeded: false,
+    fromCache: false,
+    cachedAt: null,
+    refresh: jest.fn(),
+  });
 }
 
 // --- Tests ---
@@ -1214,6 +1244,85 @@ describe('HomeScreen', () => {
     currentSelectedPeak = peakB;
     rerender(<HomeScreen />);
     expect(screen.getByText('Quota atteint')).toBeTruthy();
+  });
+
+  it('affiche le bandeau offline quand fromCache est vrai', () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockUseWeekData.mockReturnValue({
+      data: makeWeekData(MOCK_SCORE_DATA),
+      loading: false,
+      error: null,
+      quotaExceeded: false,
+      fromCache: true,
+      cachedAt: new Date('2026-03-24T08:38:00Z').getTime(),
+      refresh: jest.fn(),
+    });
+
+    render(<HomeScreen />);
+
+    expect(screen.getByText(/connexion requise pour actualiser/)).toBeTruthy();
+  });
+
+  it("affiche l'état OFFLINE_NO_CACHE sans bouton", () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockUseWeekData.mockReturnValue({
+      data: null,
+      loading: false,
+      error: 'OFFLINE_NO_CACHE',
+      quotaExceeded: false,
+      fromCache: false,
+      cachedAt: null,
+      refresh: jest.fn(),
+    });
+
+    render(<HomeScreen />);
+
+    expect(screen.getByText('Données non disponibles')).toBeTruthy();
+    expect(screen.getByText('Connexion requise pour voir une prévision fraîche.')).toBeTruthy();
+    expect(screen.queryByTestId('quota-open-paywall-button')).toBeNull();
+    expect(screen.queryByTestId('secondary-action-btn')).toBeNull();
+    expect(screen.queryByText('Rechercher un sommet')).toBeNull();
+  });
+
+  it('déclenche refresh() via pull-to-refresh', () => {
+    const mockRefresh = jest.fn();
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockUseWeekData.mockReturnValue({
+      data: null,
+      loading: false,
+      error: 'OFFLINE_NO_CACHE',
+      quotaExceeded: false,
+      fromCache: false,
+      cachedAt: null,
+      refresh: mockRefresh,
+    });
+
+    render(<HomeScreen />);
+    const refreshControl = screen.UNSAFE_getByProps({ onRefresh: mockRefresh });
+    fireEvent(refreshControl, 'refresh');
+
+    expect(mockRefresh).toHaveBeenCalled();
   });
 
 });
