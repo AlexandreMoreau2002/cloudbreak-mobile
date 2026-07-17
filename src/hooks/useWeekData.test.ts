@@ -157,6 +157,31 @@ describe('useWeekData', () => {
     expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
   });
 
+  it('expose fromCache et cachedAt quand le cache est valide', async () => {
+    const today = '2026-03-24';
+    const cachedAt = Date.now() - 60 * 1000;
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: { [today]: { 6: MOCK_SCORE } },
+        cachedAt,
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.fromCache).toBe(true);
+    expect(result.current.cachedAt).toBe(cachedAt);
+  });
+
+  it('expose fromCache=false et cachedAt=null après un fetch réseau frais', async () => {
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.fromCache).toBe(false);
+    expect(result.current.cachedAt).toBeNull();
+  });
+
   it('ignore un cache invalide puis refetch et reecrit le cache', async () => {
     const today = '2026-03-24';
     mockAsyncStorage.getItem.mockResolvedValueOnce(

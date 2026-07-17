@@ -61,11 +61,21 @@ function computeBestByDate(
 export function useWeekData(
   peakId: string | null,
   token: string | null,
-): { data: WeekData | null; loading: boolean; error: string | null; quotaExceeded: boolean } {
+): {
+  data: WeekData | null;
+  loading: boolean;
+  error: string | null;
+  quotaExceeded: boolean;
+  fromCache: boolean;
+  cachedAt: number | null;
+  refresh: () => Promise<void>;
+} {
   const [data, setData] = useState<WeekData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
   const loadedPeakRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
@@ -103,6 +113,8 @@ export function useWeekData(
           if (cacheValid) {
             loadedPeakRef.current = peakId;
             setData({ byDate, bestByDate: computeBestByDate(byDate) });
+            setFromCache(true);
+            setCachedAt(cachedAt);
             setLoading(false);
             return;
           }
@@ -111,6 +123,9 @@ export function useWeekData(
         // Cache read failure — non-fatal
       }
     }
+
+    setFromCache(false);
+    setCachedAt(null);
 
     // Fetch réseau : 7 jours × 9 créneaux en parallèle
     const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
@@ -185,5 +200,5 @@ export function useWeekData(
     load();
   }, [load]);
 
-  return { data, loading, error, quotaExceeded };
+  return { data, loading, error, quotaExceeded, fromCache, cachedAt, refresh: load };
 }
