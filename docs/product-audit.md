@@ -43,6 +43,7 @@ _Dernière mise à jour : 2026-07-01_
 | États UI unifiés dans Home (quota dismissable, erreur générique) (story 7.3) | ✅ |
 | États UI unifiés dans Search et Favorites (story 7.3) | ✅ |
 | Login : ActivityIndicator dans bouton submit pendant loading (story 7.3) | ✅ |
+| Mode offline-light — cache TTL 3h, bandeau offline, pull-to-refresh, état `OFFLINE_NO_CACHE` sans données obsolètes (story 7.2) | ✅ |
 
 ## Ce qui n'existe pas encore
 
