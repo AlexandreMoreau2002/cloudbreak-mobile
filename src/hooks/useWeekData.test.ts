@@ -614,4 +614,54 @@ describe('useWeekData', () => {
     expect(result.current.data).toEqual(cachedData);
     expect(result.current.fromCache).toBe(true);
   });
+
+  it("retourne OFFLINE_NO_CACHE si hors-ligne et aucun cache valide, sans appeler fetchScore", async () => {
+    mockAsyncStorage.getItem.mockResolvedValueOnce(null);
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBe('OFFLINE_NO_CACHE');
+    expect(result.current.data).toBeNull();
+    expect(mockFetchScore).not.toHaveBeenCalled();
+  });
+
+  it("retourne OFFLINE_NO_CACHE si le cache est expiré et hors-ligne", async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: { [today]: { 6: MOCK_SCORE } },
+        cachedAt: Date.now() - (3 * 60 * 60 * 1000 + 60 * 1000),
+      }),
+    );
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBe('OFFLINE_NO_CACHE');
+    expect(mockFetchScore).not.toHaveBeenCalled();
+  });
+
+  it("refresh() hors-ligne garde les donnees affichees sans erreur bloquante", async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: { [today]: { 6: MOCK_SCORE } },
+        cachedAt: Date.now(),
+      }),
+    );
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const cachedData = result.current.data;
+
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
+    await result.current.refresh();
+
+    expect(result.current.data).toEqual(cachedData);
+    expect(result.current.error).toBeNull();
+    expect(mockFetchScore).not.toHaveBeenCalled();
+  });
 });
