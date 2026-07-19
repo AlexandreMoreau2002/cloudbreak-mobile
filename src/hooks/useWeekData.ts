@@ -8,12 +8,13 @@
  * Comportement :
  * - Changement de sommet → reset immédiat (pas de score obsolète affiché)
  * - Même sommet, refresh → garde les données le temps du re-fetch
- * - Cache AsyncStorage 30 min (bypass si MOCK_API)
+ * - Cache AsyncStorage 3h (bypass si MOCK_API)
  * - Tie-break : 06h > 08h > 16h > 14h > 10h > 12h > 18h > 20h > 22h
  */
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MOCK_API } from '@/constants/devConfig';
+import { DEBUG, MOCK_API } from '@/constants/devConfig';
 import { fetchScore } from '@/services/api/score';
 import { addDays, getTodayISO } from '@/utils/dateUtils';
 import type { ScoreResponse } from '@/services/mockData/types';
@@ -25,7 +26,7 @@ export type WeekData = {
 };
 
 const CACHE_VERSION = 'v4';
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
+const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3h
 const DAY_HOURS = [6, 8, 10, 12, 14, 16, 18, 20, 22] as const;
 const TIEBREAKER: Record<number, number> = { 6: 0, 8: 1, 16: 2, 14: 3, 10: 4, 12: 5, 18: 6, 20: 7, 22: 8 };
 
@@ -61,14 +62,24 @@ function computeBestByDate(
 export function useWeekData(
   peakId: string | null,
   token: string | null,
-): { data: WeekData | null; loading: boolean; error: string | null; quotaExceeded: boolean } {
+): {
+  data: WeekData | null;
+  loading: boolean;
+  error: string | null;
+  quotaExceeded: boolean;
+  fromCache: boolean;
+  cachedAt: number | null;
+  refresh: () => Promise<void>;
+} {
   const [data, setData] = useState<WeekData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
   const loadedPeakRef = useRef<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     if (!peakId || !token) {
       setData(null);
       setLoading(false);
@@ -87,7 +98,7 @@ export function useWeekData(
     const today = getTodayISO();
     const cacheK = weekCacheKey(peakId, today);
 
-    if (!MOCK_API) {
+    if (!MOCK_API && !force) {
       try {
         const raw = await AsyncStorage.getItem(cacheK);
         if (raw) {
@@ -101,8 +112,11 @@ export function useWeekData(
             todayHours != null &&
             Object.keys(todayHours).length > 0;
           if (cacheValid) {
+            if (DEBUG) console.debug('[useWeekData] cache', { key: cacheK, hit: true, age: Date.now() - cachedAt });
             loadedPeakRef.current = peakId;
             setData({ byDate, bestByDate: computeBestByDate(byDate) });
+            setFromCache(true);
+            setCachedAt(cachedAt);
             setLoading(false);
             return;
           }
@@ -112,12 +126,28 @@ export function useWeekData(
       }
     }
 
+    if (DEBUG) console.debug('[useWeekData] cache', { key: cacheK, hit: false });
+
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      if (force) {
+        // Refresh manuel hors-ligne : on garde les données déjà affichées, pas d'erreur bloquante
+        setLoading(false);
+        return;
+      }
+      setError('OFFLINE_NO_CACHE');
+      setLoading(false);
+      return;
+    }
+
     // Fetch réseau : 7 jours × 9 créneaux en parallèle
     const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
     const byDate: Record<string, Record<number, ScoreResponse>> = {};
     let totalSuccess = 0;
     let isServiceUnavailable = false;
     let isQuotaExceeded = false;
+
+    if (DEBUG) console.debug('[useWeekData] fetch', { peakId, dates: dates.length });
 
     await Promise.all(
       dates.map(async (date) => {
@@ -151,6 +181,8 @@ export function useWeekData(
 
     loadedPeakRef.current = peakId;
 
+    if (DEBUG) console.debug('[useWeekData] result', { totalSuccess, isQuotaExceeded, isServiceUnavailable });
+
     if (isQuotaExceeded) {
       setQuotaExceeded(true);
       setError('QUOTA_EXCEEDED');
@@ -159,6 +191,10 @@ export function useWeekData(
     }
 
     if (totalSuccess === 0) {
+      if (force) {
+        setLoading(false);
+        return;
+      }
       const errMsg = isServiceUnavailable
         ? 'Service momentanément indisponible'
         : 'Erreur de chargement';
@@ -169,6 +205,8 @@ export function useWeekData(
 
     const weekData: WeekData = { byDate, bestByDate: computeBestByDate(byDate) };
     setData(weekData);
+    setFromCache(false);
+    setCachedAt(null);
     setError(null);
     setLoading(false);
 
@@ -181,9 +219,11 @@ export function useWeekData(
     }
   }, [peakId, token]);
 
+  const refresh = useCallback(() => load(true), [load]);
+
   useEffect(() => {
     load();
   }, [load]);
 
-  return { data, loading, error, quotaExceeded };
+  return { data, loading, error, quotaExceeded, fromCache, cachedAt, refresh };
 }
