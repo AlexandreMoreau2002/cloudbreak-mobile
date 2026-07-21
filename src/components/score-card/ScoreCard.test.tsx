@@ -2,6 +2,11 @@ import type { ScoreResponse } from '@/services/mockData/types';
 import { __private__, ScoreCard } from '@/components/score-card';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+const mockTrack = jest.fn();
+jest.mock('@/services/analytics', () => ({
+  track: (...args: unknown[]) => mockTrack(...args),
+}));
+
 let mockScheme: 'light' | 'dark' = 'light';
 
 const translate = (key: string) => {
@@ -58,6 +63,7 @@ const makeScore = (overrides: Partial<ScoreResponse>): ScoreResponse => ({
 describe('ScoreCard', () => {
   beforeEach(() => {
     mockScheme = 'light';
+    mockTrack.mockClear();
     (jest.requireMock('@/utils/i18n') as { t: jest.Mock }).t.mockImplementation((key: string) => translate(key));
   });
 
@@ -150,6 +156,7 @@ describe('ScoreCard', () => {
     expect(screen.getByText('06h')).toBeTruthy();
     fireEvent.press(screen.getByText('06h'));
     expect(mockOnSelectHour).toHaveBeenCalledWith(6);
+    expect(mockTrack).toHaveBeenCalledWith('score_hour_changed', { hour: 6, verdict: 'high' });
   });
 
   it('n\'affiche pas les chips d\'heure sans onSelectHour', () => {

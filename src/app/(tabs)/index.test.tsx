@@ -19,6 +19,11 @@ jest.mock('react-native-safe-area-context', () => ({
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
+const mockTrack = jest.fn();
+jest.mock('@/services/analytics', () => ({
+  track: (...args: unknown[]) => mockTrack(...args),
+}));
+
 jest.mock('@/utils/i18n', () => ({
   t: (key: string) => {
     const map: Record<string, string> = {
@@ -793,6 +798,7 @@ describe('HomeScreen', () => {
       lng: 5.6,
       altitude: 1901,
     });
+    expect(mockTrack).toHaveBeenCalledWith('peak_selected', { peak_id: 'fav-1', source: 'home_favorites' });
   });
 
   it('partage le lien de prévision avec le slug du sommet', async () => {
@@ -810,6 +816,31 @@ describe('HomeScreen', () => {
 
   it('retourne_null_si_le_slug_de_partage_est_absent', () => {
     expect(getShareForecastUrl(null)).toBeNull();
+  });
+
+  it('track forecast_shared au tap sur le bouton de partage', async () => {
+    const shareSpy = jest.spyOn(Share, 'share').mockResolvedValueOnce({} as never);
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess();
+
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('share-button'));
+
+    expect(mockTrack).toHaveBeenCalledWith('forecast_shared', { peak_id: 'peak-1' });
+    await waitFor(() =>
+      expect(shareSpy).toHaveBeenCalledWith({
+        message: 'https://merdenua.ge/sommet/mont-blanc',
+        url: 'https://merdenua.ge/sommet/mont-blanc',
+      }),
+    );
+    shareSpy.mockRestore();
   });
 
   it('ignore le partage si aucun slug nest disponible', async () => {
@@ -877,6 +908,7 @@ describe('HomeScreen', () => {
 
     expect(mockSetSelectedDate).toHaveBeenCalledWith('2026-03-25');
     expect(mockSetSelectedHour).toHaveBeenCalledWith(14);
+    expect(mockTrack).toHaveBeenCalledWith('score_date_changed', { date: '2026-03-25', method: 'tap' });
   });
 
   it('revient à 6h si le jour sélectionné est à 0% toute la journée', () => {
@@ -1080,6 +1112,7 @@ describe('HomeScreen', () => {
       lng: 5.6,
       altitude: 1901,
     });
+    expect(mockTrack).toHaveBeenCalledWith('peak_selected', { peak_id: 'fav-1', source: 'home_favorites' });
   });
 
   it('appelle setSelectedHour quand on presse un chip horaire dans la ScoreCard', () => {
@@ -1113,6 +1146,27 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
     expect(screen.getByTestId('quota-counter-badge')).toBeTruthy();
     expect(mockShowPaywall).toHaveBeenCalled();
+    expect(mockTrack).toHaveBeenCalledWith('quota_badge_viewed', { peak_id: 'peak-1' });
+  });
+
+  it('ne re-track pas quota_badge_viewed sur un rerender sans changement de quota ni de sommet', () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess(MOCK_SCORE_DATA, '2026-03-24', 6, true);
+
+    const { rerender } = render(<HomeScreen />);
+    const callsAfterMount = mockTrack.mock.calls.filter((c) => c[0] === 'quota_badge_viewed').length;
+    expect(callsAfterMount).toBe(1);
+
+    rerender(<HomeScreen />);
+    const callsAfterRerender = mockTrack.mock.calls.filter((c) => c[0] === 'quota_badge_viewed').length;
+    expect(callsAfterRerender).toBe(1);
   });
 
   it('affiche le badge quota et appelle showPaywall au clic', () => {
@@ -1167,6 +1221,7 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Quota atteint')).toBeTruthy();
     fireEvent.press(screen.getByTestId('secondary-action-btn'));
     expect(screen.queryByText('Quota atteint')).toBeNull();
+    expect(mockTrack).toHaveBeenCalledWith('quota_dismissed', { peak_id: 'peak-1' });
   });
 
   it('affiche un état neutre (pas l\'erreur réseau générique) quand le quota est dismiss sans cache ni sommet précédent', () => {

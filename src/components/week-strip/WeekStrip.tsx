@@ -11,10 +11,10 @@
  * - au swipe horizontal gauche/droite
  *
  * Props :
- *   selectedDate  string           — date ISO actuellement selectionnee
- *   onSelectDate  (date) => void   — callback de changement de jour
- *   days          number?          — nombre de jours a afficher
- *   dayScores     WeekScores?      — meilleur score journalier par date
+ *   selectedDate  string                                — date ISO actuellement selectionnee
+ *   onSelectDate  (date, method: 'tap'|'swipe') => void  — callback de changement de jour
+ *   days          number?                                — nombre de jours a afficher
+ *   dayScores     WeekScores?                            — meilleur score journalier par date
  */
 import { useRef } from 'react';
 import i18n from '@/utils/i18n';
@@ -29,7 +29,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 
 interface WeekStripProps {
   selectedDate: string;
-  onSelectDate: (date: string) => void;
+  onSelectDate: (date: string, method: 'tap' | 'swipe') => void;
   days?: number;
   dayScores?: WeekScores;
 }
@@ -73,7 +73,7 @@ export function WeekStrip({ selectedDate, onSelectDate, days = 7, dayScores }: W
   function handleSwipe(direction: 'next' | 'previous') {
     const targetIndex = direction === 'next' ? activeIndex + 1 : activeIndex - 1;
     if (targetIndex < 0 || targetIndex >= items.length) return;
-    onSelectDate(items[targetIndex].iso);
+    onSelectDate(items[targetIndex].iso, 'swipe');
   }
 
   return (
@@ -108,7 +108,7 @@ export function WeekStrip({ selectedDate, onSelectDate, days = 7, dayScores }: W
                   ? [styles.dayPillActive, { backgroundColor: activeBg, borderColor: activeBg }]
                   : [styles.dayPillIdle, { backgroundColor: idleBg, borderColor: idleBorder }],
               ]}
-              onPress={() => onSelectDate(item.iso)}
+              onPress={() => onSelectDate(item.iso, 'tap')}
               activeOpacity={0.85}
             >
               <Text style={[styles.dayLabel, { color: item.active ? activeText : idleText }]}>

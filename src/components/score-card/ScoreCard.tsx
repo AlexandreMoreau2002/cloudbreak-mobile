@@ -9,6 +9,7 @@
  */
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
+import { track } from '@/services/analytics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Typography } from '@/constants/typography';
 import { Radius, Spacing } from '@/constants/spacing';
@@ -144,7 +145,10 @@ export function ScoreCard({
             return (
               <TouchableOpacity
                 key={h}
-                onPress={() => onSelectHour?.(h)}
+                onPress={() => {
+                  track('score_hour_changed', { hour: h, verdict: score.verdict });
+                  onSelectHour?.(h);
+                }}
                 style={[
                   styles.hourChip,
                   { backgroundColor: chipBg, borderColor: chipBorder },

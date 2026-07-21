@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
+import { track } from '@/services/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWeekData } from '@/hooks/useWeekData';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -80,6 +81,12 @@ export default function HomeScreen() {
     if (quotaExceeded) showPaywall();
   }, [quotaExceeded, showPaywall]);
 
+  useEffect(() => {
+    if (quotaExceeded && selectedPeak) {
+      track('quota_badge_viewed', { peak_id: selectedPeak.id });
+    }
+  }, [quotaExceeded, selectedPeak]);
+
   // Auto-sync selectedDate + selectedHour — corrige si la date ou l'heure n'a pas de données
   useEffect(() => {
     if (!weekData) return;
@@ -129,10 +136,21 @@ export default function HomeScreen() {
     router.push(SEARCH_ROUTE);
   }
 
-  function handleSelectDate(date: string) {
+  function handleSelectDate(date: string, method: 'tap' | 'swipe') {
+    track('score_date_changed', { date, method });
     setSelectedDate(date);
     const best = weekData?.bestByDate[date];
     setSelectedHour(best && best.score > 0 ? best.hour : 6);
+  }
+
+  function handleSelectFavoritePeak(peak: Peak) {
+    track('peak_selected', { peak_id: peak.id, source: 'home_favorites' });
+    setSelectedPeak(peak);
+  }
+
+  function handleShare() {
+    if (selectedPeak) track('forecast_shared', { peak_id: selectedPeak.id });
+    return shareForecast(selectedPeak?.slug ?? null);
   }
 
   function handleToggleFavorite(peakId: string) {
@@ -145,6 +163,7 @@ export default function HomeScreen() {
   }
 
   function handleDismissQuota() {
+    if (selectedPeak) track('quota_dismissed', { peak_id: selectedPeak.id });
     // Pas de cache pour ce sommet mais un autre a déjà été chargé avec succès
     // aujourd'hui → on y revient plutôt que d'afficher une erreur trompeuse
     if (!displayScore && lastSuccessfulPeak && lastSuccessfulPeak.id !== selectedPeak?.id) {
@@ -174,7 +193,7 @@ export default function HomeScreen() {
               {i18n.t('home.goToSearch')}
             </Text>
           </TouchableOpacity>
-          <FavoritesGrid favorites={favorites} onSelectPeak={setSelectedPeak} />
+          <FavoritesGrid favorites={favorites} onSelectPeak={handleSelectFavoritePeak} />
         </View>
       );
     }
@@ -191,7 +210,7 @@ export default function HomeScreen() {
       return (
         <View style={[styles.forecastStack, isRefreshing && { opacity: 0.7 }]}>
           {fromCache && cachedAt ? <OfflineBanner cachedAt={cachedAt} /> : null}
-          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
           <ScoreCard
             score={displayScore}
             date={selectedDate}
@@ -213,7 +232,7 @@ export default function HomeScreen() {
           ) : null}
           <WeekStrip selectedDate={selectedDate} onSelectDate={handleSelectDate} dayScores={weekData?.bestByDate} />
           <ConditionsSection score={displayScore} />
-          <FavoritesGrid favorites={favorites} onSelectPeak={setSelectedPeak} />
+          <FavoritesGrid favorites={favorites} onSelectPeak={handleSelectFavoritePeak} />
         </View>
       );
     }
@@ -223,7 +242,7 @@ export default function HomeScreen() {
         if (!quotaDismissed) {
           return (
             <View style={styles.forecastStack}>
-              <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
+              <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
               <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
                 <ErrorState
                   icon="lock-closed-outline"
@@ -242,7 +261,7 @@ export default function HomeScreen() {
         // état neutre honnête (quota), jamais l'erreur réseau générique
         return (
           <View style={styles.forecastStack}>
-            <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
+            <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
             <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
               <ErrorState
                 icon="cloud-outline"
@@ -258,7 +277,7 @@ export default function HomeScreen() {
       if (weekError === 'OFFLINE_NO_CACHE') {
         return (
           <View style={styles.forecastStack}>
-            <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
+            <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
             <EmptyState
               icon="cloud-offline-outline"
               title={i18n.t('home.offlineNoCacheTitle')}
@@ -270,7 +289,7 @@ export default function HomeScreen() {
 
       return (
         <View style={styles.forecastStack}>
-          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={shareForecast} />
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
           <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
             <ErrorState
               title={i18n.t('home.errorGeneric')}
