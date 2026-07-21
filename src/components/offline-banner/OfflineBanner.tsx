@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 import i18n from '@/utils/i18n';
+import { track } from '@/services/analytics';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export interface OfflineBannerProps {
@@ -16,6 +18,10 @@ function formatCacheTime(timestamp: number): string {
 
 export function OfflineBanner({ cachedAt }: OfflineBannerProps) {
   const { colors, typography, spacing } = useTheme();
+
+  useEffect(() => {
+    track('offline_mode_shown', { cached_minutes_ago: Math.round((Date.now() - cachedAt) / 60000) });
+  }, [cachedAt]);
 
   return (
     <View

@@ -1,6 +1,7 @@
 import i18n from '@/utils/i18n';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
+import { track } from '@/services/analytics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -27,6 +28,28 @@ export default function ProfileScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  function handleSignOut() {
+    track('signed_out');
+    signOut();
+  }
+
+  function handleToggleTheme() {
+    const nextScheme = scheme === 'light' ? 'dark' : 'light';
+    track('theme_toggled', { scheme: nextScheme });
+    toggleScheme();
+  }
+
+  function handleToggleLanguage() {
+    const nextLocale = locale === 'fr' ? 'en' : 'fr';
+    track('language_toggled', { locale: nextLocale });
+    toggleLocale();
+  }
+
+  function handleOpenDeleteModal() {
+    track('delete_account_initiated');
+    setDeleteModalVisible(true);
+  }
 
   const handleDeleteConfirm = async () => {
     setDeleteLoading(true);
@@ -59,7 +82,7 @@ export default function ProfileScreen() {
         label={i18n.t('profile.proBannerLabel')}
         title={i18n.t('profile.proBannerTitle')}
         subtitle={i18n.t('profile.proBannerSubtitle')}
-        onPress={showPaywall}
+        onPress={() => showPaywall('profile_banner')}
       />
 
       <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
@@ -70,13 +93,13 @@ export default function ProfileScreen() {
           icon="sunny-outline"
           label={i18n.t('profile.appearance')}
           value={scheme === 'light' ? i18n.t('profile.appearanceLight') : i18n.t('profile.appearanceDark')}
-          onPress={toggleScheme}
+          onPress={handleToggleTheme}
         />
         <SettingsRow
           icon="language-outline"
           label={i18n.t('profile.language')}
           value={locale === 'fr' ? i18n.t('profile.languageFrLabel') : i18n.t('profile.languageEnLabel')}
-          onPress={toggleLocale}
+          onPress={handleToggleLanguage}
           isLast
         />
       </View>
@@ -107,13 +130,13 @@ export default function ProfileScreen() {
         {i18n.t('profile.sectionAccount')}
       </Text>
       <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <TouchableOpacity style={styles.signOutRow} onPress={signOut} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
           <Ionicons name="log-out-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
           <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
             {i18n.t('profile.signOut')}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.signOutRow} onPress={() => setDeleteModalVisible(true)} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.signOutRow} onPress={handleOpenDeleteModal} activeOpacity={0.7}>
           <Ionicons name="trash-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
           <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
             {i18n.t('profile.deleteAccount')}

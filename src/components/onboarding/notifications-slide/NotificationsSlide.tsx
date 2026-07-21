@@ -12,8 +12,9 @@
  * ou que l'appel échoue, `onFinish` est TOUJOURS appelé — l'onboarding ne bloque jamais sur
  * ce choix. Le bouton « Plus tard » ne demande même pas la permission : il termine directement.
  */
-import { useRef } from 'react';
 import i18n from '@/utils/i18n';
+import { useEffect, useRef } from 'react';
+import { track } from '@/services/analytics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { StyleSheet, Text, View } from 'react-native';
 import { OnboardingCta } from '@/components/onboarding/cta';
@@ -29,12 +30,17 @@ export function NotificationsSlide({ onFinish }: NotificationsSlideProps) {
   const pendingRef = useRef(false);
   const { requestPermission } = useNotificationPermission();
 
+  useEffect(() => {
+    track('onboarding_step_viewed', { step: 3 });
+  }, []);
+
   async function handleAllow() {
     // Garde anti double-tap : la demande native est asynchrone, un second
     // press pendant l'await relancerait la permission et onFinish.
     if (pendingRef.current) return;
     pendingRef.current = true;
-    await requestPermission();
+    const granted = await requestPermission();
+    track('onboarding_permission_result', { granted });
     onFinish();
   }
 
@@ -42,6 +48,7 @@ export function NotificationsSlide({ onFinish }: NotificationsSlideProps) {
     // Même garde : un double-press enverrait l'event analytics deux fois.
     if (pendingRef.current) return;
     pendingRef.current = true;
+    track('onboarding_permission_result', { granted: false });
     onFinish();
   }
 

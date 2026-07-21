@@ -74,7 +74,7 @@ describe('WeekStrip', () => {
     expect(screen.getByText('Mer.')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Mer.'));
-    expect(onSelectDate).toHaveBeenCalledWith('2026-03-25');
+    expect(onSelectDate).toHaveBeenCalledWith('2026-03-25', 'tap');
   });
 
   it('permet de swiper vers le jour suivant', () => {
@@ -84,7 +84,7 @@ describe('WeekStrip', () => {
     fireEvent(screen.getByTestId('week-strip'), 'responderGrant', { nativeEvent: { pageX: 120 } });
     fireEvent(screen.getByTestId('week-strip'), 'responderRelease', { nativeEvent: { pageX: 40 } });
 
-    expect(onSelectDate).toHaveBeenCalledWith('2026-03-25');
+    expect(onSelectDate).toHaveBeenCalledWith('2026-03-25', 'swipe');
   });
 
   it('ignore les swipes trop courts', () => {
@@ -104,7 +104,7 @@ describe('WeekStrip', () => {
     fireEvent(screen.getByTestId('week-strip'), 'responderGrant', { nativeEvent: { pageX: 40 } });
     fireEvent(screen.getByTestId('week-strip'), 'responderRelease', { nativeEvent: { pageX: 140 } });
 
-    expect(onSelectDate).toHaveBeenCalledWith('2026-03-24');
+    expect(onSelectDate).toHaveBeenCalledWith('2026-03-24', 'swipe');
   });
 
   it('ignore un swipe qui sort de la plage', () => {

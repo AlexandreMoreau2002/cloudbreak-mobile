@@ -4,6 +4,7 @@
  * Usage :
  *   const { state, query, setQuery } = usePeakSearch();
  */
+import { track } from '@/services/analytics';
 import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { searchPeaks } from '@/services/api/peaks';
@@ -43,6 +44,7 @@ export function usePeakSearch() {
       try {
         const results = await searchPeaks(token, query, signal);
         if (DEBUG) console.debug('[usePeakSearch] success', { count: results.length });
+        track('search_performed', { query_length: query.length, results_count: results.length });
         setState({ status: 'success', data: results });
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;

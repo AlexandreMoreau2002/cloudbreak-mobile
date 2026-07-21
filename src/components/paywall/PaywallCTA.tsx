@@ -1,5 +1,6 @@
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
+import { track } from '@/services/analytics';
 import { DEBUG } from '@/constants/devConfig';
 import { Typography } from '@/constants/typography';
 import { Radius, Spacing } from '@/constants/spacing';
@@ -7,6 +8,7 @@ import { Alert, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import type { PaywallCTAProps } from './types';
 
 function restorePurchases() {
+  track('restore_purchases_clicked');
   // Stub en attente de la story 4.3 (StoreKit 2 réel)
   if (DEBUG) console.debug('[Paywall] restorePurchases stub');
   Alert.alert(i18n.t('paywall.restoreSuccess'));

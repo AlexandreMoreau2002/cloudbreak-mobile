@@ -44,6 +44,7 @@ _Dernière mise à jour : 2026-07-01_
 | États UI unifiés dans Search et Favorites (story 7.3) | ✅ |
 | Login : ActivityIndicator dans bouton submit pendant loading (story 7.3) | ✅ |
 | Mode offline-light — cache TTL 3h, bandeau offline, pull-to-refresh, état `OFFLINE_NO_CACHE` sans données obsolètes (story 7.2) | ✅ |
+| Instrumentation analytics — `track()` stub DEBUG-only câblé sur ~25 events UI (onboarding, auth, home, recherche, favoris, paywall, profil, session) (story 1.7) | ✅ Stub, aucun réseau |
 
 ## Ce qui n'existe pas encore
 

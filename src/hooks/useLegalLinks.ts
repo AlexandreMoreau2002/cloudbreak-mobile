@@ -1,6 +1,15 @@
 import i18n from '@/utils/i18n';
+import { track } from '@/services/analytics';
 import { DEBUG } from '@/constants/devConfig';
 import { Alert, Linking } from 'react-native';
+import { LEGAL_URLS } from '@/constants/legalUrls';
+
+function getLinkType(url: string): 'privacy' | 'cgu' | 'support' | 'other' {
+  if (url === LEGAL_URLS.privacy) return 'privacy';
+  if (url === LEGAL_URLS.cgu) return 'cgu';
+  if (url === LEGAL_URLS.support) return 'support';
+  return 'other';
+}
 
 /**
  * useLegalLinks — ouvre un lien légal (privacy, CGU, support) dans le
@@ -11,6 +20,7 @@ import { Alert, Linking } from 'react-native';
  */
 export function useLegalLinks() {
   async function openLegalLink(url: string) {
+    track('legal_link_opened', { link_type: getLinkType(url) });
     try {
       await Linking.openURL(url);
       /* istanbul ignore next -- diagnostic disponible uniquement dans les builds DEBUG */

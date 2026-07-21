@@ -40,6 +40,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
 
 jest.mock('@/utils/i18n', () => ({ t: (k: string) => k }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
+jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -178,6 +179,15 @@ describe('FavoritesScreen', () => {
     fireEvent.press(getByText('Mont Blanc'));
     expect(mockSetSelectedPeak).toHaveBeenCalledWith(peak);
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/');
+  });
+
+  it('tracks peak_selected with source favorites on row press', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const peak = { id: '1', name: 'Mont Blanc', slug: 'mont-blanc', lat: 0, lng: 0, altitude: 4807 };
+    mockState = { status: 'success', data: [peak] };
+    const { getByText } = render(<FavoritesScreen />);
+    fireEvent.press(getByText('Mont Blanc'));
+    expect(track).toHaveBeenCalledWith('peak_selected', { peak_id: '1', source: 'favorites' });
   });
 
   it("navigue vers search au tap sur le CTA de l'état vide", () => {

@@ -9,8 +9,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Colors } from '@/constants/colors';
-import { Radius, Spacing } from '@/constants/spacing';
+import { track } from '@/services/analytics';
 import { DEBUG } from '@/constants/devConfig';
+import { Radius, Spacing } from '@/constants/spacing';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PaywallCTA } from './PaywallCTA';
@@ -46,7 +47,13 @@ export function PaywallScreen({ visible, onDismiss, onSelectPlan }: PaywallScree
 
   function handleSelectPlan(plan: BillingPeriod) {
     if (DEBUG) console.debug('[PaywallScreen] plan sélectionné', { plan });
+    track('plan_selected', { period: plan });
     onSelectPlan?.(plan);
+  }
+
+  function handleChangePeriod(period: BillingPeriod) {
+    track('billing_period_selected', { period });
+    setBillingPeriod(period);
   }
 
   return (
@@ -87,7 +94,7 @@ export function PaywallScreen({ visible, onDismiss, onSelectPlan }: PaywallScree
 
             <PaywallBillingToggle
               billingPeriod={billingPeriod}
-              onChangePeriod={setBillingPeriod}
+              onChangePeriod={handleChangePeriod}
               colors={{
                 accent: colors.accent,
                 border: colors.border,

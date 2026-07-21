@@ -2,6 +2,11 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { OfflineBanner } from './OfflineBanner';
 
+const mockTrack = jest.fn();
+jest.mock('@/services/analytics', () => ({
+  track: (...args: unknown[]) => mockTrack(...args),
+}));
+
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
 jest.mock('@/contexts/ThemeContext', () => ({
@@ -29,10 +34,27 @@ jest.mock('@/utils/i18n', () => ({
 }));
 
 describe('OfflineBanner', () => {
+  beforeEach(() => {
+    mockTrack.mockClear();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('affiche l\'heure formatée du cache', () => {
     const cachedAt = new Date('2026-03-24T08:38:00Z').getTime();
     render(<OfflineBanner cachedAt={cachedAt} />);
 
     expect(screen.getByText(/connexion requise pour actualiser/)).toBeTruthy();
+  });
+
+  it('track offline_mode_shown au montage avec le nombre exact de minutes écoulées', () => {
+    const cachedAt = new Date('2026-03-24T08:38:00Z').getTime();
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-24T09:08:00Z'));
+
+    render(<OfflineBanner cachedAt={cachedAt} />);
+
+    expect(mockTrack).toHaveBeenCalledWith('offline_mode_shown', { cached_minutes_ago: 30 });
   });
 });

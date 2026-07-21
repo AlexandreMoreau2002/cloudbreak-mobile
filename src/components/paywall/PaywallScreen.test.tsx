@@ -3,8 +3,13 @@
  */
 import React from 'react';
 import { Alert } from 'react-native';
+import { track } from '@/services/analytics';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { PaywallScreen } from '@/components/paywall';
+
+jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
+
+const mockTrack = track as jest.Mock;
 
 const mockDevConfigState = { DEBUG: false };
 
@@ -283,5 +288,21 @@ describe('PaywallScreen', () => {
     );
     fireEvent.press(screen.getByTestId('paywall-overlay'));
     expect(mockOnDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks billing_period_selected quand le plan annuel est sélectionné', () => {
+    render(
+      <PaywallScreen visible onDismiss={mockOnDismiss} onSelectPlan={mockOnSelectPlan} />,
+    );
+    fireEvent.press(screen.getByTestId('paywall-billing-annual'));
+    expect(mockTrack).toHaveBeenCalledWith('billing_period_selected', { period: 'annual' });
+  });
+
+  it('tracks plan_selected au clic sur le CTA', () => {
+    render(
+      <PaywallScreen visible onDismiss={mockOnDismiss} onSelectPlan={mockOnSelectPlan} />,
+    );
+    fireEvent.press(screen.getByTestId('paywall-cta-button'));
+    expect(mockTrack).toHaveBeenCalledWith('plan_selected', { period: expect.any(String) });
   });
 });

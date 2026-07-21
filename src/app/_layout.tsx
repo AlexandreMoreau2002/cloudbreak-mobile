@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
+import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
@@ -47,6 +48,7 @@ function AuthGuard() {
 
 function AppStack() {
   const { locale } = useLanguage();
+  useAppSessionTracking();
 
   return <Stack key={locale} screenOptions={{ headerShown: false }} />;
 }
