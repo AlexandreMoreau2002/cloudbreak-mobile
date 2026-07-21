@@ -18,7 +18,7 @@
 | `src/components/onboarding/summit-slide/SummitSlide.tsx` | `peak_selected` (contexte onboarding) |
 | `src/components/onboarding/notifications-slide/NotificationsSlide.tsx` | `onboarding_permission_result` |
 | `src/hooks/useAuthForm.ts` | `auth_submitted`, `auth_mode_toggled`, `signed_out` |
-| `src/app/(tabs)/index.tsx` | `peak_selected`, `score_date_changed`, `score_hour_changed`, `forecast_shared`, `offline_mode_shown`, `quota_badge_viewed`, `quota_badge_dismissed` |
+| `src/app/(tabs)/index.tsx` | `peak_selected`, `score_date_changed`, `score_hour_changed`, `forecast_shared`, `offline_mode_shown`, `quota_badge_viewed`, `quota_dismissed` |
 | `src/components/week-strip/WeekStrip.tsx` | `onSelectDate` transmet désormais `method: 'tap' \| 'swipe'` à l'appelant (Home trace `score_date_changed` avec cette méthode) |
 | `src/components/offline-banner/OfflineBanner.tsx` | `offline_mode_shown` |
 | `src/components/score-card/ScoreCard.tsx` | `forecast_shared` |
