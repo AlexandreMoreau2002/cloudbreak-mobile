@@ -1,7 +1,7 @@
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
-import { DEBUG } from '@/constants/devConfig';
 import { track } from '@/services/analytics';
+import { DEBUG } from '@/constants/devConfig';
 import { Typography } from '@/constants/typography';
 import { Radius, Spacing } from '@/constants/spacing';
 import { Alert, StyleSheet, Text, TouchableOpacity } from 'react-native';

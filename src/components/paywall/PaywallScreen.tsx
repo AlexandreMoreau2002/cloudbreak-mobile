@@ -9,8 +9,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Colors } from '@/constants/colors';
-import { DEBUG } from '@/constants/devConfig';
 import { track } from '@/services/analytics';
+import { DEBUG } from '@/constants/devConfig';
 import { Radius, Spacing } from '@/constants/spacing';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
