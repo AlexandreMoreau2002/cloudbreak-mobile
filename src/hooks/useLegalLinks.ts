@@ -1,6 +1,6 @@
 import i18n from '@/utils/i18n';
-import { DEBUG } from '@/constants/devConfig';
 import { track } from '@/services/analytics';
+import { DEBUG } from '@/constants/devConfig';
 import { Alert, Linking } from 'react-native';
 import { LEGAL_URLS } from '@/constants/legalUrls';
 
