@@ -13,8 +13,10 @@ export function useLegalLinks() {
   async function openLegalLink(url: string) {
     try {
       await Linking.openURL(url);
+      /* istanbul ignore next -- diagnostic disponible uniquement dans les builds DEBUG */
       if (DEBUG) console.debug('[useLegalLinks] openURL success', { url });
     } catch (error) {
+      /* istanbul ignore next -- diagnostic disponible uniquement dans les builds DEBUG */
       if (DEBUG) console.debug('[useLegalLinks] openURL error', { url, error });
       Alert.alert(i18n.t('legal.errorTitle'), i18n.t('legal.errorMessage'));
     }

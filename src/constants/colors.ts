@@ -8,6 +8,11 @@ export const Colors = {
     textPrimary: '#1A1A1A',
     textSecondary: '#5E5E5E',
     textDisabled: '#A0A0A0',
+    // Onboarding narratif — rideau de nuages
+    curtainSky: '#F7F2E6',
+    curtain1: '#F4ECDF',
+    curtain2: '#E9DDC7',
+    curtainPeak: '#4A3A2C',
   },
   dark: {
     background: '#1A1A1A',
@@ -18,6 +23,11 @@ export const Colors = {
     textPrimary: '#F7F5F1',
     textSecondary: '#A0A0A0',
     textDisabled: '#5E5E5E',
+    // Onboarding narratif — rideau de nuages
+    curtainSky: '#221E1A',
+    curtain1: '#2A2520',
+    curtain2: '#1F1B17',
+    curtainPeak: '#C9A484',
   },
   score: {
     none: '#9E9E9E',    // conditions bloquantes — ⚫ Nuages au sol
@@ -37,4 +47,8 @@ export type ThemeColors = {
   textPrimary: string;
   textSecondary: string;
   textDisabled: string;
+  curtainSky: string;
+  curtain1: string;
+  curtain2: string;
+  curtainPeak: string;
 };

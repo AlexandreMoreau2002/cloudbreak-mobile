@@ -1,4 +1,9 @@
 import { useEffect } from 'react';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
+import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
+import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 import {
   JosefinSans_300Light,
@@ -7,30 +12,35 @@ import {
   JosefinSans_700Bold,
   useFonts,
 } from '@expo-google-fonts/josefin-sans';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
-import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 
 SplashScreen.preventAutoHideAsync();
 
 const TABS_ROUTE = '/(tabs)' as Href;
 const AUTH_LOGIN_ROUTE = '/(auth)/login' as Href;
+const ONBOARDING_ROUTE = '/onboarding' as Href;
 
 function AuthGuard() {
   const router = useRouter();
   const segments = useSegments();
   const { session, loading } = useAuth();
+  const { completed, hydrated } = useOnboarding();
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !hydrated) return;
+    const inOnboarding = segments[0] === 'onboarding';
+    if (!completed) {
+      if (!inOnboarding) router.replace(ONBOARDING_ROUTE);
+      return;
+    }
     const inAuthGroup = segments[0] === '(auth)';
-    if (!session && !inAuthGroup) {
+    if (inOnboarding) {
+      router.replace(session ? TABS_ROUTE : AUTH_LOGIN_ROUTE);
+    } else if (!session && !inAuthGroup) {
       router.replace(AUTH_LOGIN_ROUTE);
     } else if (session && inAuthGroup) {
       router.replace(TABS_ROUTE);
     }
-  }, [session, loading, segments, router]);
+  }, [session, loading, completed, hydrated, segments, router]);
 
   return null;
 }
@@ -57,14 +67,16 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <LanguageProvider>
-        <AuthProvider>
-          <SelectedPeakProvider>
-            <AuthGuard />
-            <AppStack />
-          </SelectedPeakProvider>
-        </AuthProvider>
-      </LanguageProvider>
+      <OnboardingProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <SelectedPeakProvider>
+              <AuthGuard />
+              <AppStack />
+            </SelectedPeakProvider>
+          </AuthProvider>
+        </LanguageProvider>
+      </OnboardingProvider>
     </ThemeProvider>
   );
 }

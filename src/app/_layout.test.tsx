@@ -1,13 +1,13 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
-
 import RootLayout from '@/app/_layout';
+import { render, waitFor } from '@testing-library/react-native';
 
 const mockReplace = jest.fn();
 const mockHideAsync = jest.fn();
 const mockUseFonts = jest.fn();
 const mockUseSegments = jest.fn();
 const mockUseAuth = jest.fn();
+const mockUseOnboarding = jest.fn();
 
 jest.mock('expo-router', () => ({
   Stack: () => null,
@@ -32,6 +32,11 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+jest.mock('@/contexts/OnboardingContext', () => ({
+  OnboardingProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useOnboarding: () => mockUseOnboarding(),
+}));
+
 jest.mock('@/contexts/SelectedPeakContext', () => ({
   SelectedPeakProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
@@ -50,6 +55,11 @@ describe('RootLayout', () => {
     mockUseFonts.mockReturnValue([true]);
     mockUseSegments.mockReturnValue(['(tabs)']);
     mockUseAuth.mockReturnValue({ session: null, loading: false });
+    mockUseOnboarding.mockReturnValue({
+      completed: true,
+      hydrated: true,
+      completeOnboarding: jest.fn(),
+    });
   });
 
   it('rend null tant que les polices ne sont pas chargées', () => {
@@ -94,6 +104,104 @@ describe('RootLayout', () => {
   it('ne redirige pas si une session existe déjà hors groupe auth', async () => {
     mockUseSegments.mockReturnValue(['(tabs)']);
     mockUseAuth.mockReturnValue({ session: { access_token: 'token' }, loading: false });
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockHideAsync).toHaveBeenCalledTimes(1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('redirige vers onboarding si le flag est absent et pas de session', async () => {
+    mockUseSegments.mockReturnValue(['(tabs)']);
+    mockUseAuth.mockReturnValue({ session: null, loading: false });
+    mockUseOnboarding.mockReturnValue({
+      completed: false,
+      hydrated: true,
+      completeOnboarding: jest.fn(),
+    });
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/onboarding');
+    });
+  });
+
+  it('redirige vers onboarding si le flag est absent même avec une session existante', async () => {
+    mockUseSegments.mockReturnValue(['(tabs)']);
+    mockUseAuth.mockReturnValue({ session: { access_token: 'token' }, loading: false });
+    mockUseOnboarding.mockReturnValue({
+      completed: false,
+      hydrated: true,
+      completeOnboarding: jest.fn(),
+    });
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/onboarding');
+    });
+  });
+
+  it('ne redirige pas si le flag est absent mais déjà sur le segment onboarding (anti-boucle)', async () => {
+    mockUseSegments.mockReturnValue(['onboarding']);
+    mockUseAuth.mockReturnValue({ session: null, loading: false });
+    mockUseOnboarding.mockReturnValue({
+      completed: false,
+      hydrated: true,
+      completeOnboarding: jest.fn(),
+    });
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockHideAsync).toHaveBeenCalledTimes(1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('redirige vers login si onboarding terminé, sur le segment onboarding, sans session', async () => {
+    mockUseSegments.mockReturnValue(['onboarding']);
+    mockUseAuth.mockReturnValue({ session: null, loading: false });
+    mockUseOnboarding.mockReturnValue({
+      completed: true,
+      hydrated: true,
+      completeOnboarding: jest.fn(),
+    });
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+    });
+  });
+
+  it('redirige vers les tabs si onboarding terminé, sur le segment onboarding, avec session', async () => {
+    mockUseSegments.mockReturnValue(['onboarding']);
+    mockUseAuth.mockReturnValue({ session: { access_token: 'token' }, loading: false });
+    mockUseOnboarding.mockReturnValue({
+      completed: true,
+      hydrated: true,
+      completeOnboarding: jest.fn(),
+    });
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+    });
+  });
+
+  it('ne redirige pas tant que hydrated est false', async () => {
+    mockUseSegments.mockReturnValue(['(tabs)']);
+    mockUseAuth.mockReturnValue({ session: null, loading: false });
+    mockUseOnboarding.mockReturnValue({
+      completed: false,
+      hydrated: false,
+      completeOnboarding: jest.fn(),
+    });
 
     render(<RootLayout />);
 

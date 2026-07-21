@@ -234,6 +234,44 @@ describe('fetchService', () => {
     consoleSpy.mockRestore();
   });
 
+  it('n’envoie pas de header Authorization quand le token est null', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ ok: true }),
+    });
+
+    await apiFetch('/api/v1/peaks/search', null, { q: 'aiguille' });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.cloudbreak.fr/api/v1/peaks/search?q=aiguille',
+      {
+        method: 'GET',
+        headers: {},
+        body: undefined,
+      },
+    );
+  });
+
+  it('envoie toujours le header Authorization quand un token string est fourni', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ ok: true }),
+    });
+
+    await apiFetch('/api/v1/peaks/search', 'token-abc', { q: 'aiguille' });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.cloudbreak.fr/api/v1/peaks/search?q=aiguille',
+      {
+        method: 'GET',
+        headers: { Authorization: 'Bearer token-abc' },
+        body: undefined,
+      },
+    );
+  });
+
   it('passe le signal abort dans les options de fetch', async () => {
     const controller = new AbortController();
     (global.fetch as jest.Mock).mockResolvedValue({

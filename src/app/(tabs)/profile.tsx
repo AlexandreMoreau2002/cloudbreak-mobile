@@ -8,6 +8,7 @@ import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { usePaywall } from '@/contexts/PaywallContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -19,6 +20,7 @@ export default function ProfileScreen() {
   const { showPaywall } = usePaywall();
   const { session, signOut, deleteAccount } = useAuth();
   const { setSelectedPeak } = useSelectedPeak();
+  const { resetOnboarding } = useOnboarding();
   const { locale, toggleLocale } = useLanguage();
   const { openLegalLink } = useLegalLinks();
   const { colors, typography, scheme, toggleScheme } = useTheme();
@@ -146,6 +148,16 @@ export default function ProfileScreen() {
           >
             <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
               DEV · Reset sommet sélectionné
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: '#C25C4A' }]}
+            onPress={() => void resetOnboarding()}
+            activeOpacity={0.7}
+            testID="dev-reset-onboarding"
+          >
+            <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
+              DEV · Rejouer l&apos;onboarding
             </Text>
           </TouchableOpacity>
         </>

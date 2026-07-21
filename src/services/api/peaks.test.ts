@@ -43,6 +43,12 @@ describe('searchPeaks', () => {
     expect(result).toEqual([MOCK_PEAKS[0], MOCK_PEAKS[2]]);
   });
 
+  it('fonctionne avec un token null (endpoint public)', async () => {
+    mockApiFetch.mockResolvedValueOnce([]);
+    await searchPeaks(null, 'aiguille');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/peaks/search', null, { q: 'aiguille' }, { signal: undefined });
+  });
+
   it('log searchPeaks en mode debug', async () => {
     const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
     mockDevConfigState.MOCK_API = true;
@@ -66,6 +72,12 @@ describe('fetchPeakBySlug', () => {
     mockDevConfigState.MOCK_API = true;
     const result = await fetchPeakBySlug(TOKEN, 'mont-blanc');
     expect(result).toEqual(MOCK_PEAKS[0]);
+  });
+
+  it('fonctionne avec un token null (endpoint public)', async () => {
+    mockApiFetch.mockResolvedValueOnce(MOCK_PEAKS[0]);
+    await fetchPeakBySlug(null, 'mont-aiguille');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/peaks/mont-aiguille', null);
   });
 
   it('lève une erreur si le slug mock est inconnu', async () => {
