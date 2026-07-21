@@ -65,7 +65,7 @@ export default function ProfileScreen() {
         label={i18n.t('profile.proBannerLabel')}
         title={i18n.t('profile.proBannerTitle')}
         subtitle={i18n.t('profile.proBannerSubtitle')}
-        onPress={showPaywall}
+        onPress={() => showPaywall('profile_banner')}
       />
 
       <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>

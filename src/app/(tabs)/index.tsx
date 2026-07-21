@@ -78,7 +78,7 @@ export default function HomeScreen() {
   }, [selectedPeak?.id]);
 
   useEffect(() => {
-    if (quotaExceeded) showPaywall();
+    if (quotaExceeded) showPaywall('quota');
   }, [quotaExceeded, showPaywall]);
 
   useEffect(() => {
@@ -222,7 +222,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               testID="quota-counter-badge"
               style={[styles.quotaCounterBadge, { borderColor: colors.border, backgroundColor: colors.surface }]}
-              onPress={() => showPaywall()}
+              onPress={() => showPaywall('home_badge')}
               activeOpacity={0.8}
             >
               <Text style={[styles.quotaCounterText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs }]}>
@@ -248,7 +248,7 @@ export default function HomeScreen() {
                   icon="lock-closed-outline"
                   title={i18n.t('paywall.quotaTitle')}
                   message={i18n.t('home.quotaUpgrade')}
-                  action={{ label: i18n.t('home.discoverPro'), onPress: () => showPaywall() }}
+                  action={{ label: i18n.t('home.discoverPro'), onPress: () => showPaywall('quota') }}
                   actionTestID="quota-open-paywall-button"
                   secondaryAction={{ label: i18n.t('home.notNow'), onPress: handleDismissQuota }}
                 />
