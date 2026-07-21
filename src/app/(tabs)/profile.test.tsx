@@ -173,6 +173,29 @@ describe('ProfileScreen', () => {
     expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 
+  it('tracks theme_toggled then calls toggleScheme', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.appearance'));
+    expect(track).toHaveBeenCalledWith('theme_toggled', { scheme: expect.any(String) });
+    expect(mockToggleScheme).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks language_toggled then calls toggleLocale', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.language'));
+    expect(track).toHaveBeenCalledWith('language_toggled', { locale: expect.any(String) });
+    expect(mockToggleLocale).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks delete_account_initiated when opening the delete modal', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.deleteAccount'));
+    expect(track).toHaveBeenCalledWith('delete_account_initiated');
+  });
+
   it('ouvre puis ferme la modale de suppression de compte', () => {
     const { getByText } = render(<ProfileScreen />);
 

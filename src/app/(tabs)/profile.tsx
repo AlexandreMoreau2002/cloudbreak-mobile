@@ -34,6 +34,23 @@ export default function ProfileScreen() {
     signOut();
   }
 
+  function handleToggleTheme() {
+    const nextScheme = scheme === 'light' ? 'dark' : 'light';
+    track('theme_toggled', { scheme: nextScheme });
+    toggleScheme();
+  }
+
+  function handleToggleLanguage() {
+    const nextLocale = locale === 'fr' ? 'en' : 'fr';
+    track('language_toggled', { locale: nextLocale });
+    toggleLocale();
+  }
+
+  function handleOpenDeleteModal() {
+    track('delete_account_initiated');
+    setDeleteModalVisible(true);
+  }
+
   const handleDeleteConfirm = async () => {
     setDeleteLoading(true);
     setDeleteError(null);
@@ -76,13 +93,13 @@ export default function ProfileScreen() {
           icon="sunny-outline"
           label={i18n.t('profile.appearance')}
           value={scheme === 'light' ? i18n.t('profile.appearanceLight') : i18n.t('profile.appearanceDark')}
-          onPress={toggleScheme}
+          onPress={handleToggleTheme}
         />
         <SettingsRow
           icon="language-outline"
           label={i18n.t('profile.language')}
           value={locale === 'fr' ? i18n.t('profile.languageFrLabel') : i18n.t('profile.languageEnLabel')}
-          onPress={toggleLocale}
+          onPress={handleToggleLanguage}
           isLast
         />
       </View>
@@ -119,7 +136,7 @@ export default function ProfileScreen() {
             {i18n.t('profile.signOut')}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.signOutRow} onPress={() => setDeleteModalVisible(true)} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.signOutRow} onPress={handleOpenDeleteModal} activeOpacity={0.7}>
           <Ionicons name="trash-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
           <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
             {i18n.t('profile.deleteAccount')}
