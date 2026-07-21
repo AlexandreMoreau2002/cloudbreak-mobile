@@ -29,3 +29,21 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
 
 ### Verdict
 SECURE — aucune donnée sensible exposée par la story 7.2.
+
+---
+
+## 2026-07-21 Story 1-7 — Taxonomie & instrumentation events (mobile)
+
+`track()` (stub DEBUG-only, `src/services/analytics.ts`) câblé sur ~20 points (onboarding, auth, home, recherche, favoris, paywall, profil, session).
+
+### 🔵 INFO
+- **[usePeakSearch.ts:47]** `search_performed` ne loggue que `query_length` et `results_count` — jamais le texte brut de la recherche. Conforme.
+- **[useLegalLinks.ts:23]** `legal_link_opened` ne loggue que `link_type` (catégorisé via `getLinkType()`) — jamais l'URL complète. Conforme.
+- Tous les autres events audités (`peak_selected`, `paywall_opened`, `plan_selected`, `score_hour_changed`, `offline_mode_shown`, `app_backgrounded`, etc.) ne transportent que des IDs (`peak_id`), enums (`period`, `scheme`, `locale`) ou métriques numériques (`session_duration_ms`, `cached_minutes_ago`) — aucune PII
+- Pas de duplication détectée avec les events backend pour une même action : `delete_account_initiated` (mobile, intention côté profil) vs `account_deleted` (backend, confirmation après suppression effective) couvrent deux étapes distinctes du même flux — un seul propriétaire par étape
+
+### 🟡 WARNING
+- **[useAuthForm.ts:36]** `auth_submitted` envoie `error_code: error.message` — c'est le message d'erreur brut retourné par Supabase (`AuthError.message`, texte libre, ex: "Invalid login credentials"), pas un code catégorisé stable comme le nom de la property le laisse penser. Risque : texte libre non maîtrisé par Cloudbreak, sujet à changer de format côté Supabase, et incohérent avec la convention appliquée ailleurs (`search_performed`, `legal_link_opened` qui catégorisent strictement). Pas de PII confirmée dans les messages Supabase actuels (aucun ne contient email/mot de passe), mais recommandation : mapper `error.message`/`error.status` vers un enum stable (`invalid_credentials`, `email_taken`, `weak_password`, `rate_limited`, `unknown`) avant le branchement PostHog réel, pour éviter d'envoyer du texte libre non contrôlé à un tiers.
+
+### Verdict
+CORRECTIONS RECOMMANDÉES AVANT BRANCHEMENT POSTHOG — aucun blocage pour le merge de la story 1.7 (stub sans réseau), mais `useAuthForm.ts:36` à corriger avant que `track()` envoie réellement vers PostHog.
