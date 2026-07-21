@@ -11,6 +11,10 @@ jest.mock('@/services/api/peaks', () => ({
   removeFavorite: jest.fn(),
 }));
 
+jest.mock('@/services/analytics', () => ({
+  track: jest.fn(),
+}));
+
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => mockAuthState,
 }));
@@ -162,6 +166,21 @@ describe('usePeakSearch', () => {
     });
 
     expect(result.current.state.error).toBe('Réseau indisponible');
+  });
+
+  it('tracks search_performed with query_length and results_count on success', async () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    mockSearchPeaks.mockResolvedValue(MOCK_PEAKS);
+    const { result } = renderHook(() => usePeakSearch());
+
+    act(() => { result.current.setQuery('mont'); });
+    act(() => { jest.runAllTimers(); });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('success');
+    });
+
+    expect(track).toHaveBeenCalledWith('search_performed', { query_length: 4, results_count: 2 });
   });
 
   it('retourne tableau vide si aucun résultat', async () => {
