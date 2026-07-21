@@ -44,6 +44,16 @@ jest.mock('@/contexts/SelectedPeakContext', () => ({
   useSelectedPeak: () => ({ setSelectedPeak: mockSetSelectedPeak }),
 }));
 
+const mockResetOnboarding = jest.fn();
+jest.mock('@/contexts/OnboardingContext', () => ({
+  useOnboarding: () => ({
+    completed: true,
+    hydrated: true,
+    completeOnboarding: jest.fn(),
+    resetOnboarding: mockResetOnboarding,
+  }),
+}));
+
 let mockLocale: 'fr' | 'en' = 'fr';
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ locale: mockLocale, toggleLocale: mockToggleLocale }),
@@ -227,5 +237,8 @@ describe('ProfileScreen', () => {
 
     fireEvent.press(getByText('DEV · Reset sommet sélectionné'));
     expect(mockSetSelectedPeak).toHaveBeenCalledWith(null);
+
+    fireEvent.press(getByText("DEV · Rejouer l'onboarding"));
+    expect(mockResetOnboarding).toHaveBeenCalledTimes(1);
   });
 });

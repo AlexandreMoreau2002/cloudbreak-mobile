@@ -73,6 +73,16 @@ Alias @/ obligatoire — jamais de chemins relatifs ../ ou ../../.
 
 ---
 
+## Organisation src/hooks/ — règle et exception
+
+Par défaut, `src/hooks/` est **plat** (pas de sous-dossier par domaine) : `useAuthForm.ts`, `useScore.ts`, `useWeekData.ts`, etc. vivent directement dans `src/hooks/`.
+
+**Exception assumée** : les hooks propres à un même parcours/feature isolé peuvent être regroupés dans un sous-dossier `src/hooks/<domaine>/` quand ils sont nombreux (3+) et n'ont aucun usage en dehors de ce domaine. Exemple : `src/hooks/onboarding/` (`useOnboardingFlow`, `useOnboardingPeaks`, `useNotificationPermission` — story 7.1). Import : `@/hooks/onboarding/useOnboardingFlow`.
+
+Ne pas généraliser cette exception à tout le dossier sans discussion — le flat reste la norme par défaut.
+
+---
+
 ## Composants UI états — règle STRICTE
 
 Pour tout écran ou section qui charge des données, utiliser **obligatoirement** ces composants :

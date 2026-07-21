@@ -25,7 +25,7 @@ export interface ApiFetchOptions {
 
 export async function apiFetch<T>(
   path: string,
-  token: string,
+  token: string | null,
   params?: Record<string, string>,
   options?: ApiFetchOptions,
 ): Promise<T> {
@@ -36,7 +36,8 @@ export async function apiFetch<T>(
   const method = options?.method ?? 'GET';
   if (DEBUG) console.debug('[fetchService] request', { method, url: url.toString() });
 
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
   if (options?.body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }

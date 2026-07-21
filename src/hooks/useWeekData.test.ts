@@ -1,6 +1,6 @@
 import React from 'react';
 import NetInfo from '@react-native-community/netinfo';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchScore } from '@/services/api/score';
 import { useWeekData } from '@/hooks/useWeekData';
@@ -589,7 +589,9 @@ describe('useWeekData', () => {
     expect(result.current.fromCache).toBe(true);
     expect(mockFetchScore).not.toHaveBeenCalled();
 
-    await result.current.refresh();
+    await act(async () => {
+      await result.current.refresh();
+    });
     await waitFor(() => expect(result.current.fromCache).toBe(false));
 
     expect(mockFetchScore).toHaveBeenCalledTimes(63);
@@ -610,7 +612,9 @@ describe('useWeekData', () => {
     const cachedData = result.current.data;
 
     mockFetchScore.mockRejectedValue(new Error('Network error'));
-    await result.current.refresh();
+    await act(async () => {
+      await result.current.refresh();
+    });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.data).toEqual(cachedData);
@@ -636,7 +640,9 @@ describe('useWeekData', () => {
     // Toujours en ligne, mais tous les appels réseau du refresh échouent
     mockNetInfoFetch.mockResolvedValueOnce({ isConnected: true } as never);
     mockFetchScore.mockRejectedValue(new Error('Network error'));
-    await result.current.refresh();
+    await act(async () => {
+      await result.current.refresh();
+    });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.fromCache).toBe(true);
@@ -687,7 +693,9 @@ describe('useWeekData', () => {
     const cachedData = result.current.data;
 
     mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
-    await result.current.refresh();
+    await act(async () => {
+      await result.current.refresh();
+    });
 
     expect(result.current.data).toEqual(cachedData);
     expect(result.current.error).toBeNull();
