@@ -49,6 +49,11 @@ jest.mock('@/contexts/LanguageContext', () => ({
   LanguageProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
 }));
+
+jest.mock('@/hooks/useAppSessionTracking', () => ({
+  useAppSessionTracking: jest.fn(),
+}));
+
 describe('RootLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
