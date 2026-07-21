@@ -148,6 +148,7 @@ export default function HomeScreen() {
     setSelectedPeak(peak);
   }
 
+  /* istanbul ignore next - le bouton partage n'est rendu que si un sommet est sélectionné */
   function handleShare() {
     if (selectedPeak) track('forecast_shared', { peak_id: selectedPeak.id });
     return shareForecast(selectedPeak?.slug ?? null);
@@ -163,6 +164,7 @@ export default function HomeScreen() {
   }
 
   function handleDismissQuota() {
+    /* istanbul ignore next - la carte quota n'est rendue que si un sommet est sélectionné */
     if (selectedPeak) track('quota_dismissed', { peak_id: selectedPeak.id });
     // Pas de cache pour ce sommet mais un autre a déjà été chargé avec succès
     // aujourd'hui → on y revient plutôt que d'afficher une erreur trompeuse

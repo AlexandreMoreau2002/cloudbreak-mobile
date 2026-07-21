@@ -118,6 +118,12 @@ describe('ProfileScreen', () => {
     expect(getByText('profile.proBannerTitle')).toBeTruthy();
   });
 
+  it('ouvre le paywall avec le trigger profile_banner au clic sur le banner pro', () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.proBannerTitle'));
+    expect(mockShowPaywall).toHaveBeenCalledWith('profile_banner');
+  });
+
   it('affiche la ligne apparence en mode light', () => {
     const { getByText } = render(<ProfileScreen />);
     expect(getByText('profile.appearance')).toBeTruthy();
@@ -177,16 +183,32 @@ describe('ProfileScreen', () => {
     const { track } = jest.requireMock('@/services/analytics');
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('profile.appearance'));
-    expect(track).toHaveBeenCalledWith('theme_toggled', { scheme: expect.any(String) });
+    expect(track).toHaveBeenCalledWith('theme_toggled', { scheme: 'dark' });
     expect(mockToggleScheme).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks theme_toggled vers light quand le scheme courant est dark', () => {
+    mockScheme = 'dark';
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.appearance'));
+    expect(track).toHaveBeenCalledWith('theme_toggled', { scheme: 'light' });
   });
 
   it('tracks language_toggled then calls toggleLocale', () => {
     const { track } = jest.requireMock('@/services/analytics');
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('profile.language'));
-    expect(track).toHaveBeenCalledWith('language_toggled', { locale: expect.any(String) });
+    expect(track).toHaveBeenCalledWith('language_toggled', { locale: 'en' });
     expect(mockToggleLocale).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks language_toggled vers fr quand la locale courante est en', () => {
+    mockLocale = 'en';
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.language'));
+    expect(track).toHaveBeenCalledWith('language_toggled', { locale: 'fr' });
   });
 
   it('tracks delete_account_initiated when opening the delete modal', () => {
