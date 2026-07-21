@@ -45,6 +45,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
 
 jest.mock('@/utils/i18n', () => ({ t: (k: string) => k }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
+jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -169,6 +170,18 @@ describe('SearchScreen', () => {
     fireEvent.press(getByText('Autre'));
     expect(mockSetSelectedPeak).toHaveBeenCalledWith(peaks[0]);
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/');
+  });
+
+  it('tracks peak_selected with source search on row press', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    mockPeakSearch = {
+      state: { status: 'success', data: peaks },
+      query: 'test',
+      setQuery: jest.fn(),
+    };
+    const { getByText } = render(<SearchScreen />);
+    fireEvent.press(getByText('Autre'));
+    expect(track).toHaveBeenCalledWith('peak_selected', { peak_id: 'other', source: 'search' });
   });
 
   it('ajoute un favori au tap sur le bouton coeur non favori', () => {

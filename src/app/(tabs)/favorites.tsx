@@ -3,6 +3,7 @@ import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import i18n from '@/utils/i18n';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
+import { track } from '@/services/analytics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { EmptyState } from '@/components/empty-state';
@@ -28,6 +29,7 @@ export default function FavoritesScreen() {
   const { setSelectedPeak } = useSelectedPeak();
 
   function handleSelectPeak(peak: Peak) {
+    track('peak_selected', { peak_id: peak.id, source: 'favorites' });
     setSelectedPeak(peak);
     router.push(HOME_ROUTE);
   }

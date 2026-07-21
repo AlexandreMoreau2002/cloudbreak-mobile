@@ -2,6 +2,7 @@ import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'r
 import i18n from '@/utils/i18n';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
+import { track } from '@/services/analytics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { EmptyState } from '@/components/empty-state';
@@ -28,6 +29,7 @@ export default function SearchScreen() {
   const favoriteIds = new Set((favState.data ?? []).map((p) => p.id));
 
   function handleSelectPeak(peak: Peak) {
+    track('peak_selected', { peak_id: peak.id, source: 'search' });
     setSelectedPeak(peak);
     router.push(HOME_ROUTE);
   }
