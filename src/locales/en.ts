@@ -167,6 +167,11 @@ export default {
     language: 'Language',
     languageFrLabel: 'Français',
     languageEnLabel: 'English',
+    location: 'Location',
+    locationEnabled: 'Enabled',
+    locationDisabled: 'Disabled',
+    locationSettingsErrorTitle: 'Could not open settings',
+    locationSettingsErrorMessage: 'Open iOS Settings manually to enable location.',
     deleteAccount: 'Delete my account',
     deleteAccountModal: {
       title: 'Delete my account',
@@ -243,5 +248,10 @@ export default {
     continue: 'Continue',
     allowNotifications: 'Enable notifications',
     skip: 'Later',
+    step4Eyebrow: '04 · Location',
+    step4Title: 'Confirm you reached the summit.',
+    step4Body: 'Your position, used only once, simply confirms you made it up there.',
+    locationPreviewCaption: 'Approximate location used to confirm your presence at the summit.',
+    allowLocation: 'Allow',
   },
 };
