@@ -3,6 +3,8 @@ import { WelcomeSlide } from './WelcomeSlide';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { render, fireEvent, configure } from '@testing-library/react-native';
 
+jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
+
 // Le fil d'Ariane (MascotBreadcrumb) est masqué de l'accessibilité — inclure les
 // éléments cachés pour pouvoir l'interroger.
 configure({ defaultIncludeHiddenElements: true });
@@ -27,5 +29,11 @@ describe('WelcomeSlide', () => {
   it('renders the breadcrumb', () => {
     const { getByTestId } = renderWithTheme(<WelcomeSlide onContinue={() => {}} />);
     expect(getByTestId('breadcrumb-mascot')).toBeTruthy();
+  });
+
+  it('tracks onboarding_step_viewed with step 1 on mount', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    renderWithTheme(<WelcomeSlide onContinue={() => {}} />);
+    expect(track).toHaveBeenCalledWith('onboarding_step_viewed', { step: 1 });
   });
 });

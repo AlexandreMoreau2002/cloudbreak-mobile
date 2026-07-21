@@ -6,6 +6,7 @@ import { render, fireEvent, configure } from '@testing-library/react-native';
 import { useOnboardingPeaks } from '@/hooks/onboarding/useOnboardingPeaks';
 
 jest.mock('@/hooks/onboarding/useOnboardingPeaks');
+jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
 jest.mock('@/contexts/SelectedPeakContext', () => ({
   useSelectedPeak: jest.fn(),
 }));
@@ -73,6 +74,24 @@ describe('SummitSlide', () => {
 
     expect(setSelectedPeak).toHaveBeenCalledWith(PEAKS[1]);
     expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks onboarding_step_viewed with step 2 on mount', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    setup();
+    renderWithTheme(<SummitSlide onContinue={() => {}} />);
+    expect(track).toHaveBeenCalledWith('onboarding_step_viewed', { step: 2 });
+  });
+
+  it('tracks peak_selected with source onboarding when committing a selection', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    setup();
+    const { getByTestId } = renderWithTheme(<SummitSlide onContinue={() => {}} />);
+
+    fireEvent.press(getByTestId('summit-row-grand-veymont'));
+    fireEvent.press(getByTestId('summit-continue'));
+
+    expect(track).toHaveBeenCalledWith('peak_selected', { peak_id: PEAKS[1].id, source: 'onboarding' });
   });
 
   it('falls back to the static curated list without friction on curated error', () => {

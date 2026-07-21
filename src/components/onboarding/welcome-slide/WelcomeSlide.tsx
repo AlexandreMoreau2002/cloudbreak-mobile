@@ -11,6 +11,8 @@
  * Tous les textes proviennent d'i18n (namespace `onboarding.step1*` + `continue`).
  */
 import i18n from '@/utils/i18n';
+import { useEffect } from 'react';
+import { track } from '@/services/analytics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { StyleSheet, Text, View } from 'react-native';
 import { OnboardingCta } from '@/components/onboarding/cta';
@@ -23,6 +25,10 @@ export interface WelcomeSlideProps {
 
 export function WelcomeSlide({ onContinue }: WelcomeSlideProps) {
   const { colors, typography } = useTheme();
+
+  useEffect(() => {
+    track('onboarding_step_viewed', { step: 1 });
+  }, []);
 
   return (
     <View style={styles.root}>

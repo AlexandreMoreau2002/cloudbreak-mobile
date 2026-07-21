@@ -23,8 +23,9 @@
  *  fournit directement `range`.
  */
 import i18n from '@/utils/i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Svg, { Path } from 'react-native-svg';
+import { track } from '@/services/analytics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Peak } from '@/services/mockData/types';
@@ -70,6 +71,10 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
   const { setSelectedPeak } = useSelectedPeak();
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
 
+  useEffect(() => {
+    track('onboarding_step_viewed', { step: 2 });
+  }, []);
+
   const isSearching = query.length >= 2;
   const staticFallback = curated.status === 'error';
 
@@ -92,7 +97,10 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
   function handleContinue() {
     if (selectablePeaks && selectedSlug) {
       const peak = selectablePeaks.find((p) => p.slug === selectedSlug) ?? null;
-      if (peak) setSelectedPeak(peak);
+      if (peak) {
+        track('peak_selected', { peak_id: peak.id, source: 'onboarding' });
+        setSelectedPeak(peak);
+      }
     }
     onContinue();
   }

@@ -5,6 +5,7 @@ import { act, configure, fireEvent, render } from '@testing-library/react-native
 import { useNotificationPermission } from '@/hooks/onboarding/useNotificationPermission';
 
 jest.mock('@/hooks/onboarding/useNotificationPermission');
+jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
 
 // Le fil d'Ariane (MascotBreadcrumb) est masqué de l'accessibilité — inclure les
 // éléments cachés pour pouvoir l'interroger (même convention que SummitSlide).
@@ -30,6 +31,7 @@ describe('NotificationsSlide', () => {
   });
 
   it('requests permission then finishes when the user allows (granted)', async () => {
+    const { track } = jest.requireMock('@/services/analytics');
     const requestPermission = jest.fn().mockResolvedValue(true);
     mockUseNotificationPermission.mockReturnValue({ requestPermission });
     const onFinish = jest.fn();
@@ -39,9 +41,11 @@ describe('NotificationsSlide', () => {
 
     expect(requestPermission).toHaveBeenCalledTimes(1);
     expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith('onboarding_permission_result', { granted: true });
   });
 
   it('still finishes when the permission is denied (zero friction, AC 3)', async () => {
+    const { track } = jest.requireMock('@/services/analytics');
     const requestPermission = jest.fn().mockResolvedValue(false);
     mockUseNotificationPermission.mockReturnValue({ requestPermission });
     const onFinish = jest.fn();
@@ -51,6 +55,7 @@ describe('NotificationsSlide', () => {
 
     expect(requestPermission).toHaveBeenCalledTimes(1);
     expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith('onboarding_permission_result', { granted: false });
   });
 
   it('ignores a double-tap while the permission request is pending', async () => {
@@ -100,5 +105,24 @@ describe('NotificationsSlide', () => {
     const { getByTestId } = renderWithTheme(<NotificationsSlide onFinish={() => {}} />);
 
     expect(getByTestId('breadcrumb-stop-2-filled')).toBeTruthy();
+  });
+
+  it('tracks onboarding_step_viewed with step 3 on mount', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    mockUseNotificationPermission.mockReturnValue({ requestPermission: jest.fn() });
+    renderWithTheme(<NotificationsSlide onFinish={() => {}} />);
+    expect(track).toHaveBeenCalledWith('onboarding_step_viewed', { step: 3 });
+  });
+
+  it('tracks onboarding_permission_result with granted false on skip', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    mockUseNotificationPermission.mockReturnValue({ requestPermission: jest.fn() });
+    const onFinish = jest.fn();
+    const { getByTestId } = renderWithTheme(<NotificationsSlide onFinish={onFinish} />);
+
+    fireEvent.press(getByTestId('notif-skip'));
+
+    expect(track).toHaveBeenCalledWith('onboarding_permission_result', { granted: false });
+    expect(onFinish).toHaveBeenCalledTimes(1);
   });
 });
