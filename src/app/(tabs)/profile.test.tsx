@@ -20,6 +20,8 @@ jest.mock('@/utils/i18n', () => ({
   default: { t: (key: string) => key },
 }));
 
+jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
+
 const mockSignOut = jest.fn();
 const mockDeleteAccount = jest.fn();
 const mockToggleScheme = jest.fn();
@@ -160,6 +162,14 @@ describe('ProfileScreen', () => {
   it('appelle signOut au clic sur se déconnecter', () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('profile.signOut'));
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks signed_out then calls signOut', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.signOut'));
+    expect(track).toHaveBeenCalledWith('signed_out');
     expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 

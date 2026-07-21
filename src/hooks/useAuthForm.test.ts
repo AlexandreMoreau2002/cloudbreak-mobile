@@ -6,6 +6,8 @@ const mockSignIn = jest.fn();
 const mockSignUp = jest.fn();
 const mockDevConfigState = { SIMULATE_DELAY_MS: 0 };
 
+jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
+
 jest.mock('@/constants/devConfig', () => ({
   get SIMULATE_DELAY_MS() { return mockDevConfigState.SIMULATE_DELAY_MS; },
 }));
@@ -112,5 +114,46 @@ describe('useAuthForm', () => {
 
     expect(result.current.loading).toBe(false);
     jest.useRealTimers();
+  });
+
+  it('tracks auth_submitted with success true on successful login', async () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    mockSignIn.mockResolvedValue(null);
+    const { result } = renderHook(() => useAuthForm());
+
+    act(() => {
+      result.current.setEmail('a@b.com');
+      result.current.setPassword('secret123');
+    });
+    await act(async () => { await result.current.handleSubmit(); });
+
+    expect(track).toHaveBeenCalledWith('auth_submitted', { mode: 'login', success: true });
+  });
+
+  it('tracks auth_submitted with success false and error_code on failed login', async () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    mockSignIn.mockResolvedValue({ message: 'Invalid credentials' });
+    const { result } = renderHook(() => useAuthForm());
+
+    act(() => {
+      result.current.setEmail('a@b.com');
+      result.current.setPassword('wrong');
+    });
+    await act(async () => { await result.current.handleSubmit(); });
+
+    expect(track).toHaveBeenCalledWith('auth_submitted', {
+      mode: 'login',
+      success: false,
+      error_code: 'Invalid credentials',
+    });
+  });
+
+  it('tracks auth_mode_toggled when switching to signup', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { result } = renderHook(() => useAuthForm());
+
+    act(() => { result.current.toggleMode(); });
+
+    expect(track).toHaveBeenCalledWith('auth_mode_toggled', { to: 'signup' });
   });
 });

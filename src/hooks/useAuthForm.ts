@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import i18n from '@/utils/i18n';
+import { track } from '@/services/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SIMULATE_DELAY_MS } from '@/constants/devConfig';
@@ -16,7 +17,9 @@ export function useAuthForm() {
   const [mode, setMode] = useState<Mode>('login');
 
   function toggleMode() {
-    setMode(mode === 'login' ? 'signup' : 'login');
+    const nextMode = mode === 'login' ? 'signup' : 'login';
+    track('auth_mode_toggled', { to: nextMode });
+    setMode(nextMode);
   }
 
   async function handleSubmit() {
@@ -30,6 +33,7 @@ export function useAuthForm() {
       : await signUp(email, password);
     if (SIMULATE_DELAY_MS > 0) await new Promise((resolve) => setTimeout(resolve, SIMULATE_DELAY_MS));
     setLoading(false);
+    track('auth_submitted', error ? { mode, success: false, error_code: error.message } : { mode, success: true });
     if (error) Alert.alert(i18n.t('auth.error'), error.message);
   }
 

@@ -2,6 +2,7 @@ import i18n from '@/utils/i18n';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { track } from '@/services/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LEGAL_URLS } from '@/constants/legalUrls';
@@ -27,6 +28,11 @@ export default function ProfileScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  function handleSignOut() {
+    track('signed_out');
+    signOut();
+  }
 
   const handleDeleteConfirm = async () => {
     setDeleteLoading(true);
@@ -107,7 +113,7 @@ export default function ProfileScreen() {
         {i18n.t('profile.sectionAccount')}
       </Text>
       <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <TouchableOpacity style={styles.signOutRow} onPress={signOut} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
           <Ionicons name="log-out-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
           <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
             {i18n.t('profile.signOut')}
