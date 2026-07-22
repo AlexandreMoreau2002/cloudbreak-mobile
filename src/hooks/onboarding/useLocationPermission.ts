@@ -7,8 +7,8 @@
  */
 import { useCallback } from 'react';
 import * as Location from 'expo-location';
-import { useAuth } from '@/contexts/AuthContext';
 import { DEBUG } from '@/constants/devConfig';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useLocationPermission() {
   const { setLocationPermission } = useAuth();

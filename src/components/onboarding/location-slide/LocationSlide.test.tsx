@@ -1,8 +1,8 @@
 import i18n from '@/utils/i18n';
-import { ThemeProvider } from '@/contexts/ThemeContext';
 import { LocationSlide } from './LocationSlide';
-import { act, configure, fireEvent, render } from '@testing-library/react-native';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import { useLocationPermission } from '@/hooks/onboarding/useLocationPermission';
+import { act, configure, fireEvent, render } from '@testing-library/react-native';
 
 jest.mock('@/hooks/onboarding/useLocationPermission', () => ({ useLocationPermission: jest.fn() }));
 jest.mock('@/services/analytics', () => ({ track: jest.fn() }));

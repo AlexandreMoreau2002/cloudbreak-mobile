@@ -2,8 +2,8 @@ import * as Location from 'expo-location';
 import { supabase } from '@/services/supabaseClient';
 import { Session, AuthError } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { deleteAccount as deleteAccountService } from '@/services/api/user';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 function isNetworkError(e: unknown): boolean {
   if (!(e instanceof Error)) return false;

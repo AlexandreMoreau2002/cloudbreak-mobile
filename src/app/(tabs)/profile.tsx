@@ -8,11 +8,11 @@ import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { usePaywall } from '@/contexts/PaywallContext';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useLocationSettingsLink } from '@/hooks/useLocationSettingsLink';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocationSettingsLink } from '@/hooks/useLocationSettingsLink';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { DeleteAccountModal, ProBanner, SettingsRow, UserCard } from '@/components/profile';
 
