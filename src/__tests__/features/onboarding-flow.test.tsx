@@ -9,9 +9,12 @@
  * `searchPeaks`, non pertinents ici et non mockables proprement sans
  * dupliquer les tests déjà couverts dans SummitSlide.test.tsx) — piloter le
  * vrai composant introduirait de la latence/flakiness réseau sans valeur
- * ajoutée pour ce test de machine à états. `NotificationsSlide` reste réel :
- * `expo-notifications` est déjà mocké globalement (jest.setup.ts) pour
- * résoudre `granted` immédiatement, donc aucun risque réseau/latence.
+ * ajoutée pour ce test de machine à états. `NotificationsSlide` et
+ * `LocationSlide` restent réels : `expo-notifications`/`expo-location` sont
+ * déjà mockés globalement (jest.setup.ts) pour résoudre `granted`
+ * immédiatement, donc aucun risque réseau/latence. `@/contexts/AuthContext`
+ * est mocké ici (Supabase non initialisable en environnement de test) —
+ * seul `setLocationPermission` est utilisé par `useLocationPermission`.
  */
 import { track } from '@/services/analytics';
 import OnboardingScreen from '@/app/onboarding';
@@ -34,6 +37,12 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 jest.mock('@/services/analytics', () => ({
   track: jest.fn(),
+}));
+
+jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ setLocationPermission: jest.fn() }),
 }));
 
 jest.mock('@/components/onboarding/summit-slide', () => {
@@ -72,7 +81,7 @@ describe('feature — onboarding flow', () => {
     jest.useRealTimers();
   });
 
-  it('walks splash → curtain → onb1 → onb2 → onb3 → finish, persisting completion', async () => {
+  it('walks splash → curtain → onb1 → onb2 → onb3 → onb4 → finish, persisting completion', async () => {
     const { getByTestId, queryByTestId } = renderScreen();
 
     // 1. Splash visible, curtain absent.
@@ -104,9 +113,15 @@ describe('feature — onboarding flow', () => {
     fireEvent.press(getByTestId('summit-continue-fake'));
     expect(getByTestId('notif-skip')).toBeTruthy();
 
-    // 6. "Plus tard" (skip) finishes the onboarding.
+    // 6. "Plus tard" (skip) on notifications moves to onb4 (LocationSlide, real).
     await act(async () => {
       fireEvent.press(getByTestId('notif-skip'));
+    });
+    expect(getByTestId('location-skip')).toBeTruthy();
+
+    // 7. "Plus tard" (skip) on location finishes the onboarding.
+    await act(async () => {
+      fireEvent.press(getByTestId('location-skip'));
     });
 
     expect(mockTrack).toHaveBeenCalledWith('onboarding_complete');
