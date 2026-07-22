@@ -1,6 +1,5 @@
 import i18n from '@/utils/i18n';
-import { useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { track } from '@/services/analytics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,6 +7,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { usePaywall } from '@/contexts/PaywallContext';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useLocationSettingsLink } from '@/hooks/useLocationSettingsLink';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
@@ -19,15 +20,22 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showPaywall } = usePaywall();
-  const { session, signOut, deleteAccount } = useAuth();
+  const { session, signOut, deleteAccount, locationPermission, refreshLocationPermission } = useAuth();
   const { setSelectedPeak } = useSelectedPeak();
   const { resetOnboarding } = useOnboarding();
   const { locale, toggleLocale } = useLanguage();
   const { openLegalLink } = useLegalLinks();
+  const { openLocationSettings } = useLocationSettingsLink();
   const { colors, typography, scheme, toggleScheme } = useTheme();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshLocationPermission();
+    }, [refreshLocationPermission]),
+  );
 
   function handleSignOut() {
     track('signed_out');
@@ -100,6 +108,12 @@ export default function ProfileScreen() {
           label={i18n.t('profile.language')}
           value={locale === 'fr' ? i18n.t('profile.languageFrLabel') : i18n.t('profile.languageEnLabel')}
           onPress={handleToggleLanguage}
+        />
+        <SettingsRow
+          icon="location-outline"
+          label={i18n.t('profile.location')}
+          value={locationPermission === 'granted' ? i18n.t('profile.locationEnabled') : i18n.t('profile.locationDisabled')}
+          onPress={openLocationSettings}
           isLast
         />
       </View>
