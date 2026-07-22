@@ -223,7 +223,7 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
       </View>
 
       <View style={styles.dock}>
-        <MascotBreadcrumb active={1} />
+        <MascotBreadcrumb active={1} total={4} />
         <View style={styles.dockSpacer} />
         <OnboardingCta
           label={i18n.t('onboarding.continue')}

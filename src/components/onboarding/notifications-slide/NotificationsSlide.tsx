@@ -129,7 +129,7 @@ export function NotificationsSlide({ onFinish }: NotificationsSlideProps) {
       <View style={styles.spacer} />
 
       <View style={styles.dock}>
-        <MascotBreadcrumb active={2} />
+        <MascotBreadcrumb active={2} total={4} />
         <View style={styles.dockSpacer} />
         <OnboardingCta
           label={i18n.t('onboarding.allowNotifications')}
