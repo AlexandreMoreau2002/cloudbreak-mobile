@@ -28,6 +28,7 @@ _Dernière mise à jour : 2026-07-01_
 | ScoreSkeleton — loader animé (story 3.4) | ✅ |
 | Détail conditions météo + fenêtre temporelle (story 3.5) | ✅ |
 | Lever du soleil + indicateur de stabilité (story 3.5) | ✅ |
+| Permission géolocalisation opt-in (onboarding step 4 + lien Profil vers réglages iOS) — story 2.3, aucune consommation de la position (prévue story 6.1) | ✅ |
 | WeekStrip — changement de jour sur l'écran principal (story 3.5) | ✅ |
 | CloudLayerViz — couche nuageuse vs altitude sommet (story 3.5) | ✅ |
 | Traduction des codes score i18n via normalizeScoreResponse() (refacto i18n) | ✅ |

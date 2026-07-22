@@ -47,3 +47,15 @@ SECURE — aucune donnée sensible exposée par la story 7.2.
 
 ### Verdict
 CORRECTIONS RECOMMANDÉES AVANT BRANCHEMENT POSTHOG — aucun blocage pour le merge de la story 1.7 (stub sans réseau), mais `useAuthForm.ts:36` à corriger avant que `track()` envoie réellement vers PostHog.
+
+---
+
+## 2026-07-22 Story 2-3 — Permission Géolocalisation (Opt-in sans Blocage)
+
+### 🔵 INFO
+- **[app.config.ts]** Permission foreground uniquement (`NSLocationWhenInUseUsageDescription` via le plugin `expo-location` avec `locationWhenInUsePermission`) — jamais "Always"/background.
+- **[AuthContext]** Aucune coordonnée GPS n'est lue, stockée ou transmise par cette story : seul le statut de permission (`granted`/`denied`/`undetermined`) est gardé en mémoire dans `AuthContext`, jamais persisté sur disque (ni AsyncStorage, ni SecureStore).
+- **[useLocationPermission / useLocationSettingsLink]** Aucun appel réseau, aucune donnée transmise au backend.
+
+### Verdict
+SECURE — aucune donnée sensible exposée par la story 2.3. La consommation réelle de la position (validation terrain) arrive en story 6.1 — à ce moment-là, réévaluer si une politique de rétention/anonymisation des coordonnées est nécessaire côté backend.
