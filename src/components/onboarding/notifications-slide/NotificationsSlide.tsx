@@ -22,10 +22,10 @@ import { MascotBreadcrumb } from '@/components/onboarding/mascot-breadcrumb';
 import { useNotificationPermission } from '@/hooks/onboarding/useNotificationPermission';
 
 export interface NotificationsSlideProps {
-  onFinish: () => void;
+  onGoNext: () => void;
 }
 
-export function NotificationsSlide({ onFinish }: NotificationsSlideProps) {
+export function NotificationsSlide({ onGoNext }: NotificationsSlideProps) {
   const { colors, typography } = useTheme();
   const pendingRef = useRef(false);
   const { requestPermission } = useNotificationPermission();
@@ -41,7 +41,7 @@ export function NotificationsSlide({ onFinish }: NotificationsSlideProps) {
     pendingRef.current = true;
     const granted = await requestPermission();
     track('onboarding_permission_result', { granted });
-    onFinish();
+    onGoNext();
   }
 
   function handleSkip() {
@@ -49,7 +49,7 @@ export function NotificationsSlide({ onFinish }: NotificationsSlideProps) {
     if (pendingRef.current) return;
     pendingRef.current = true;
     track('onboarding_permission_result', { granted: false });
-    onFinish();
+    onGoNext();
   }
 
   return (
