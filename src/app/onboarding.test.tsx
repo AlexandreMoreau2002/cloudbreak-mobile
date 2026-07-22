@@ -36,6 +36,11 @@ jest.mock('@/components/onboarding/notifications-slide', () => {
   return { NotificationsSlide: () => <Text>notifications-slide</Text> };
 });
 
+jest.mock('@/components/onboarding/location-slide/LocationSlide', () => {
+  const { Text } = require('react-native');
+  return { LocationSlide: () => <Text>location-slide</Text> };
+});
+
 const mockUseTheme = useTheme as jest.Mock;
 const mockUseOnboardingFlow = useOnboardingFlow as jest.Mock;
 
@@ -48,6 +53,7 @@ function baseFlow(overrides: Partial<ReturnType<typeof useOnboardingFlow>> = {})
     onCurtainDone: jest.fn(),
     goToSummit: jest.fn(),
     goToNotifications: jest.fn(),
+    goToLocation: jest.fn(),
     finish: jest.fn(),
     ...overrides,
   };
@@ -83,6 +89,12 @@ describe('OnboardingScreen', () => {
     mockUseOnboardingFlow.mockReturnValue(baseFlow({ step: 'onb3' }));
     const { getByText } = render(<OnboardingScreen />);
     expect(getByText('notifications-slide')).toBeTruthy();
+  });
+
+  it('renders LocationSlide on step onb4', () => {
+    mockUseOnboardingFlow.mockReturnValue(baseFlow({ step: 'onb4' }));
+    const { getByText } = render(<OnboardingScreen />);
+    expect(getByText('location-slide')).toBeTruthy();
   });
 
   it('mounts CloudCurtain on top when curtainVisible is true', () => {
