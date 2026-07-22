@@ -1,7 +1,7 @@
 /**
  * useOnboardingFlow — machine à états du parcours onboarding.
  *
- * splash → [curtain] → onb1 → onb2 → onb3 → finish()
+ * splash → [curtain] → onb1 → onb2 → onb3 → onb4 → finish()
  * Le curtain ne joue qu'une fois (splash → onb1) ; les autres
  * transitions sont des cuts secs.
  */
@@ -10,7 +10,7 @@ import { DEBUG } from '@/constants/devConfig';
 import { useCallback, useState } from 'react';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
-export type OnboardingStep = 'splash' | 'onb1' | 'onb2' | 'onb3';
+export type OnboardingStep = 'splash' | 'onb1' | 'onb2' | 'onb3' | 'onb4';
 
 export function useOnboardingFlow() {
   const { completeOnboarding } = useOnboarding();
@@ -22,6 +22,7 @@ export function useOnboardingFlow() {
   const onCurtainDone = useCallback(() => setCurtainVisible(false), []);
   const goToSummit = useCallback(() => setStep('onb2'), []);
   const goToNotifications = useCallback(() => setStep('onb3'), []);
+  const goToLocation = useCallback(() => setStep('onb4'), []);
 
   const finish = useCallback(async () => {
     if (DEBUG) console.debug('[useOnboardingFlow] finish');
@@ -38,6 +39,7 @@ export function useOnboardingFlow() {
     onCurtainDone,
     goToSummit,
     goToNotifications,
+    goToLocation,
     finish,
   };
 }
