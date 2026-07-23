@@ -167,6 +167,11 @@ export default {
     language: 'Langue',
     languageFrLabel: 'Français',
     languageEnLabel: 'English',
+    location: 'Localisation',
+    locationEnabled: 'Activée',
+    locationDisabled: 'Désactivée',
+    locationSettingsErrorTitle: 'Impossible d\'ouvrir les réglages',
+    locationSettingsErrorMessage: 'Ouvre les réglages iOS manuellement pour activer la géolocalisation.',
     deleteAccount: 'Supprimer mon compte',
     deleteAccountModal: {
       title: 'Supprimer mon compte',
@@ -243,5 +248,10 @@ export default {
     continue: 'Continuer',
     allowNotifications: 'Autoriser les notifications',
     skip: 'Plus tard',
+    step4Eyebrow: '04 · Position',
+    step4Title: 'Confirme ta présence au sommet.',
+    step4Body: 'Ta position, utilisée une seule fois, confirme simplement que tu es bien arrivé là-haut.',
+    locationPreviewCaption: 'Position approximative utilisée pour confirmer ta présence au sommet.',
+    allowLocation: 'Autoriser',
   },
 };

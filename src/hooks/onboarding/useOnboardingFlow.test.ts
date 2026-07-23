@@ -80,6 +80,14 @@ describe('useOnboardingFlow', () => {
     expect(result.current.step).toBe('onb3');
   });
 
+  it('goToLocation moves the step to onb4', () => {
+    const { result } = renderHook(() => useOnboardingFlow());
+    act(() => {
+      result.current.goToLocation();
+    });
+    expect(result.current.step).toBe('onb4');
+  });
+
   it('finish tracks the completion event and calls completeOnboarding', async () => {
     const { result } = renderHook(() => useOnboardingFlow());
     await act(async () => {

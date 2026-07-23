@@ -5,6 +5,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
+  useFocusEffect: (callback: () => void) => callback(),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -28,11 +29,16 @@ const mockToggleScheme = jest.fn();
 const mockToggleLocale = jest.fn();
 let mockSession: { user: { email?: string } } | null = { user: { email: 'test@example.com' } };
 
+const mockRefreshLocationPermission = jest.fn();
+let mockLocationPermission: 'undetermined' | 'granted' | 'denied' = 'denied';
+
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     signOut: mockSignOut,
     deleteAccount: mockDeleteAccount,
     session: mockSession,
+    locationPermission: mockLocationPermission,
+    refreshLocationPermission: mockRefreshLocationPermission,
   }),
 }));
 
@@ -66,6 +72,11 @@ jest.mock('@/hooks/useLegalLinks', () => ({
   useLegalLinks: () => ({ openLegalLink: mockOpenLegalLink }),
 }));
 
+const mockOpenLocationSettings = jest.fn();
+jest.mock('@/hooks/useLocationSettingsLink', () => ({
+  useLocationSettingsLink: () => ({ openLocationSettings: mockOpenLocationSettings }),
+}));
+
 let mockScheme = 'light';
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
@@ -92,6 +103,7 @@ describe('ProfileScreen', () => {
     mockScheme = 'light';
     mockLocale = 'fr';
     mockSession = { user: { email: 'test@example.com' } };
+    mockLocationPermission = 'denied';
   });
 
   it('s\'affiche sans erreur', () => {
@@ -295,5 +307,27 @@ describe('ProfileScreen', () => {
 
     fireEvent.press(getByText("DEV · Rejouer l'onboarding"));
     expect(mockResetOnboarding).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the location row with "Désactivée" when permission is denied and opens settings on press', () => {
+    mockLocationPermission = 'denied';
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.locationDisabled')).toBeTruthy();
+    fireEvent.press(getByText('profile.location'));
+
+    expect(mockOpenLocationSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows "Activée" when permission is granted', () => {
+    mockLocationPermission = 'granted';
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.locationEnabled')).toBeTruthy();
+  });
+
+  it('refreshes the location permission when the screen regains focus', () => {
+    render(<ProfileScreen />);
+    expect(mockRefreshLocationPermission).toHaveBeenCalled();
   });
 });

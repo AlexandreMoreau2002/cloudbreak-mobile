@@ -66,7 +66,7 @@ export function WelcomeSlide({ onContinue }: WelcomeSlideProps) {
 
         <View style={styles.spacer} />
 
-        <MascotBreadcrumb active={0} />
+        <MascotBreadcrumb active={0} total={4} />
 
         <OnboardingCta
           label={i18n.t('onboarding.continue')}

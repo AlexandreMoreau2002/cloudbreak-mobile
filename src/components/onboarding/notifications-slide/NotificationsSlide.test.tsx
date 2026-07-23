@@ -24,7 +24,7 @@ describe('NotificationsSlide', () => {
 
   it('renders the i18n texts (title card, app label)', () => {
     mockUseNotificationPermission.mockReturnValue({ requestPermission: jest.fn() });
-    const { getByText, getAllByText } = renderWithTheme(<NotificationsSlide onFinish={() => {}} />);
+    const { getByText, getAllByText } = renderWithTheme(<NotificationsSlide onGoNext={() => {}} />);
 
     expect(getByText(i18n.t('onboarding.notifPreviewTitle1'))).toBeTruthy();
     expect(getAllByText(i18n.t('onboarding.notifPreviewApp')).length).toBe(2);
@@ -34,13 +34,13 @@ describe('NotificationsSlide', () => {
     const { track } = jest.requireMock('@/services/analytics');
     const requestPermission = jest.fn().mockResolvedValue(true);
     mockUseNotificationPermission.mockReturnValue({ requestPermission });
-    const onFinish = jest.fn();
-    const { getByTestId } = renderWithTheme(<NotificationsSlide onFinish={onFinish} />);
+    const onGoNext = jest.fn();
+    const { getByTestId } = renderWithTheme(<NotificationsSlide onGoNext={onGoNext} />);
 
     await fireEvent.press(getByTestId('notif-allow'));
 
     expect(requestPermission).toHaveBeenCalledTimes(1);
-    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onGoNext).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenCalledWith('onboarding_permission_result', { granted: true });
   });
 
@@ -48,13 +48,13 @@ describe('NotificationsSlide', () => {
     const { track } = jest.requireMock('@/services/analytics');
     const requestPermission = jest.fn().mockResolvedValue(false);
     mockUseNotificationPermission.mockReturnValue({ requestPermission });
-    const onFinish = jest.fn();
-    const { getByTestId } = renderWithTheme(<NotificationsSlide onFinish={onFinish} />);
+    const onGoNext = jest.fn();
+    const { getByTestId } = renderWithTheme(<NotificationsSlide onGoNext={onGoNext} />);
 
     await fireEvent.press(getByTestId('notif-allow'));
 
     expect(requestPermission).toHaveBeenCalledTimes(1);
-    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onGoNext).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenCalledWith('onboarding_permission_result', { granted: false });
   });
 
@@ -64,45 +64,45 @@ describe('NotificationsSlide', () => {
       () => new Promise<boolean>((resolve) => { resolvePermission = resolve; }),
     );
     mockUseNotificationPermission.mockReturnValue({ requestPermission });
-    const onFinish = jest.fn();
-    const { getByTestId } = renderWithTheme(<NotificationsSlide onFinish={onFinish} />);
+    const onGoNext = jest.fn();
+    const { getByTestId } = renderWithTheme(<NotificationsSlide onGoNext={onGoNext} />);
 
     fireEvent.press(getByTestId('notif-allow'));
     fireEvent.press(getByTestId('notif-allow'));
     await act(async () => { resolvePermission(true); });
 
     expect(requestPermission).toHaveBeenCalledTimes(1);
-    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onGoNext).toHaveBeenCalledTimes(1);
   });
 
   it('finishes directly on skip, without requesting permission', () => {
     const requestPermission = jest.fn();
     mockUseNotificationPermission.mockReturnValue({ requestPermission });
-    const onFinish = jest.fn();
-    const { getByTestId } = renderWithTheme(<NotificationsSlide onFinish={onFinish} />);
+    const onGoNext = jest.fn();
+    const { getByTestId } = renderWithTheme(<NotificationsSlide onGoNext={onGoNext} />);
 
     fireEvent.press(getByTestId('notif-skip'));
 
     expect(requestPermission).not.toHaveBeenCalled();
-    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onGoNext).toHaveBeenCalledTimes(1);
   });
 
   it('ignores a double-tap on skip', () => {
     const requestPermission = jest.fn();
     mockUseNotificationPermission.mockReturnValue({ requestPermission });
-    const onFinish = jest.fn();
-    const { getByTestId } = renderWithTheme(<NotificationsSlide onFinish={onFinish} />);
+    const onGoNext = jest.fn();
+    const { getByTestId } = renderWithTheme(<NotificationsSlide onGoNext={onGoNext} />);
 
     fireEvent.press(getByTestId('notif-skip'));
     fireEvent.press(getByTestId('notif-skip'));
 
     expect(requestPermission).not.toHaveBeenCalled();
-    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onGoNext).toHaveBeenCalledTimes(1);
   });
 
   it('renders the mascot breadcrumb at step 2 (third of three)', () => {
     mockUseNotificationPermission.mockReturnValue({ requestPermission: jest.fn() });
-    const { getByTestId } = renderWithTheme(<NotificationsSlide onFinish={() => {}} />);
+    const { getByTestId } = renderWithTheme(<NotificationsSlide onGoNext={() => {}} />);
 
     expect(getByTestId('breadcrumb-stop-2-filled')).toBeTruthy();
   });
@@ -110,19 +110,19 @@ describe('NotificationsSlide', () => {
   it('tracks onboarding_step_viewed with step 3 on mount', () => {
     const { track } = jest.requireMock('@/services/analytics');
     mockUseNotificationPermission.mockReturnValue({ requestPermission: jest.fn() });
-    renderWithTheme(<NotificationsSlide onFinish={() => {}} />);
+    renderWithTheme(<NotificationsSlide onGoNext={() => {}} />);
     expect(track).toHaveBeenCalledWith('onboarding_step_viewed', { step: 3 });
   });
 
   it('tracks onboarding_permission_result with granted false on skip', () => {
     const { track } = jest.requireMock('@/services/analytics');
     mockUseNotificationPermission.mockReturnValue({ requestPermission: jest.fn() });
-    const onFinish = jest.fn();
-    const { getByTestId } = renderWithTheme(<NotificationsSlide onFinish={onFinish} />);
+    const onGoNext = jest.fn();
+    const { getByTestId } = renderWithTheme(<NotificationsSlide onGoNext={onGoNext} />);
 
     fireEvent.press(getByTestId('notif-skip'));
 
     expect(track).toHaveBeenCalledWith('onboarding_permission_result', { granted: false });
-    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onGoNext).toHaveBeenCalledTimes(1);
   });
 });

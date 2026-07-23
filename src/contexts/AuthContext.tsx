@@ -1,8 +1,9 @@
+import * as Location from 'expo-location';
 import { supabase } from '@/services/supabaseClient';
 import { Session, AuthError } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useContext, useEffect, useState } from 'react';
 import { deleteAccount as deleteAccountService } from '@/services/api/user';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 function isNetworkError(e: unknown): boolean {
   if (!(e instanceof Error)) return false;
@@ -10,10 +11,13 @@ function isNetworkError(e: unknown): boolean {
   return msg.includes('network request failed') || msg.includes('failed to fetch');
 }
 
+export type LocationPermissionStatus = 'undetermined' | 'granted' | 'denied';
+
 interface AuthState {
   loading: boolean;
   session: Session | null;
   authServiceUnavailable: boolean;
+  locationPermission: LocationPermissionStatus;
 }
 
 interface AuthContextValue extends AuthState {
@@ -21,6 +25,8 @@ interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string) => Promise<AuthError | null>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  setLocationPermission: (status: LocationPermissionStatus) => void;
+  refreshLocationPermission: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -29,6 +35,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [authServiceUnavailable, setAuthServiceUnavailable] = useState(false);
+  const [locationPermission, setLocationPermission] = useState<LocationPermissionStatus>('undetermined');
+
+  const refreshLocationPermission = useCallback(async (): Promise<void> => {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    setLocationPermission(status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined');
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession()
@@ -43,8 +55,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(newSession);
     });
 
+    void refreshLocationPermission();
+
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [refreshLocationPermission]);
 
   async function signUp(email: string, password: string): Promise<AuthError | null> {
     try {
@@ -81,7 +95,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, loading, authServiceUnavailable, signUp, signIn, signOut, deleteAccount }}>
+    <AuthContext.Provider
+      value={{
+        session, loading, authServiceUnavailable, locationPermission,
+        signUp, signIn, signOut, deleteAccount,
+        setLocationPermission, refreshLocationPermission,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

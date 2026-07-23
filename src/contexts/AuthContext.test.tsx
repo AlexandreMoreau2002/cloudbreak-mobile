@@ -23,6 +23,10 @@ jest.mock('@/services/api/user', () => ({
   deleteAccount: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('expo-location', () => ({
+  getForegroundPermissionsAsync: jest.fn(),
+}));
+
 const mockDeleteAccount = deleteAccount as jest.MockedFunction<typeof deleteAccount>;
 
 jest.mock('@/services/supabaseClient', () => ({
@@ -38,15 +42,22 @@ jest.mock('@/services/supabaseClient', () => ({
 }));
 
 function TestConsumer() {
-  const { session, loading, signIn, signUp, signOut, deleteAccount: deleteUserAccount } = useAuth();
+  const {
+    session, loading, signIn, signUp, signOut,
+    deleteAccount: deleteUserAccount,
+    locationPermission, setLocationPermission, refreshLocationPermission,
+  } = useAuth();
   return (
     <>
       <Text testID="loading">{String(loading)}</Text>
       <Text testID="session">{session ? 'connected' : 'disconnected'}</Text>
+      <Text testID="locationPermission">{locationPermission}</Text>
       <TouchableOpacity testID="signIn" onPress={() => signIn('a@b.com', 'pass')} />
       <TouchableOpacity testID="signUp" onPress={() => signUp('a@b.com', 'pass')} />
       <TouchableOpacity testID="signOut" onPress={() => signOut()} />
       <TouchableOpacity testID="deleteAccount" onPress={() => deleteUserAccount()} />
+      <TouchableOpacity testID="setGranted" onPress={() => setLocationPermission('granted')} />
+      <TouchableOpacity testID="refresh" onPress={() => refreshLocationPermission()} />
     </>
   );
 }
@@ -60,6 +71,7 @@ describe('AuthContext', () => {
     mockSignUp.mockResolvedValue({ error: null });
     mockDeleteAccount.mockResolvedValue(undefined);
     mockAsyncStorageClear.mockResolvedValue(undefined);
+    jest.requireMock('expo-location').getForegroundPermissionsAsync.mockResolvedValue({ status: 'undetermined' });
   });
 
   it('démarre en état loading puis résout sans session', async () => {
@@ -357,5 +369,47 @@ describe('AuthContext', () => {
     await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('false'));
     fireEvent.press(getByTestId('signIn'));
     await waitFor(() => expect(getByTestId('unavailable').props.children).toBe('true'));
+  });
+
+  it('starts with locationPermission undetermined and refreshes it from the OS on mount', async () => {
+    const Location = jest.requireMock('expo-location');
+    Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    expect(getByTestId('locationPermission').props.children).toBe('undetermined');
+
+    await waitFor(() => {
+      expect(getByTestId('locationPermission').props.children).toBe('granted');
+    });
+  });
+
+  it('setLocationPermission updates the state directly', async () => {
+    const Location = jest.requireMock('expo-location');
+    Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => {
+      expect(getByTestId('locationPermission').props.children).toBe('denied');
+    });
+
+    fireEvent.press(getByTestId('setGranted'));
+    expect(getByTestId('locationPermission').props.children).toBe('granted');
+  });
+
+  it('refreshLocationPermission re-reads the OS status on demand', async () => {
+    const Location = jest.requireMock('expo-location');
+    Location.getForegroundPermissionsAsync.mockResolvedValueOnce({ status: 'undetermined' });
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => {
+      expect(getByTestId('locationPermission').props.children).toBe('undetermined');
+    });
+
+    Location.getForegroundPermissionsAsync.mockResolvedValueOnce({ status: 'granted' });
+    fireEvent.press(getByTestId('refresh'));
+
+    await waitFor(() => {
+      expect(getByTestId('locationPermission').props.children).toBe('granted');
+    });
   });
 });
