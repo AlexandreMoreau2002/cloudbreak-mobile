@@ -7,6 +7,7 @@
  * TOUJOURS appelé — l'onboarding ne bloque jamais sur ce choix.
  */
 import i18n from '@/utils/i18n';
+import Svg, { Path } from 'react-native-svg';
 import { useEffect, useRef } from 'react';
 import { track } from '@/services/analytics';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +16,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { OnboardingCta } from '@/components/onboarding/cta';
 import { MascotBreadcrumb } from '@/components/onboarding/mascot-breadcrumb';
 import { useLocationPermission } from '@/hooks/onboarding/useLocationPermission';
+
+const BACK_PEAK = 'M0 160 L120 40 L260 160 Z';
+const FRONT_PEAK = 'M90 160 L260 20 L400 160 Z';
 
 export interface LocationSlideProps {
   onFinish: () => void;
@@ -63,10 +67,15 @@ export function LocationSlide({ onFinish }: LocationSlideProps) {
       <View
         style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
       >
-        <View style={styles.pinBadge}>
-          <Ionicons name="location" size={18} color={colors.accent} />
+        <View style={styles.mountains}>
+          <Svg width="100%" height="100%" viewBox="0 0 400 160" preserveAspectRatio="none">
+            <Path d={BACK_PEAK} fill={colors.accentSecondary} />
+            <Path d={FRONT_PEAK} fill={colors.accent} />
+          </Svg>
+          <View style={styles.pinBadge}>
+            <Ionicons name="location" size={18} color={colors.accent} />
+          </View>
         </View>
-        <View style={styles.mountains} />
         <View style={styles.captionRow}>
           <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
           <Text style={[styles.caption, { color: colors.textSecondary }]}>
@@ -131,13 +140,15 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOpacity: 0.1,
   },
-  pinBadge: {
-    alignSelf: 'center',
-    marginBottom: 8,
-  },
   mountains: {
     height: 160,
     borderRadius: 12,
+    overflow: 'hidden',
+  },
+  pinBadge: {
+    position: 'absolute',
+    top: 4,
+    alignSelf: 'center',
   },
   captionRow: {
     flexDirection: 'row',
