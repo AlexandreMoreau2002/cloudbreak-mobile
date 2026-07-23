@@ -148,7 +148,8 @@ const styles = StyleSheet.create({
   pinBadge: {
     position: 'absolute',
     top: 4,
-    alignSelf: 'center',
+    left: '65%',
+    transform: [{ translateX: -9 }],
   },
   captionRow: {
     flexDirection: 'row',
