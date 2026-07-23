@@ -67,11 +67,13 @@ export function LocationSlide({ onFinish }: LocationSlideProps) {
       <View
         style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
       >
-        <View style={styles.mountains}>
-          <Svg width="100%" height="100%" viewBox="0 0 400 160" preserveAspectRatio="none">
-            <Path d={BACK_PEAK} fill={colors.accentSecondary} />
-            <Path d={FRONT_PEAK} fill={colors.accent} />
-          </Svg>
+        <View style={styles.mountainsWrap}>
+          <View style={styles.mountains}>
+            <Svg width="100%" height="100%" viewBox="0 0 400 160" preserveAspectRatio="none">
+              <Path d={BACK_PEAK} fill={colors.accentSecondary} />
+              <Path d={FRONT_PEAK} fill={colors.accent} />
+            </Svg>
+          </View>
           <View style={styles.pinBadge}>
             <Ionicons name="location" size={18} color={colors.accent} />
           </View>
@@ -140,14 +142,17 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOpacity: 0.1,
   },
-  mountains: {
+  mountainsWrap: {
     height: 160,
+  },
+  mountains: {
+    flex: 1,
     borderRadius: 12,
     overflow: 'hidden',
   },
   pinBadge: {
     position: 'absolute',
-    top: 4,
+    top: -1,
     left: '65%',
     transform: [{ translateX: -9 }],
   },
