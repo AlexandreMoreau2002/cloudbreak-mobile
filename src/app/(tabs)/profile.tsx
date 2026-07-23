@@ -1,6 +1,6 @@
 import i18n from '@/utils/i18n';
-import { useCallback, useState } from 'react';
 import { track } from '@/services/analytics';
+import { useCallback, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
