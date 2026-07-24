@@ -58,13 +58,18 @@ export function useTerrainValidation({ token, locationPermission }: UseTerrainVa
     async (result: boolean, ctx: AnswerContext) => {
       if (!token) return;
       if (DEBUG) console.debug('[useTerrainValidation] answer', { result, ctx });
-      await postTerrainValidation(token, {
-        prediction_id: ctx.predictionId,
-        result: result ? 'confirmed' : 'denied',
-        lat: coords?.lat,
-        lng: coords?.lng,
-      });
-      setStep('success');
+      try {
+        await postTerrainValidation(token, {
+          prediction_id: ctx.predictionId,
+          result: result ? 'confirmed' : 'denied',
+          lat: coords?.lat,
+          lng: coords?.lng,
+        });
+        setStep('success');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erreur inconnue';
+        if (DEBUG) console.debug('[useTerrainValidation] answer error', { message });
+      }
     },
     [token, coords],
   );

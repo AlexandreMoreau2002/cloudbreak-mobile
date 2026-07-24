@@ -117,6 +117,27 @@ describe('useTerrainValidation', () => {
     expect(result.current.step).toBe('success');
   });
 
+  it('answer() rejeté par postTerrainValidation reste sur ready sans throw', async () => {
+    mockGetCurrentPosition.mockResolvedValueOnce({
+      coords: { latitude: 45.83, longitude: 6.86 },
+    });
+    mockPostValidation.mockRejectedValueOnce(new Error('network down'));
+
+    const { result } = renderHook(() =>
+      useTerrainValidation({ token: 'tok', locationPermission: 'granted' }),
+    );
+
+    act(() => result.current.open());
+    await waitFor(() => expect(result.current.step).toBe('ready'));
+
+    await act(async () => {
+      await result.current.answer(true, { predictionId: 'pred-err' });
+    });
+
+    expect(mockPostValidation).toHaveBeenCalled();
+    expect(result.current.step).toBe('ready');
+  });
+
   it('dismiss() referme la modal (step null)', () => {
     mockGetCurrentPosition.mockResolvedValueOnce({
       coords: { latitude: 45.83, longitude: 6.86 },
