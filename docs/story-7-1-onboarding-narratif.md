@@ -107,3 +107,39 @@ Checklist de test Notion associée : **"✅ Tests story 7.1 — Parcours onboard
 - [x] **AC6** — Sommet choisi en onb2 → visible comme sommet sélectionné au premier passage sur l'écran principal. Couvert par `SummitSlide.test.tsx` (commit au CTA via `SelectedPeakContext`).
 
 Tous les ACs sont couverts par les tests automatiques (validate 100% vert). Les scénarios de test manuel simulateur ci-dessus restent à exécuter par l'utilisateur (rebuild natif requis, non testable en CI).
+
+## Fix post-story — gap coins inférieurs illustration (test manuel iPhone 2026-07-24)
+
+**Bug** : sur onb1 (Bienvenue), la mer de nuages (`MountainViz`, calques `cloudBack`/`cloudFront`) ne couvrait pas toute la largeur sur device physique → le fond était visible dans les deux coins inférieurs de l'illustration.
+
+**Cause** : `src/components/onboarding/mountain-viz/MountainViz.tsx` — les calques nuage utilisaient un débord (overhang) trop faible en pourcentage (`left: -2%`/`width: 104%` pour le calque arrière, `-3%`/`106%` pour l'avant) pour absorber le drift animé (translateX fixe en px, jusqu'à ±8px). Sur un device réel avec une largeur d'écran plus petite (ex. iPhone SE, 320pt), 2% ≈ 6.4px < 8px de drift → le débord ne suffisait plus à couvrir la largeur à l'amplitude max du drift, exposant le fond dans les coins.
+
+**Fix** : débord porté à `-6%`/`112%` sur les deux calques (`cloudBack` et `cloudFront`) — marge largement supérieure à l'amplitude de drift (±8px max) même sur les plus petits devices supportés (320pt × 6% ≈ 19px de marge). Purement une valeur de style, pas de dépendance à `useWindowDimensions` nécessaire vu la marge de sécurité désormais confortable sur toute la plage d'appareils iOS supportés.
+
+**Fichier modifié** : `src/components/onboarding/mountain-viz/MountainViz.tsx` (styles `cloudBack`/`cloudFront` uniquement).
+
+**Vérification** : `npm test -- src/components/onboarding/mountain-viz` (7/7 verts), `npx tsc --noEmit` et `npm run lint` propres. Vérification visuelle finale sur device physique nécessite un rebuild natif (`npx expo run:ios`) — non exécutée en CI/simulateur pour ce fix (changement de style pur, pas de module natif touché, mais l'observation initiale du bug vient d'un device physique donc la confirmation visuelle doit repasser par un device réel).
+
+### Round 2 — le débord -6%/112% était insuffisant (revalidé sur device + simulateur, 2026-07-24)
+
+Après rebuild device, le bug persistait : reproduit et confirmé visuellement sur simulateur (`iPhone 16 Pro`, onb1). Le fix round 1 corrigeait uniquement l'exposition du fond due au drift horizontal sur les bords gauche/droit de l'écran — pas la cause réelle observée : les deux tracés SVG `CLOUD_BACK`/`CLOUD_FRONT` sont des vagues dont le bord haut remonte par endroits (ex. `CLOUD_FRONT` atteint seulement `y=40` sur 80 à `x=0`), et la feuille de contenu (`WelcomeSlide`, `marginTop: -28`, coins arrondis 28px) chevauche le bas de l'illustration — dans cette bande de 28px, les deux coins arrondis de la feuille laissent transparaître le héro en dessous. Le remplissage plein n'y était pas garanti pixel-parfait, exposant le dégradé de ciel dans les deux coins.
+
+**Fix round 2 (insuffisant)** : ajout d'un calque `View` opaque (`cloudBacking`) imbriqué *dans* l'`Animated.View` `sea` (celle qui porte l'animation de respiration `seaBreathe` et le positionnement `top: cloudTop%` dépendant du score), avec une hauteur relative (40% de `sea`). Toujours dépendant indirectement du score/de l'animation parente → sur device réel, toujours pris en défaut dans les mêmes coins.
+
+**Fix round 3 (définitif)** : calque `View` opaque sorti de `sea` et ancré directement au conteneur racine de `MountainViz` — une bande fixe de hauteur `20%` du conteneur, plaquée au bas, indépendante du score/`cloudTop` et de toute animation. Rendue avant (donc visuellement sous) la mer de nuages animée, qui continue de se dessiner par-dessus pour la texture. Approche volontairement simple : plus de dépendance à la géométrie des tracés vague ni à un pourcentage relatif à un conteneur lui-même animé.
+
+**Fichier modifié** : `src/components/onboarding/mountain-viz/MountainViz.tsx` (style `cloudBacking` déplacé au niveau du conteneur, hauteur fixée à `20%`, variable `cloudBackingFill`).
+
+**Vérification round 3** : reproduit sur simulateur iOS (`iPhone 16 Pro`), fix confirmé résolu visuellement — plus aucun gap dans les coins, animation en cours incluse. `npm test -- src/components/onboarding/mountain-viz` (7/7 verts, 100% coverage), `npx tsc --noEmit`/`npm run lint` propres.
+
+## Fix post-story — rectangle flou en bas de la liste de sommets sur onb2 (test manuel iPhone 2026-07-24)
+
+**Bug** : sur onb2 (« Choisissez un sommet de référence »), un rectangle flou apparaissait en bas de la liste de sommets, juste avant le dock (mascotte + CTA) — plus visible en mode light.
+
+**Cause** : `src/components/onboarding/summit-slide/SummitSlide.tsx` a son propre `LinearGradient` de fondu (`styles.fade`, dégradé `transparent` → `colors.background`, positionné en bas absolu de `listArea`) censé signaler qu'il reste du contenu à scroller. Ce fondu était affiché **inconditionnellement**, même quand les 6 sommets curés tiennent déjà entièrement dans la zone visible sans nécessiter de scroll — un fondu statique et sans fonction, perçu comme un rectangle flou parasite (plus visible en light du fait du contraste `colors.background` #EFE8DC vs `colors.surface` #F7F5F1 des lignes).
+
+**Fix** : le fondu n'est désormais affiché que si le contenu de la liste dépasse réellement la hauteur visible (`isScrollable`, calculé via `onLayout` du conteneur + `onContentSizeChange` du `ScrollView`, comparant les deux hauteurs).
+
+**Fichier modifié** : `src/components/onboarding/summit-slide/SummitSlide.tsx` (state `isScrollable`, ref `listAreaHeight`, rendu conditionnel de `LinearGradient`, testIDs `summit-list-area`/`summit-list-scroll`/`summit-list-fade` ajoutés pour les tests).
+
+**Vérification** : `npm test -- src/components/onboarding/summit-slide` (16/16 verts, 100% coverage — 2 nouveaux tests couvrant fondu masqué/affiché), `npx tsc --noEmit`/`npm run lint` propres, suite complète `npm test` (98 suites / 694 tests verts). Confirmé résolu par test manuel utilisateur sur device physique.

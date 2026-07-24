@@ -8,8 +8,10 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.anonymous.mobile"
+      "bundleIdentifier": "com.alexandremoreau.cloudbreak",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Cloudbreak utilise votre position pour vous proposer les sommets les plus proches."
+      }
     },
     "android": {
       "adaptiveIcon": {

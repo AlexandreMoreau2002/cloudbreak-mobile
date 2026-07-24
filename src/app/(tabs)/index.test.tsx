@@ -196,6 +196,10 @@ jest.mock('@/hooks/useFavorites', () => ({
   useFavorites: () => mockUseFavorites(),
 }));
 
+jest.mock('@react-navigation/native', () => ({
+  useFocusEffect: (cb: () => void) => cb(),
+}));
+
 const mockShowPaywall = jest.fn();
 const mockHidePaywall = jest.fn();
 let mockPaywallVisible = false;

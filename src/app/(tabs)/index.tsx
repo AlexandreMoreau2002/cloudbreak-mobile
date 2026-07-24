@@ -3,7 +3,8 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
@@ -103,8 +104,17 @@ export default function HomeScreen() {
     userClickedHourRef.current = false;
   }, [weekData, selectedDate, selectedHour, setSelectedDate, setSelectedHour]);
 
-  const { state: favoritesState, addFavorite, removeFavorite } = useFavorites();
+  const { state: favoritesState, addFavorite, removeFavorite, refresh: refreshFavorites } = useFavorites();
   const favorites: Peak[] = favoritesState.status === 'success' ? favoritesState.data || [] : [];
+
+  // Recharge les favoris à chaque retour sur Home (ex: ajout/suppression depuis
+  // l'onglet Favoris) — sans ça la liste affichée sous la prévision peut rester
+  // périmée ou vide si le premier chargement a échoué avant que l'écran soit visité.
+  useFocusEffect(
+    useCallback(() => {
+      refreshFavorites();
+    }, [refreshFavorites]),
+  );
 
   // Si la date sélectionnée n'a pas de données (cache périmé / date hors fenêtre),
   // on se rabat sur aujourd'hui
