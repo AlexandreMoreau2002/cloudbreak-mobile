@@ -4,7 +4,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
@@ -143,9 +143,14 @@ export default function HomeScreen() {
     }
   }, [displayScore, selectedPeak]);
 
+  const autoDetectTarget = useMemo(
+    () => (selectedPeak && displayScore ? { lat: selectedPeak.lat, lng: selectedPeak.lng } : null),
+    [selectedPeak?.lat, selectedPeak?.lng, displayScore != null],
+  );
+
   useTerrainAutoDetect({
     locationPermission,
-    target: selectedPeak && displayScore ? { lat: selectedPeak.lat, lng: selectedPeak.lng } : null,
+    target: autoDetectTarget,
     onNear: terrain.open,
   });
 
