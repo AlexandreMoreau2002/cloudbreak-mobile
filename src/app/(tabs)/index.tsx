@@ -23,8 +23,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { HomeSkeleton } from '@/components/home-skeleton';
 import { OfflineBanner } from '@/components/offline-banner';
 import { FavoritesGrid } from '@/components/favorites-grid';
+import { ValidationBottomSheet } from '@/components/validation';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
+import { useTerrainValidation } from '@/hooks/useTerrainValidation';
 import { localizeScoreResponse } from '@/services/mockData/score';
+import { useTerrainAutoDetect } from '@/hooks/useTerrainAutoDetect';
 import { ConditionsSection } from '@/components/conditions-section';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
 
@@ -61,7 +64,7 @@ export default function HomeScreen() {
   useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { session } = useAuth();
+  const { session, locationPermission } = useAuth();
   const { colors, typography, spacing } = useTheme();
   const [quotaDismissed, setQuotaDismissed] = useState(false);
   const [lastSuccessfulPeak, setLastSuccessfulPeak] = useState<Peak | null>(null);
@@ -116,6 +119,8 @@ export default function HomeScreen() {
     }, [refreshFavorites]),
   );
 
+  const terrain = useTerrainValidation({ token, locationPermission });
+
   // Si la date sélectionnée n'a pas de données (cache périmé / date hors fenêtre),
   // on se rabat sur aujourd'hui
   const today = new Date().toISOString().slice(0, 10);
@@ -137,6 +142,22 @@ export default function HomeScreen() {
       setLastSuccessfulPeak(selectedPeak);
     }
   }, [displayScore, selectedPeak]);
+
+  useTerrainAutoDetect({
+    locationPermission,
+    target: selectedPeak && displayScore ? { lat: selectedPeak.lat, lng: selectedPeak.lng } : null,
+    onNear: terrain.open,
+  });
+
+  function handleValidateTerrain() {
+    track('terrain_validation_opened', { peak_id: selectedPeak?.id, source: 'manual' });
+    terrain.open();
+  }
+
+  function handleTerrainAnswer(result: boolean) {
+    if (!displayScore?.prediction_id) return;
+    terrain.answer(result, { predictionId: displayScore.prediction_id });
+  }
 
   function isFavorite(peakId: string): boolean {
     return favorites.some((p) => p.id === peakId);
@@ -229,6 +250,7 @@ export default function HomeScreen() {
             contextMessage={displayScore.context_message}
             selectedHour={selectedHour}
             onSelectHour={(h) => { userClickedHourRef.current = true; setSelectedHour(h); }}
+            onValidateTerrain={handleValidateTerrain}
           />
           {quotaExceeded ? (
             <TouchableOpacity
@@ -358,6 +380,17 @@ export default function HomeScreen() {
         {renderContent()}
       </ScrollView>
 
+      <ValidationBottomSheet
+        visible={terrain.step !== null}
+        step={terrain.step}
+        noGps={terrain.noGps}
+        peakName={selectedPeak?.name ?? ''}
+        score={displayScore?.score ?? 0}
+        verdict={displayScore?.verdict ?? 'none'}
+        onAnswer={handleTerrainAnswer}
+        onValidateManually={terrain.validateManually}
+        onDismiss={terrain.dismiss}
+      />
     </View>
   );
 }

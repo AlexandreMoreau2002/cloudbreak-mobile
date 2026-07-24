@@ -19,6 +19,11 @@ jest.mock('react-native-safe-area-context', () => ({
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
+jest.mock('expo-location', () => ({
+  getCurrentPositionAsync: jest.fn().mockResolvedValue({ coords: { latitude: 45.83, longitude: 6.86 } }),
+  watchPositionAsync: jest.fn().mockResolvedValue({ remove: jest.fn() }),
+}));
+
 const mockTrack = jest.fn();
 jest.mock('@/services/analytics', () => ({
   track: (...args: unknown[]) => mockTrack(...args),
@@ -334,7 +339,7 @@ describe('HomeScreen', () => {
     mockPush.mockReset();
     mockSetSelectedDate.mockReset();
     mockSetSelectedHour.mockReset();
-    mockUseAuth.mockReturnValue({ session: { access_token: 'mock-token' }, loading: false });
+    mockUseAuth.mockReturnValue({ session: { access_token: 'mock-token' }, loading: false, locationPermission: 'granted' });
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: null,
       selectedDate: '2026-03-24',
@@ -1382,6 +1387,26 @@ describe('HomeScreen', () => {
     fireEvent(refreshControl, 'refresh');
 
     expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it('ouvre la validation terrain au clic sur le bouton manuel de ScoreCard', async () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess();
+
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('validate-terrain-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terrain-sheet')).toBeTruthy();
+    });
+    expect(mockTrack).toHaveBeenCalledWith('terrain_validation_opened', { peak_id: 'peak-1', source: 'manual' });
   });
 
 });
