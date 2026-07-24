@@ -9,8 +9,8 @@ import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'reac
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Radius, Spacing } from '@/constants/spacing';
 import { Typography } from '@/constants/typography';
+import { Radius, Spacing } from '@/constants/spacing';
 import { LoadingSpinner } from '@/components/loading-spinner';
 
 type TerrainStep = 'searching' | 'ready' | 'denied' | 'success' | null;

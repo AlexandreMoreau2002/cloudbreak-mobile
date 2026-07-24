@@ -1,6 +1,6 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ScoreResponse } from '@/services/mockData/types';
 import { __private__, ScoreCard } from '@/components/score-card';
-import { fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockTrack = jest.fn();
 jest.mock('@/services/analytics', () => ({

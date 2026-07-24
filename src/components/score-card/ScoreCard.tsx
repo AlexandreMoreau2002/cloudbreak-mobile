@@ -7,6 +7,7 @@
  *   selectedHour   number?       — heure sélectionnée (affiche les chips si fourni)
  *   onSelectHour   function?     — callback sélection d'heure (affiche les chips si fourni)
  */
+import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
 import { track } from '@/services/analytics';
@@ -16,7 +17,6 @@ import { Radius, Spacing } from '@/constants/spacing';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { CloudLayerViz } from '@/components/cloud-layer-viz';
 import type { ScoreResponse } from '@/services/mockData/types';
-import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { CloudLayerVizVariant } from '@/components/cloud-layer-viz/types';
 
 const HOUR_OPTIONS = [6, 8, 10, 12, 14, 16, 18, 20, 22];

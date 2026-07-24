@@ -9,8 +9,8 @@
 import * as Location from 'expo-location';
 import { useCallback, useState } from 'react';
 import { DEBUG } from '@/constants/devConfig';
-import type { LocationPermissionStatus } from '@/contexts/AuthContext';
 import { postTerrainValidation } from '@/services/api/validations';
+import type { LocationPermissionStatus } from '@/contexts/AuthContext';
 
 export type TerrainStep = 'searching' | 'ready' | 'denied' | 'success' | null;
 
