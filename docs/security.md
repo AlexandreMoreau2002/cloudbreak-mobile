@@ -59,3 +59,20 @@ CORRECTIONS RECOMMANDÉES AVANT BRANCHEMENT POSTHOG — aucun blocage pour le me
 
 ### Verdict
 SECURE — aucune donnée sensible exposée par la story 2.3. La consommation réelle de la position (validation terrain) arrive en story 6.1 — à ce moment-là, réévaluer si une politique de rétention/anonymisation des coordonnées est nécessaire côté backend.
+
+---
+
+## 2026-07-24 Story 6-1 — Validation Terrain (Confirmation/Infirmation)
+
+### 🔵 INFO
+- **[useTerrainValidation.ts / useTerrainAutoDetect.ts]** Première utilisation réelle de `getCurrentPositionAsync` / `watchPositionAsync` dans le projet. Jusqu'à la story 2.3, seul le **statut** de permission (`granted`/`denied`/`undetermined`) était lu via `getForegroundPermissionsAsync` — aucune coordonnée réelle n'était jamais lue. Cette story change ça : des coordonnées GPS réelles sont désormais lues sur l'appareil, transitent en mémoire (`useState` dans le hook), puis quittent l'appareil au moment de `answer()` (`postTerrainValidation` → `POST /api/v1/validations`, `lat`/`lng` dans le body).
+- **[useTerrainAutoDetect.ts]** Le watcher de position (`watchPositionAsync`) n'est actif que pendant que l'app est **au premier plan** et qu'un sommet/score est activement affiché (dépendances `useEffect` : `locationPermission`, `target`, `onNear` — l'abonnement est nettoyé via `subscription.remove()` au démontage ou changement de sommet). Aucun mode "Always"/background n'est demandé (`app.config.ts` inchangé depuis la story 2.3 : `locationWhenInUsePermission` uniquement). Choix de conception délibéré, conforme à la politique "pas de tracking en arrière-plan" — pas de collecte de position hors du contexte explicite "l'utilisateur regarde une prévision".
+- **[validations.ts]** Les coordonnées ne sont jamais persistées sur l'appareil (ni AsyncStorage ni SecureStore) — elles restent en `useState` le temps du flux de validation, puis sont envoyées une seule fois au backend via HTTPS, jamais loggées en clair (seul `if (DEBUG) console.debug` en dev, désactivé en prod).
+- **[validations.ts]** Bug corrigé cette story : le payload n'était auparavant pas construit (l'appel API n'envoyait rien) — c'est un fix de fonctionnalité, pas une régression de sécurité introduite (aucune donnée n'était envoyée avant, donc aucune fuite antérieure liée à ce bug).
+- **[permission refusée]** Si la permission de localisation est refusée, le flux `validateManually()` permet de valider sans position (`lat`/`lng` non envoyés, `undefined`) — aucune donnée de géolocalisation n'est requise pour utiliser la fonctionnalité, conforme au principe "opt-in sans blocage" posé en story 2.3.
+
+### 🟡 WARNING
+- **[Dette pré-existante, non aggravée par cette story]** Le JWT Supabase reste stocké en clair dans AsyncStorage (`supabaseClient.ts` utilise `storage: AsyncStorage`, pas `expo-secure-store`) — dette déjà tracée depuis la story 2-1 et en mémoire projet (`security_jwt_asyncstorage_debt`). Cette story n'introduit aucun nouvel usage de `SecureStore` ni de nouvelle exposition du token ; le `token` transite comme avant, uniquement en header HTTP.
+
+### Verdict
+SECURE — les coordonnées GPS réelles introduites par cette story ne quittent l'appareil que sur action explicite de l'utilisateur (réponse Oui/Non dans le sheet), ne sont jamais persistées localement, et le watcher d'auto-détection est strictement scopé au foreground avec un sommet actif. Réévaluer côté backend, comme noté en story 2.3, si une politique de rétention/anonymisation de `terrain_validations.lat/lng` est nécessaire avant release 1.0.0.
