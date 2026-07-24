@@ -186,4 +186,16 @@ describe('ScoreCard', () => {
   it('utilise la variante compacte ridge pour un score medium', () => {
     expect(__private__.getCompactVizVariant(makeScore({ verdict: 'medium' }))).toBe('ridge');
   });
+
+  it("n'affiche pas le bouton validation terrain sans la prop onValidateTerrain", () => {
+    render(<ScoreCard score={makeScore({})} date="2026-03-23" />);
+    expect(screen.queryByTestId('validate-terrain-button')).toBeNull();
+  });
+
+  it('affiche le bouton validation terrain quand onValidateTerrain est fourni', () => {
+    const onValidateTerrain = jest.fn();
+    render(<ScoreCard score={makeScore({})} date="2026-03-23" onValidateTerrain={onValidateTerrain} />);
+    fireEvent.press(screen.getByTestId('validate-terrain-button'));
+    expect(onValidateTerrain).toHaveBeenCalled();
+  });
 });
