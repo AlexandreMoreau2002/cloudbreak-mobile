@@ -65,6 +65,7 @@ export interface ScoreResponse {
   peak_altitude: number;
   peak_region?: string | null;
   peak_slug?: string | null;
+  prediction_id?: string | null;
   label?: string | null;
   context_message?: string | null;
   context_code?: string | null;
