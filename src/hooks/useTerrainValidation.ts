@@ -27,6 +27,7 @@ export function useTerrainValidation({ token, locationPermission }: UseTerrainVa
   const [step, setStep] = useState<TerrainStep>(null);
   const [noGps, setNoGps] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const open = useCallback(() => {
     if (locationPermission !== 'granted') {
@@ -57,7 +58,9 @@ export function useTerrainValidation({ token, locationPermission }: UseTerrainVa
   const answer = useCallback(
     async (result: boolean, ctx: AnswerContext) => {
       if (!token) return;
+      if (submitting) return;
       if (DEBUG) console.debug('[useTerrainValidation] answer', { result, ctx });
+      setSubmitting(true);
       try {
         await postTerrainValidation(token, {
           prediction_id: ctx.predictionId,
@@ -69,9 +72,12 @@ export function useTerrainValidation({ token, locationPermission }: UseTerrainVa
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erreur inconnue';
         if (DEBUG) console.debug('[useTerrainValidation] answer error', { message });
+        setStep(null);
+      } finally {
+        setSubmitting(false);
       }
     },
-    [token, coords],
+    [token, coords, submitting],
   );
 
   const dismiss = useCallback(() => {
@@ -80,5 +86,5 @@ export function useTerrainValidation({ token, locationPermission }: UseTerrainVa
     setCoords(null);
   }, []);
 
-  return { step, noGps, open, validateManually, answer, dismiss };
+  return { step, noGps, submitting, open, validateManually, answer, dismiss };
 }

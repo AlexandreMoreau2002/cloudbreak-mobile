@@ -22,6 +22,7 @@ interface ValidationBottomSheetProps {
   peakName: string;
   score: number;
   verdict: 'none' | 'high' | 'medium' | 'low';
+  submitting?: boolean;
   onAnswer: (result: boolean) => void;
   onValidateManually: () => void;
   onDismiss: () => void;
@@ -34,6 +35,7 @@ export function ValidationBottomSheet({
   peakName,
   score,
   verdict,
+  submitting = false,
   onAnswer,
   onValidateManually,
   onDismiss,
@@ -89,6 +91,7 @@ export function ValidationBottomSheet({
                 testID="terrain-answer-no"
                 style={[styles.answerButtonOutline, { borderColor: colors.border }]}
                 onPress={() => onAnswer(false)}
+                disabled={submitting}
               >
                 <Text style={[styles.answerButtonOutlineText, { color: colors.textPrimary }]}>
                   {i18n.t('terrain.answerNo')}
@@ -98,6 +101,7 @@ export function ValidationBottomSheet({
                 testID="terrain-answer-yes"
                 style={[styles.answerButtonFilled, { backgroundColor: colors.accent }]}
                 onPress={() => onAnswer(true)}
+                disabled={submitting}
               >
                 <Text style={styles.answerButtonFilledText}>{i18n.t('terrain.answerYes')}</Text>
               </Pressable>

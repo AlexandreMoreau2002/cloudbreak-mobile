@@ -113,6 +113,12 @@ describe('ValidationBottomSheet', () => {
     expect(onDismiss).toHaveBeenCalled();
   });
 
+  it('désactive les boutons Oui/Non quand submitting est vrai', () => {
+    const { getByTestId } = render(<ValidationBottomSheet {...baseProps} step="ready" submitting />);
+    expect(getByTestId('terrain-answer-yes').props.accessibilityState?.disabled).toBe(true);
+    expect(getByTestId('terrain-answer-no').props.accessibilityState?.disabled).toBe(true);
+  });
+
   it("n'affiche rien quand step est null", () => {
     const { queryByTestId } = render(<ValidationBottomSheet {...baseProps} step={null} />);
     expect(queryByTestId('terrain-sheet')).toBeNull();

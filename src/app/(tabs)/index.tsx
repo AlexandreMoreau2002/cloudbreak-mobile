@@ -389,6 +389,7 @@ export default function HomeScreen() {
         visible={terrain.step !== null}
         step={terrain.step}
         noGps={terrain.noGps}
+        submitting={terrain.submitting}
         peakName={selectedPeak?.name ?? ''}
         score={displayScore?.score ?? 0}
         verdict={displayScore?.verdict ?? 'none'}

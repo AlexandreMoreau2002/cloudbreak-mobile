@@ -117,7 +117,7 @@ describe('useTerrainValidation', () => {
     expect(result.current.step).toBe('success');
   });
 
-  it('answer() rejeté par postTerrainValidation reste sur ready sans throw', async () => {
+  it('answer() rejeté par postTerrainValidation referme le sheet (step null) sans throw', async () => {
     mockGetCurrentPosition.mockResolvedValueOnce({
       coords: { latitude: 45.83, longitude: 6.86 },
     });
@@ -135,7 +135,48 @@ describe('useTerrainValidation', () => {
     });
 
     expect(mockPostValidation).toHaveBeenCalled();
-    expect(result.current.step).toBe('ready');
+    expect(result.current.step).toBeNull();
+    expect(result.current.submitting).toBe(false);
+  });
+
+  it('answer() appelé deux fois pendant que le premier est en cours ne déclenche qu\'un seul appel', async () => {
+    mockGetCurrentPosition.mockResolvedValueOnce({
+      coords: { latitude: 45.83, longitude: 6.86 },
+    });
+    let resolvePost: (() => void) | undefined;
+    mockPostValidation.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvePost = resolve;
+        }),
+    );
+
+    const { result } = renderHook(() =>
+      useTerrainValidation({ token: 'tok', locationPermission: 'granted' }),
+    );
+
+    act(() => result.current.open());
+    await waitFor(() => expect(result.current.step).toBe('ready'));
+
+    let firstCall: Promise<void>;
+    act(() => {
+      firstCall = result.current.answer(true, { predictionId: 'pred-double' });
+    });
+    expect(result.current.submitting).toBe(true);
+
+    await act(async () => {
+      await result.current.answer(true, { predictionId: 'pred-double' });
+    });
+
+    expect(mockPostValidation).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolvePost?.();
+      await firstCall;
+    });
+
+    expect(result.current.step).toBe('success');
+    expect(result.current.submitting).toBe(false);
   });
 
   it('dismiss() referme la modal (step null)', () => {
