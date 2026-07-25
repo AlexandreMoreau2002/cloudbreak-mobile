@@ -74,7 +74,7 @@ export function ValidationBottomSheet({
         );
       case 'ready':
         return (
-          <View style={styles.tallContent}>
+          <View>
             <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>{i18n.t('terrain.searchingTitle')}</Text>
             {!noGps ? (
               <View testID="terrain-gps-pill" style={[styles.gpsPill, { backgroundColor: accentSoftBg }]}>
@@ -189,7 +189,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  tallContent: { minHeight: 340 },
   centered: { alignItems: 'center', paddingVertical: Spacing.lg },
   spinner: { marginVertical: Spacing.sm },
   eyebrow: {
