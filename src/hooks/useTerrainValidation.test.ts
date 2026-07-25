@@ -9,6 +9,7 @@ jest.mock('expo-location', () => ({
 jest.mock('@/services/api/validations', () => ({
   postTerrainValidation: jest.fn(),
 }));
+jest.mock('@/constants/devConfig', () => ({ DEBUG: true }));
 
 const mockGetCurrentPosition = Location.getCurrentPositionAsync as jest.Mock;
 const mockPostValidation = postTerrainValidation as jest.Mock;
@@ -219,5 +220,26 @@ describe('useTerrainValidation', () => {
 
     act(() => result.current.open());
     await waitFor(() => expect(result.current.step).toBe('denied'));
+  });
+
+  it('answer() avec un rejet non-Error referme le sheet sans throw', async () => {
+    mockGetCurrentPosition.mockResolvedValueOnce({
+      coords: { latitude: 45.83, longitude: 6.86 },
+    });
+    mockPostValidation.mockRejectedValueOnce('network down');
+
+    const { result } = renderHook(() =>
+      useTerrainValidation({ token: 'tok', locationPermission: 'granted' }),
+    );
+
+    act(() => result.current.open());
+    await waitFor(() => expect(result.current.step).toBe('ready'));
+
+    await act(async () => {
+      await result.current.answer(true, { predictionId: 'pred-string-error' });
+    });
+
+    expect(result.current.step).toBeNull();
+    expect(result.current.submitting).toBe(false);
   });
 });

@@ -198,4 +198,10 @@ describe('ScoreCard', () => {
     fireEvent.press(screen.getByTestId('validate-terrain-button'));
     expect(onValidateTerrain).toHaveBeenCalled();
   });
+
+  it('affiche le bouton validation terrain avec les couleurs du thème sombre', () => {
+    mockScheme = 'dark';
+    render(<ScoreCard score={makeScore({})} date="2026-03-23" onValidateTerrain={jest.fn()} />);
+    expect(screen.getByTestId('validate-terrain-button')).toBeTruthy();
+  });
 });

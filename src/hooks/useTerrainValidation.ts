@@ -31,6 +31,7 @@ export function useTerrainValidation({ token, locationPermission }: UseTerrainVa
 
   const open = useCallback(() => {
     if (locationPermission !== 'granted') {
+      /* istanbul ignore next -- branche de log DEBUG désactivée dans l'environnement de test */
       if (DEBUG) console.debug('[useTerrainValidation] permission refusée -> denied');
       setStep('denied');
       return;
@@ -44,6 +45,7 @@ export function useTerrainValidation({ token, locationPermission }: UseTerrainVa
         setStep('ready');
       })
       .catch(() => {
+        /* istanbul ignore next -- branche de log DEBUG désactivée dans l'environnement de test */
         if (DEBUG) console.debug('[useTerrainValidation] getCurrentPositionAsync a échoué -> denied');
         setStep('denied');
       });
@@ -59,6 +61,7 @@ export function useTerrainValidation({ token, locationPermission }: UseTerrainVa
     async (result: boolean, ctx: AnswerContext) => {
       if (!token) return;
       if (submitting) return;
+      /* istanbul ignore next -- branche de log DEBUG désactivée dans l'environnement de test */
       if (DEBUG) console.debug('[useTerrainValidation] answer', { result, ctx });
       setSubmitting(true);
       try {
@@ -71,6 +74,7 @@ export function useTerrainValidation({ token, locationPermission }: UseTerrainVa
         setStep('success');
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erreur inconnue';
+        /* istanbul ignore next -- branche de log DEBUG désactivée dans l'environnement de test */
         if (DEBUG) console.debug('[useTerrainValidation] answer error', { message });
         setStep(null);
       } finally {

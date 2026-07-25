@@ -5,6 +5,8 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ValidationBottomSheet } from './ValidationBottomSheet';
 
+let mockScheme: 'light' | 'dark' = 'light';
+
 jest.mock('@/utils/i18n', () => ({
   t: (key: string, options?: Record<string, string | number>) => {
     const map: Record<string, string> = {
@@ -40,7 +42,7 @@ jest.mock('@/utils/i18n', () => ({
 
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
-    scheme: 'light',
+    scheme: mockScheme,
     colors: {
       background: '#EFE8DC',
       surface: '#F7F5F1',
@@ -67,6 +69,10 @@ const baseProps = {
 };
 
 describe('ValidationBottomSheet', () => {
+  beforeEach(() => {
+    mockScheme = 'light';
+  });
+
   it('affiche le spinner de recherche au step searching', () => {
     const { getByTestId } = render(<ValidationBottomSheet {...baseProps} step="searching" />);
     expect(getByTestId('terrain-searching')).toBeTruthy();
@@ -117,6 +123,12 @@ describe('ValidationBottomSheet', () => {
     const { getByTestId } = render(<ValidationBottomSheet {...baseProps} step="ready" submitting />);
     expect(getByTestId('terrain-answer-yes').props.accessibilityState?.disabled).toBe(true);
     expect(getByTestId('terrain-answer-no').props.accessibilityState?.disabled).toBe(true);
+  });
+
+  it('utilise les couleurs du thème sombre', () => {
+    mockScheme = 'dark';
+    const { getByTestId } = render(<ValidationBottomSheet {...baseProps} step="ready" />);
+    expect(getByTestId('terrain-sheet')).toBeTruthy();
   });
 
   it("n'affiche rien quand step est null", () => {
