@@ -77,11 +77,7 @@ export default function FavoritesScreen() {
         isLoading={state.status === 'loading' || state.status === 'idle'}
         isEmpty={state.status === 'success' && data.length === 0}
         error={state.status === 'error' ? (state.error ?? i18n.t('common.error')) : null}
-        loadingComponent={
-          <View style={styles.centered}>
-            <FavoritesSkeleton />
-          </View>
-        }
+        loadingComponent={<FavoritesSkeleton />}
         emptyComponent={
           <View style={styles.centered}>
             <EmptyState

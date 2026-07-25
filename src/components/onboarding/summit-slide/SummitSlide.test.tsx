@@ -209,4 +209,24 @@ describe('SummitSlide', () => {
     const { getByText } = renderWithTheme(<SummitSlide onContinue={() => {}} />);
     expect(getByText(i18n.t('onboarding.step2Title'))).toBeTruthy();
   });
+
+  it('hides the scroll fade when the list content fits without scrolling', () => {
+    setup();
+    const { getByTestId, queryByTestId } = renderWithTheme(<SummitSlide onContinue={() => {}} />);
+    fireEvent(getByTestId('summit-list-area'), 'layout', {
+      nativeEvent: { layout: { height: 600 } },
+    });
+    fireEvent(getByTestId('summit-list-scroll'), 'contentSizeChange', 400, 400);
+    expect(queryByTestId('summit-list-fade')).toBeNull();
+  });
+
+  it('shows the scroll fade when the list content overflows the visible area', () => {
+    setup();
+    const { getByTestId, queryByTestId } = renderWithTheme(<SummitSlide onContinue={() => {}} />);
+    fireEvent(getByTestId('summit-list-area'), 'layout', {
+      nativeEvent: { layout: { height: 300 } },
+    });
+    fireEvent(getByTestId('summit-list-scroll'), 'contentSizeChange', 400, 500);
+    expect(queryByTestId('summit-list-fade')).toBeTruthy();
+  });
 });

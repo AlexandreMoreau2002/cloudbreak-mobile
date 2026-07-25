@@ -23,7 +23,7 @@
  *  fournit directement `range`.
  */
 import i18n from '@/utils/i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Svg, { Path } from 'react-native-svg';
 import { track } from '@/services/analytics';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -70,6 +70,8 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
   const { curated, results, query, setQuery } = useOnboardingPeaks();
   const { setSelectedPeak } = useSelectedPeak();
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [isScrollable, setIsScrollable] = useState(false);
+  const listAreaHeight = useRef(0);
 
   useEffect(() => {
     track('onboarding_step_viewed', { step: 2 });
@@ -211,15 +213,31 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
         ]}
       />
 
-      <View style={styles.listArea}>
-        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+      <View
+        testID="summit-list-area"
+        style={styles.listArea}
+        onLayout={(event) => {
+          listAreaHeight.current = event.nativeEvent.layout.height;
+        }}
+      >
+        <ScrollView
+          testID="summit-list-scroll"
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={(_width, height) => {
+            setIsScrollable(height > listAreaHeight.current);
+          }}
+        >
           {renderList()}
         </ScrollView>
-        <LinearGradient
-          pointerEvents="none"
-          colors={['transparent', colors.background]}
-          style={styles.fade}
-        />
+        {isScrollable ? (
+          <LinearGradient
+            testID="summit-list-fade"
+            pointerEvents="none"
+            colors={['transparent', colors.background]}
+            style={styles.fade}
+          />
+        ) : null}
       </View>
 
       <View style={styles.dock}>

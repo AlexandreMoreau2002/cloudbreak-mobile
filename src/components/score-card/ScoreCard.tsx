@@ -7,6 +7,7 @@
  *   selectedHour   number?       — heure sélectionnée (affiche les chips si fourni)
  *   onSelectHour   function?     — callback sélection d'heure (affiche les chips si fourni)
  */
+import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
 import { track } from '@/services/analytics';
@@ -16,7 +17,6 @@ import { Radius, Spacing } from '@/constants/spacing';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { CloudLayerViz } from '@/components/cloud-layer-viz';
 import type { ScoreResponse } from '@/services/mockData/types';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { CloudLayerVizVariant } from '@/components/cloud-layer-viz/types';
 
 const HOUR_OPTIONS = [6, 8, 10, 12, 14, 16, 18, 20, 22];
@@ -27,6 +27,7 @@ interface ScoreCardProps {
   contextMessage?: string | null;
   selectedHour?: number;
   onSelectHour?: (hour: number) => void;
+  onValidateTerrain?: () => void;
 }
 
 function getScoreColor(verdict: ScoreResponse['verdict']): string {
@@ -69,6 +70,7 @@ export function ScoreCard({
   contextMessage,
   selectedHour,
   onSelectHour,
+  onValidateTerrain,
 }: ScoreCardProps) {
   useLanguage();
   const { scheme } = useTheme();
@@ -105,6 +107,16 @@ export function ScoreCard({
         },
       ]}
     >
+      {onValidateTerrain ? (
+        <Pressable
+          testID="validate-terrain-button"
+          onPress={onValidateTerrain}
+          style={[styles.validateTerrainButton, { backgroundColor: isDark ? '#FFFFFF14' : '#FFFFFFB5', borderColor: cardBorder }]}
+        >
+          <Text style={[styles.validateTerrainIcon, { color: cardTextDim }]}>✓</Text>
+        </Pressable>
+      ) : null}
+
       <View style={styles.topRow}>
         <View style={styles.heroColumn}>
           <View style={styles.scoreRow}>
@@ -244,6 +256,22 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: Math.round(13 * 1.5),
     marginTop: 6,
+  },
+  validateTerrainButton: {
+    position: 'absolute',
+    top: Spacing.xs,
+    right: Spacing.xs,
+    width: 32,
+    height: 32,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  validateTerrainIcon: {
+    fontSize: 15,
+    fontFamily: Typography.fontFamily.semiBold,
   },
 });
 

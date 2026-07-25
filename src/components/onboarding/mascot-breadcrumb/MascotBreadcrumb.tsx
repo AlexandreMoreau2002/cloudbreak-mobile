@@ -13,15 +13,7 @@
  *  - halo du stop courant : scale 1→2.6 + fondu, boucle 1.8s ease-out
  */
 import { useEffect, useState } from 'react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import {
-  CURVE,
-  useMascotBob,
-  bobRotateDeg,
-  bobTranslateY,
-  getMascotAssets,
-} from '@/components/onboarding/mascot-motion';
+import { Image, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Animated, {
   Easing,
   withTiming,
@@ -31,6 +23,14 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
+import { useTheme } from '@/contexts/ThemeContext';
+import {
+  CURVE,
+  useMascotBob,
+  bobRotateDeg,
+  bobTranslateY,
+  getMascotAssets,
+} from '@/components/onboarding/mascot-motion';
 
 const PAD = 28;
 const HEIGHT = 76;
@@ -108,9 +108,7 @@ export function MascotBreadcrumb({ active, total = 3 }: MascotBreadcrumbProps) {
     trackW.value = Math.max(w - PAD * 2, 0);
   }
 
-  const { src: mascotSrc, shadowColor } = getMascotAssets(scheme, colors.accent);
-  /* istanbul ignore next -- visual-only light/dark styling, exercised by native rendering */
-  const mascotShadow = { shadowColor, shadowOpacity: scheme === 'dark' ? 0.45 : 0.3 };
+  const { src: mascotSrc } = getMascotAssets(scheme, colors.accent);
 
   return (
     <View
@@ -164,13 +162,14 @@ export function MascotBreadcrumb({ active, total = 3 }: MascotBreadcrumbProps) {
         );
       })}
 
-      {/* Mascotte */}
-      <Animated.Image
-        testID="breadcrumb-mascot"
-        source={mascotSrc}
-        accessibilityIgnoresInvertColors
-        style={[styles.mascot, mascotShadow, { left: PAD }, mascotStyle]}
-      />
+      <Animated.View style={[styles.mascotWrap, { left: PAD }, mascotStyle]}>
+        <Image
+          testID="breadcrumb-mascot"
+          source={mascotSrc}
+          accessibilityIgnoresInvertColors
+          style={styles.mascotImage}
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -212,12 +211,14 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: STOP / 2,
   },
-  mascot: {
+  mascotWrap: {
     position: 'absolute',
     bottom: 8,
     width: MASCOT,
     height: MASCOT,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 12,
+  },
+  mascotImage: {
+    width: '100%',
+    height: '100%',
   },
 });

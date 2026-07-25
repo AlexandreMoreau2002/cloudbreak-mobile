@@ -21,15 +21,34 @@ describe('api/validations', () => {
     mockDevConfigState.DEBUG = false;
   });
 
-  it('appelle /api/v1/validations en mode API', async () => {
+  it('appelle /api/v1/validations en mode API avec le payload et result converti en booléen (confirmed -> true)', async () => {
     mockApiFetch.mockResolvedValueOnce(undefined);
 
     await postTerrainValidation('token-123', {
       prediction_id: 'pred-1',
       result: 'confirmed',
+      lat: 45.83,
+      lng: 6.86,
     });
 
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/validations', 'token-123');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/validations', 'token-123', undefined, {
+      method: 'POST',
+      body: { prediction_id: 'pred-1', result: true, lat: 45.83, lng: 6.86 },
+    });
+  });
+
+  it('convertit denied en false', async () => {
+    mockApiFetch.mockResolvedValueOnce(undefined);
+
+    await postTerrainValidation('token-123', {
+      prediction_id: 'pred-2',
+      result: 'denied',
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/validations', 'token-123', undefined, {
+      method: 'POST',
+      body: { prediction_id: 'pred-2', result: false, lat: undefined, lng: undefined },
+    });
   });
 
   it('résout sans réseau en mode MOCK_API', async () => {

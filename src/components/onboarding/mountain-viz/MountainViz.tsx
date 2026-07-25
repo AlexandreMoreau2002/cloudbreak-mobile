@@ -22,8 +22,6 @@
  * prototype (#5C9E6E/#D4904A/#C25C4A) — règle projet « réutiliser les tokens ».
  */
 import { useEffect } from 'react';
-import { Colors } from '@/constants/colors';
-import { useTheme } from '@/contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import Svg, { Path, Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
@@ -35,6 +33,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
+import { Colors } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export interface MountainVizProps {
   score?: number;
@@ -93,6 +93,8 @@ export function MountainViz({ score = 78, height = 200 }: MountainVizProps) {
   const cloudBackFill = dark ? 'rgba(160,160,160,0.45)' : 'rgba(252,245,232,0.92)';
   /* istanbul ignore next */
   const cloudFrontFill = dark ? 'rgba(190,190,190,0.75)' : '#FFFFFF';
+  /* istanbul ignore next -- opaque variant used only for the corner-reveal backing layer */
+  const cloudBackingFill = dark ? '#B0B0B0' : '#FFFFFF';
   const accent = scoreAccent(score);
 
   /* istanbul ignore next */
@@ -158,6 +160,14 @@ export function MountainViz({ score = 78, height = 200 }: MountainVizProps) {
         />
       </Svg>
 
+      {/* Filet de sécurité opaque, ancré au conteneur (indépendant du score/
+          cloudTop et de l'animation `sea`) : couvre toujours une bande fixe en
+          bas de l'illustration, pour garantir qu'aucun fond ne perce jamais
+          dans les coins où la feuille de contenu (coins arrondis, marginTop
+          négatif) chevauche le héro — quelle que soit la géométrie des vagues
+          SVG des couches nuage rendues par-dessus. */}
+      <View style={[styles.cloudBacking, { backgroundColor: cloudBackingFill }]} />
+
       {/* Mer de nuages */}
       <Animated.View style={[styles.sea, { top: `${cloudTop}%` }, seaBreathe]}>
         {/* Couche arrière */}
@@ -215,18 +225,34 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   cloudBack: {
+    // Débord généreux (-6% / 112%) pour absorber le drift animé (±8px) sans
+    // jamais révéler le fond dans les coins, y compris sur les plus petits
+    // devices supportés (320pt — iPhone SE) où un débord en % trop faible
+    // (-2% ≈ 6.4px) devenait inférieur à l'amplitude du drift sur device réel.
     position: 'absolute',
-    left: '-2%',
+    left: '-6%',
     bottom: 0,
-    width: '104%',
+    width: '112%',
     height: '100%',
   },
   cloudFront: {
+    // Même logique — drift max ±6px, débord -6%/112% pour marge confortable.
     position: 'absolute',
-    left: '-3%',
+    left: '-6%',
     bottom: 0,
-    width: '106%',
+    width: '112%',
     height: '85%',
+  },
+  cloudBacking: {
+    // Bande fixe ancrée au bas du conteneur — volontairement généreuse (bien
+    // au-delà des ~28px de chevauchement avec la feuille de contenu) et
+    // indépendante du score/cloudTop pour ne jamais dépendre d'un calcul
+    // fragile.
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '20%',
   },
   toneWash: {
     position: 'absolute',

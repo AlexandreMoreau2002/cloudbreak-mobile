@@ -1,10 +1,14 @@
-import { useFavorites } from '@/hooks/useFavorites';
+import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { useFavorites } from '@/hooks/useFavorites';
 
 const mockFetchFavorites = jest.fn();
 const mockRemoveFavorite = jest.fn();
 const mockAddFavorite = jest.fn();
-const mockAuthState = { session: { access_token: 'mock-token' } as { access_token: string } | null };
+const mockAuthState = {
+  session: { access_token: 'mock-token', user: { id: 'user-1' } } as { access_token: string; user: { id: string } } | null,
+};
 const mockDevConfigState = { MOCK_API: false, DEBUG: false };
 
 jest.mock('@/services/api/peaks', () => ({
@@ -26,6 +30,19 @@ jest.mock('@/constants/devConfig', () => ({
   get DEBUG() { return mockDevConfigState.DEBUG; },
 }));
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn().mockResolvedValue(null),
+  setItem: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: { fetch: jest.fn() },
+}));
+
+const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
+const mockNetInfoFetch = NetInfo.fetch as jest.MockedFunction<typeof NetInfo.fetch>;
+
 const MOCK_PEAK_1 = { id: 'peak-1', name: 'Mont Blanc', slug: 'mont-blanc', lat: 45.83, lng: 6.87, altitude: 4808 };
 const MOCK_PEAK_2 = { id: 'peak-2', name: 'Ventoux', slug: 'mont-ventoux', lat: 44.17, lng: 5.28, altitude: 1909 };
 
@@ -34,12 +51,17 @@ const MOCK_FAVORITES = [
   { id: 'fav-2', peak_id: MOCK_PEAK_2.id, peak: MOCK_PEAK_2, created_at: '2024-01-02T00:00:00Z' },
 ];
 
+const CACHE_KEY = 'cache:favorites:v1:user-1';
+
 describe('useFavorites', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockAuthState.session = { access_token: 'mock-token' };
+    mockAuthState.session = { access_token: 'mock-token', user: { id: 'user-1' } };
     mockDevConfigState.MOCK_API = false;
     mockDevConfigState.DEBUG = false;
+    mockAsyncStorage.getItem.mockResolvedValue(null);
+    mockAsyncStorage.setItem.mockResolvedValue(undefined);
+    mockNetInfoFetch.mockResolvedValue({ isConnected: true } as never);
   });
 
   it('charge les favoris au mount', async () => {
@@ -54,7 +76,82 @@ describe('useFavorites', () => {
     expect(mockFetchFavorites).toHaveBeenCalledWith('mock-token');
   });
 
-  it('passe en état error si fetchFavorites rejette', async () => {
+  it('écrit en cache après un chargement réseau réussi', async () => {
+    mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+
+    expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
+      CACHE_KEY,
+      expect.stringContaining('"peaks"'),
+    );
+    expect(result.current.fromCache).toBe(false);
+  });
+
+  it('retombe sur le cache si le fetch réseau échoue (cache hit)', async () => {
+    const cachedAt = Date.now() - 60_000;
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt }),
+    );
+    mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+
+    expect(result.current.state.data).toEqual([MOCK_PEAK_1]);
+    expect(result.current.fromCache).toBe(true);
+    expect(result.current.cachedAt).toBe(cachedAt);
+  });
+
+  it('log le fallback cache en mode debug si le fetch échoue (cache hit)', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    mockDevConfigState.DEBUG = true;
+    const cachedAt = Date.now() - 60_000;
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt }),
+    );
+    mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[useFavorites] fetch failed, fallback cache',
+      expect.objectContaining({ count: 1 }),
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('ignore le cache expiré (TTL 3h dépassé) si le fetch échoue', async () => {
+    const cachedAt = Date.now() - 4 * 60 * 60 * 1000; // 4h — expiré
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt }),
+    );
+    mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('error'));
+
+    expect(result.current.state.error).toBe('Erreur réseau');
+    expect(result.current.fromCache).toBe(false);
+  });
+
+  it('ignore un cache corrompu (JSON invalide) et retombe en erreur', async () => {
+    mockAsyncStorage.getItem.mockResolvedValue('not-json{{{');
+    mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('error'));
+
+    expect(result.current.state.error).toBe('Erreur réseau');
+  });
+
+  it('passe en erreur si fetchFavorites rejette et aucun cache disponible', async () => {
     mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
     const { result } = renderHook(() => useFavorites());
 
@@ -63,6 +160,92 @@ describe('useFavorites', () => {
     });
 
     expect(result.current.state.error).toBe('Erreur réseau');
+  });
+
+  it('retombe sur le cache si hors-ligne au chargement (cache hit)', async () => {
+    const cachedAt = Date.now() - 30_000;
+    mockNetInfoFetch.mockResolvedValue({ isConnected: false } as never);
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_2], cachedAt }),
+    );
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+
+    expect(result.current.state.data).toEqual([MOCK_PEAK_2]);
+    expect(result.current.fromCache).toBe(true);
+    expect(mockFetchFavorites).not.toHaveBeenCalled();
+  });
+
+  it('log le fallback cache en mode debug si hors-ligne au chargement (cache hit)', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    mockDevConfigState.DEBUG = true;
+    const cachedAt = Date.now() - 30_000;
+    mockNetInfoFetch.mockResolvedValue({ isConnected: false } as never);
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_2], cachedAt }),
+    );
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[useFavorites] offline, fallback cache',
+      expect.objectContaining({ count: 1 }),
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('erreur OFFLINE_NO_CACHE si hors-ligne et aucun cache', async () => {
+    mockNetInfoFetch.mockResolvedValue({ isConnected: false } as never);
+    mockAsyncStorage.getItem.mockResolvedValue(null);
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('error'));
+
+    expect(result.current.state.error).toBe('OFFLINE_NO_CACHE');
+    expect(mockFetchFavorites).not.toHaveBeenCalled();
+  });
+
+  it('ignore le cache hors-ligne en mode MOCK_API (OFFLINE_NO_CACHE)', async () => {
+    mockDevConfigState.MOCK_API = true;
+    mockNetInfoFetch.mockResolvedValue({ isConnected: false } as never);
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt: Date.now() }),
+    );
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('error'));
+
+    expect(result.current.state.error).toBe('OFFLINE_NO_CACHE');
+  });
+
+  it('ignore le cache de fallback en mode MOCK_API si le fetch échoue', async () => {
+    mockDevConfigState.MOCK_API = true;
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt: Date.now() }),
+    );
+    mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('error'));
+
+    expect(result.current.state.error).toBe('Erreur réseau');
+  });
+
+  it('n\'écrit pas en cache en mode MOCK_API', async () => {
+    mockDevConfigState.MOCK_API = true;
+    mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
+
+    const { result } = renderHook(() => useFavorites());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+
+    expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
   });
 
   it('addFavorite appelle l\'API et recharge la liste', async () => {

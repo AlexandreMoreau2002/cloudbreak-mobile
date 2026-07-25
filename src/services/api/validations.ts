@@ -24,5 +24,13 @@ export async function postTerrainValidation(
     await _delay(300);
     return;
   }
-  await apiFetch<void>('/api/v1/validations', token);
+  await apiFetch<void>('/api/v1/validations', token, undefined, {
+    method: 'POST',
+    body: {
+      prediction_id: payload.prediction_id,
+      result: payload.result === 'confirmed',
+      lat: payload.lat,
+      lng: payload.lng,
+    },
+  });
 }

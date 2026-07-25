@@ -3,8 +3,9 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { track } from '@/services/analytics';
@@ -22,8 +23,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { HomeSkeleton } from '@/components/home-skeleton';
 import { OfflineBanner } from '@/components/offline-banner';
 import { FavoritesGrid } from '@/components/favorites-grid';
+import { ValidationBottomSheet } from '@/components/validation';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
+import { useTerrainValidation } from '@/hooks/useTerrainValidation';
 import { localizeScoreResponse } from '@/services/mockData/score';
+import { useTerrainAutoDetect } from '@/hooks/useTerrainAutoDetect';
 import { ConditionsSection } from '@/components/conditions-section';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
 
@@ -60,7 +64,7 @@ export default function HomeScreen() {
   useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { session } = useAuth();
+  const { session, locationPermission } = useAuth();
   const { colors, typography, spacing } = useTheme();
   const [quotaDismissed, setQuotaDismissed] = useState(false);
   const [lastSuccessfulPeak, setLastSuccessfulPeak] = useState<Peak | null>(null);
@@ -103,8 +107,19 @@ export default function HomeScreen() {
     userClickedHourRef.current = false;
   }, [weekData, selectedDate, selectedHour, setSelectedDate, setSelectedHour]);
 
-  const { state: favoritesState, addFavorite, removeFavorite } = useFavorites();
+  const { state: favoritesState, addFavorite, removeFavorite, refresh: refreshFavorites } = useFavorites();
   const favorites: Peak[] = favoritesState.status === 'success' ? favoritesState.data || [] : [];
+
+  // Recharge les favoris à chaque retour sur Home (ex: ajout/suppression depuis
+  // l'onglet Favoris) — sans ça la liste affichée sous la prévision peut rester
+  // périmée ou vide si le premier chargement a échoué avant que l'écran soit visité.
+  useFocusEffect(
+    useCallback(() => {
+      refreshFavorites();
+    }, [refreshFavorites]),
+  );
+
+  const terrain = useTerrainValidation({ token, locationPermission });
 
   // Si la date sélectionnée n'a pas de données (cache périmé / date hors fenêtre),
   // on se rabat sur aujourd'hui
@@ -127,6 +142,32 @@ export default function HomeScreen() {
       setLastSuccessfulPeak(selectedPeak);
     }
   }, [displayScore, selectedPeak]);
+
+  const hasDisplayScore = displayScore != null;
+  const autoDetectTarget = useMemo(
+    () => (selectedPeak && displayScore ? { lat: selectedPeak.lat, lng: selectedPeak.lng } : null),
+    // Dépend volontairement des primitives (lat/lng/hasDisplayScore) plutôt que des objets
+    // complets pour éviter une tempête de resubscription du GPS watcher à chaque re-render
+    // non lié (cf. revue de code story 6.1).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedPeak?.lat, selectedPeak?.lng, hasDisplayScore],
+  );
+
+  useTerrainAutoDetect({
+    locationPermission,
+    target: autoDetectTarget,
+    onNear: terrain.open,
+  });
+
+  function handleValidateTerrain() {
+    track('terrain_validation_opened', { peak_id: selectedPeak?.id, source: 'manual' });
+    terrain.open();
+  }
+
+  function handleTerrainAnswer(result: boolean) {
+    if (!displayScore?.prediction_id) return;
+    terrain.answer(result, { predictionId: displayScore.prediction_id });
+  }
 
   function isFavorite(peakId: string): boolean {
     return favorites.some((p) => p.id === peakId);
@@ -219,6 +260,7 @@ export default function HomeScreen() {
             contextMessage={displayScore.context_message}
             selectedHour={selectedHour}
             onSelectHour={(h) => { userClickedHourRef.current = true; setSelectedHour(h); }}
+            onValidateTerrain={handleValidateTerrain}
           />
           {quotaExceeded ? (
             <TouchableOpacity
@@ -348,6 +390,18 @@ export default function HomeScreen() {
         {renderContent()}
       </ScrollView>
 
+      <ValidationBottomSheet
+        visible={terrain.step !== null}
+        step={terrain.step}
+        noGps={terrain.noGps}
+        submitting={terrain.submitting}
+        peakName={selectedPeak?.name ?? ''}
+        score={displayScore?.score ?? 0}
+        verdict={displayScore?.verdict ?? 'none'}
+        onAnswer={handleTerrainAnswer}
+        onValidateManually={terrain.validateManually}
+        onDismiss={terrain.dismiss}
+      />
     </View>
   );
 }

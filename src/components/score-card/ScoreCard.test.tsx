@@ -1,6 +1,6 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ScoreResponse } from '@/services/mockData/types';
 import { __private__, ScoreCard } from '@/components/score-card';
-import { fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockTrack = jest.fn();
 jest.mock('@/services/analytics', () => ({
@@ -185,5 +185,23 @@ describe('ScoreCard', () => {
 
   it('utilise la variante compacte ridge pour un score medium', () => {
     expect(__private__.getCompactVizVariant(makeScore({ verdict: 'medium' }))).toBe('ridge');
+  });
+
+  it("n'affiche pas le bouton validation terrain sans la prop onValidateTerrain", () => {
+    render(<ScoreCard score={makeScore({})} date="2026-03-23" />);
+    expect(screen.queryByTestId('validate-terrain-button')).toBeNull();
+  });
+
+  it('affiche le bouton validation terrain quand onValidateTerrain est fourni', () => {
+    const onValidateTerrain = jest.fn();
+    render(<ScoreCard score={makeScore({})} date="2026-03-23" onValidateTerrain={onValidateTerrain} />);
+    fireEvent.press(screen.getByTestId('validate-terrain-button'));
+    expect(onValidateTerrain).toHaveBeenCalled();
+  });
+
+  it('affiche le bouton validation terrain avec les couleurs du thème sombre', () => {
+    mockScheme = 'dark';
+    render(<ScoreCard score={makeScore({})} date="2026-03-23" onValidateTerrain={jest.fn()} />);
+    expect(screen.getByTestId('validate-terrain-button')).toBeTruthy();
   });
 });
