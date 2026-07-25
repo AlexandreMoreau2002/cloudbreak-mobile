@@ -74,7 +74,8 @@ export function ValidationBottomSheet({
         );
       case 'ready':
         return (
-          <View>
+          <View style={styles.tallContent}>
+            <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>{i18n.t('terrain.searchingTitle')}</Text>
             {!noGps ? (
               <View testID="terrain-gps-pill" style={[styles.gpsPill, { backgroundColor: accentSoftBg }]}>
                 <Text style={[styles.gpsPillText, { color: colors.accent }]}>
@@ -114,6 +115,7 @@ export function ValidationBottomSheet({
       case 'denied':
         return (
           <View>
+            <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>{i18n.t('terrain.searchingTitle')}</Text>
             <View testID="terrain-gps-pill-denied" style={[styles.gpsPill, { backgroundColor: colors.border }]}>
               <Text style={[styles.gpsPillText, { color: colors.textSecondary }]}>{i18n.t('terrain.gpsUnavailable')}</Text>
             </View>
@@ -183,21 +185,38 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     marginBottom: Spacing.md,
   },
+  tallContent: { minHeight: 340 },
   centered: { alignItems: 'center', paddingVertical: Spacing.lg },
   spinner: { marginVertical: Spacing.sm },
-  eyebrow: { fontFamily: Typography.fontFamily.semiBold, fontSize: Typography.fontSize.xs },
-  body: { fontFamily: Typography.fontFamily.regular, fontSize: Typography.fontSize.sm, textAlign: 'center' },
+  eyebrow: {
+    fontFamily: Typography.fontFamily.semiBold,
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 14,
+  },
+  body: {
+    fontFamily: Typography.fontFamily.regular,
+    fontSize: Typography.fontSize.sm,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 22,
+  },
   gpsPill: {
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 7,
     borderRadius: Radius.full,
-    marginBottom: Spacing.sm,
   },
   gpsPillText: { fontFamily: Typography.fontFamily.semiBold, fontSize: Typography.fontSize.xs },
-  forecastRecall: { fontFamily: Typography.fontFamily.regular, fontSize: Typography.fontSize.sm, marginBottom: Spacing.sm },
-  question: { fontFamily: Typography.fontFamily.bold, fontSize: 24, marginBottom: Spacing.md },
-  answerRow: { flexDirection: 'row', gap: Spacing.sm },
+  forecastRecall: {
+    fontFamily: Typography.fontFamily.regular,
+    fontSize: Typography.fontSize.sm,
+    marginTop: 18,
+    marginBottom: 4,
+  },
+  question: { fontFamily: Typography.fontFamily.bold, fontSize: 24, marginTop: 10, marginBottom: 22 },
+  answerRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.xs },
   answerButtonOutline: {
     flex: 1,
     height: 52,
@@ -215,7 +234,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   answerButtonFilledText: { fontFamily: Typography.fontFamily.bold, fontSize: Typography.fontSize.sm, color: '#FFFFFF' },
-  laterLink: { alignSelf: 'center', marginTop: Spacing.md },
+  laterLink: { alignSelf: 'center', marginTop: 10 },
   laterText: { fontFamily: Typography.fontFamily.regular, fontSize: Typography.fontSize.sm },
   ctaAccent: {
     height: 52,
@@ -228,5 +247,11 @@ const styles = StyleSheet.create({
   ctaAccentFullWidth: {
     width: '100%',
   },
-  ctaAccentText: { fontFamily: Typography.fontFamily.semiBold, fontSize: Typography.fontSize.sm, color: '#FFFFFF' },
+  ctaAccentText: {
+    fontFamily: Typography.fontFamily.semiBold,
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: '#FFFFFF',
+  },
 });
