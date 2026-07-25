@@ -134,12 +134,13 @@ export function ValidationBottomSheet({
       case 'success':
         return (
           <View style={styles.centered}>
-            <View style={[styles.successBadge, { backgroundColor: Colors.score.high + '29' }]}>
-              <Text style={[styles.successBadgeIcon, { color: Colors.score.high }]}>✓</Text>
-            </View>
             <Text style={[styles.question, { color: colors.textPrimary }]}>{i18n.t('terrain.successTitle')}</Text>
             <Text style={[styles.body, { color: colors.textSecondary }]}>{i18n.t('terrain.successBody')}</Text>
-            <Pressable testID="terrain-close" style={[styles.ctaAccent, { backgroundColor: colors.accent }]} onPress={onDismiss}>
+            <Pressable
+              testID="terrain-close"
+              style={[styles.ctaAccent, styles.ctaAccentFullWidth, { backgroundColor: colors.accent }]}
+              onPress={onDismiss}
+            >
               <Text style={styles.ctaAccentText}>{i18n.t('terrain.close')}</Text>
             </Pressable>
           </View>
@@ -221,16 +222,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
     marginTop: Spacing.md,
   },
-  ctaAccentText: { fontFamily: Typography.fontFamily.bold, fontSize: Typography.fontSize.sm, color: '#FFFFFF' },
-  successBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.md,
+  ctaAccentFullWidth: {
+    width: '100%',
   },
-  successBadgeIcon: { fontSize: 26, fontFamily: Typography.fontFamily.bold },
+  ctaAccentText: { fontFamily: Typography.fontFamily.semiBold, fontSize: Typography.fontSize.sm, color: '#FFFFFF' },
 });
