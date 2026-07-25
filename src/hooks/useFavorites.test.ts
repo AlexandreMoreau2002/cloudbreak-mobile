@@ -105,6 +105,26 @@ describe('useFavorites', () => {
     expect(result.current.cachedAt).toBe(cachedAt);
   });
 
+  it('log le fallback cache en mode debug si le fetch échoue (cache hit)', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    mockDevConfigState.DEBUG = true;
+    const cachedAt = Date.now() - 60_000;
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt }),
+    );
+    mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[useFavorites] fetch failed, fallback cache',
+      expect.objectContaining({ count: 1 }),
+    );
+    consoleSpy.mockRestore();
+  });
+
   it('ignore le cache expiré (TTL 3h dépassé) si le fetch échoue', async () => {
     const cachedAt = Date.now() - 4 * 60 * 60 * 1000; // 4h — expiré
     mockAsyncStorage.getItem.mockResolvedValue(
@@ -158,6 +178,26 @@ describe('useFavorites', () => {
     expect(mockFetchFavorites).not.toHaveBeenCalled();
   });
 
+  it('log le fallback cache en mode debug si hors-ligne au chargement (cache hit)', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    mockDevConfigState.DEBUG = true;
+    const cachedAt = Date.now() - 30_000;
+    mockNetInfoFetch.mockResolvedValue({ isConnected: false } as never);
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_2], cachedAt }),
+    );
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[useFavorites] offline, fallback cache',
+      expect.objectContaining({ count: 1 }),
+    );
+    consoleSpy.mockRestore();
+  });
+
   it('erreur OFFLINE_NO_CACHE si hors-ligne et aucun cache', async () => {
     mockNetInfoFetch.mockResolvedValue({ isConnected: false } as never);
     mockAsyncStorage.getItem.mockResolvedValue(null);
@@ -168,6 +208,34 @@ describe('useFavorites', () => {
 
     expect(result.current.state.error).toBe('OFFLINE_NO_CACHE');
     expect(mockFetchFavorites).not.toHaveBeenCalled();
+  });
+
+  it('ignore le cache hors-ligne en mode MOCK_API (OFFLINE_NO_CACHE)', async () => {
+    mockDevConfigState.MOCK_API = true;
+    mockNetInfoFetch.mockResolvedValue({ isConnected: false } as never);
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt: Date.now() }),
+    );
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('error'));
+
+    expect(result.current.state.error).toBe('OFFLINE_NO_CACHE');
+  });
+
+  it('ignore le cache de fallback en mode MOCK_API si le fetch échoue', async () => {
+    mockDevConfigState.MOCK_API = true;
+    mockAsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt: Date.now() }),
+    );
+    mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
+
+    const { result } = renderHook(() => useFavorites());
+
+    await waitFor(() => expect(result.current.state.status).toBe('error'));
+
+    expect(result.current.state.error).toBe('Erreur réseau');
   });
 
   it('n\'écrit pas en cache en mode MOCK_API', async () => {
