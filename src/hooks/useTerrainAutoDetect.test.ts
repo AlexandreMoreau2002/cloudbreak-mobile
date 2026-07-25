@@ -2,8 +2,14 @@ import * as Location from 'expo-location';
 import { renderHook } from '@testing-library/react-native';
 import { useTerrainAutoDetect, haversineDistanceMeters } from '@/hooks/useTerrainAutoDetect';
 
+const mockDevConfigState = { DEBUG: false };
+
 jest.mock('expo-location', () => ({
   watchPositionAsync: jest.fn(),
+}));
+
+jest.mock('@/constants/devConfig', () => ({
+  get DEBUG() { return mockDevConfigState.DEBUG; },
 }));
 
 const mockWatchPosition = Location.watchPositionAsync as jest.Mock;
@@ -11,6 +17,7 @@ const mockWatchPosition = Location.watchPositionAsync as jest.Mock;
 describe('useTerrainAutoDetect', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDevConfigState.DEBUG = false;
     mockWatchPosition.mockResolvedValue({ remove: jest.fn() });
   });
 
@@ -86,6 +93,56 @@ describe('useTerrainAutoDetect', () => {
     await Promise.resolve();
     callback?.({ coords: { latitude: 46.5, longitude: 7.5 } });
     expect(onNear).not.toHaveBeenCalled();
+  });
+
+  it('log la distance en mode DEBUG quand la position est reçue', async () => {
+    mockDevConfigState.DEBUG = true;
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    const onNear = jest.fn();
+    let callback: ((pos: unknown) => void) | undefined;
+    mockWatchPosition.mockImplementationOnce((_opts, cb) => {
+      callback = cb;
+      return Promise.resolve({ remove: jest.fn() });
+    });
+
+    renderHook(() =>
+      useTerrainAutoDetect({
+        locationPermission: 'granted',
+        target: { lat: 45.83, lng: 6.86 },
+        onNear,
+      }),
+    );
+
+    await Promise.resolve();
+    callback?.({ coords: { latitude: 45.831, longitude: 6.861 } });
+
+    expect(debugSpy).toHaveBeenCalledWith(
+      '[useTerrainAutoDetect] distance',
+      expect.objectContaining({ distance: expect.any(Number) }),
+    );
+    debugSpy.mockRestore();
+  });
+
+  it("n'appelle onNear qu'une seule fois même si la callback est déclenchée plusieurs fois", async () => {
+    const onNear = jest.fn();
+    let callback: ((pos: unknown) => void) | undefined;
+    mockWatchPosition.mockImplementationOnce((_opts, cb) => {
+      callback = cb;
+      return Promise.resolve({ remove: jest.fn() });
+    });
+
+    renderHook(() =>
+      useTerrainAutoDetect({
+        locationPermission: 'granted',
+        target: { lat: 45.83, lng: 6.86 },
+        onNear,
+      }),
+    );
+
+    await Promise.resolve();
+    callback?.({ coords: { latitude: 45.831, longitude: 6.861 } });
+    callback?.({ coords: { latitude: 45.831, longitude: 6.861 } });
+    expect(onNear).toHaveBeenCalledTimes(1);
   });
 
   it('haversineDistanceMeters retourne 0 pour deux points identiques', () => {
