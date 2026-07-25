@@ -155,6 +155,7 @@ export function ValidationBottomSheet({
             </Pressable>
           </View>
         );
+      /* istanbul ignore next -- switch exhaustif sur TerrainStep non-null, inatteignable via les props publiques */
       default:
         return null;
     }
