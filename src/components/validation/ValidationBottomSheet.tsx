@@ -107,8 +107,12 @@ export function ValidationBottomSheet({
                 <Text style={styles.answerButtonFilledText}>{i18n.t('terrain.answerYes')}</Text>
               </Pressable>
             </View>
-            <Pressable testID="terrain-later" onPress={onDismiss} style={styles.laterGhostButton}>
-              <Text style={[styles.laterButtonText, { color: colors.textDisabled }]}>{i18n.t('terrain.later')}</Text>
+            <Pressable
+              testID="terrain-later"
+              onPress={onDismiss}
+              style={[styles.laterGhostButton, { borderColor: colors.border }]}
+            >
+              <Text style={[styles.laterButtonText, { color: colors.textPrimary }]}>{i18n.t('terrain.later')}</Text>
             </Pressable>
           </View>
         );
@@ -128,8 +132,12 @@ export function ValidationBottomSheet({
             >
               <Text style={styles.ctaAccentText}>{i18n.t('terrain.validateManually')}</Text>
             </Pressable>
-            <Pressable testID="terrain-later" onPress={onDismiss} style={styles.laterGhostButton}>
-              <Text style={[styles.laterButtonText, { color: colors.textDisabled }]}>{i18n.t('terrain.later')}</Text>
+            <Pressable
+              testID="terrain-later"
+              onPress={onDismiss}
+              style={[styles.laterGhostButton, { borderColor: colors.border }]}
+            >
+              <Text style={[styles.laterButtonText, { color: colors.textPrimary }]}>{i18n.t('terrain.later')}</Text>
             </Pressable>
           </View>
         );
@@ -262,6 +270,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 44,
     borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: Spacing.sm,
