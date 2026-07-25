@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Share } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import type { WeekData } from '@/hooks/useWeekData';
 import type { ScoreResponse } from '@/services/mockData/types';
 import HomeScreen, { getShareForecastUrl, shareForecast } from '@/app/(tabs)/index';
@@ -203,6 +203,11 @@ jest.mock('@/hooks/useFavorites', () => ({
 
 jest.mock('@react-navigation/native', () => ({
   useFocusEffect: (cb: () => void) => cb(),
+}));
+
+const mockPostTerrainValidation = jest.fn();
+jest.mock('@/services/api/validations', () => ({
+  postTerrainValidation: (...args: unknown[]) => mockPostTerrainValidation(...args),
 }));
 
 const mockShowPaywall = jest.fn();
@@ -1407,6 +1412,70 @@ describe('HomeScreen', () => {
       expect(screen.getByTestId('terrain-sheet')).toBeTruthy();
     });
     expect(mockTrack).toHaveBeenCalledWith('terrain_validation_opened', { peak_id: 'peak-1', source: 'manual' });
+
+    // Attend la résolution de getCurrentPositionAsync() (step 'searching' -> 'ready') pour
+    // que tous les effets soient flush avant la fin du test — sinon la mise à jour d'état
+    // survient hors act() pendant l'exécution du test suivant.
+    await waitFor(() => {
+      expect(screen.getByTestId('terrain-answer-yes')).toBeTruthy();
+    });
+  });
+
+  it("n'appelle pas la validation terrain si le score affiché n'a pas de prediction_id", async () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    // MOCK_SCORE_DATA n'a pas de prediction_id -> handleTerrainAnswer doit sortir en early return.
+    setupSuccess();
+
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('validate-terrain-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terrain-answer-yes')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('terrain-answer-yes'));
+    });
+
+    expect(mockPostTerrainValidation).not.toHaveBeenCalled();
+  });
+
+  it('appelle la validation terrain quand le score affiché a un prediction_id', async () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockPostTerrainValidation.mockResolvedValue(undefined);
+    setupSuccess({ ...MOCK_SCORE_DATA, prediction_id: 'pred-1' });
+
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('validate-terrain-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terrain-answer-yes')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('terrain-answer-yes'));
+    });
+
+    await waitFor(() => {
+      expect(mockPostTerrainValidation).toHaveBeenCalledWith(
+        'mock-token',
+        expect.objectContaining({ prediction_id: 'pred-1', result: 'confirmed' }),
+      );
+    });
   });
 
 });

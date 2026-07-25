@@ -143,9 +143,14 @@ export default function HomeScreen() {
     }
   }, [displayScore, selectedPeak]);
 
+  const hasDisplayScore = displayScore != null;
   const autoDetectTarget = useMemo(
     () => (selectedPeak && displayScore ? { lat: selectedPeak.lat, lng: selectedPeak.lng } : null),
-    [selectedPeak?.lat, selectedPeak?.lng, displayScore != null],
+    // Dépend volontairement des primitives (lat/lng/hasDisplayScore) plutôt que des objets
+    // complets pour éviter une tempête de resubscription du GPS watcher à chaque re-render
+    // non lié (cf. revue de code story 6.1).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedPeak?.lat, selectedPeak?.lng, hasDisplayScore],
   );
 
   useTerrainAutoDetect({
