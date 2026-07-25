@@ -179,7 +179,7 @@ describe('useTerrainValidation', () => {
     expect(result.current.submitting).toBe(false);
   });
 
-  it('dismiss() referme la modal (step null)', () => {
+  it('dismiss() referme la modal (step null)', async () => {
     mockGetCurrentPosition.mockResolvedValueOnce({
       coords: { latitude: 45.83, longitude: 6.86 },
     });
@@ -187,6 +187,8 @@ describe('useTerrainValidation', () => {
       useTerrainValidation({ token: 'tok', locationPermission: 'granted' }),
     );
     act(() => result.current.open());
+    await waitFor(() => expect(result.current.step).toBe('ready'));
+
     act(() => result.current.dismiss());
     expect(result.current.step).toBeNull();
   });
