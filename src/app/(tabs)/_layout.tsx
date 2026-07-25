@@ -22,9 +22,11 @@ export default function TabsLayout() {
   const { colors, typography } = useTheme();
 
   const tabBarStyle = {
-    backgroundColor: colors.surface,
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
+    backgroundColor: colors.background,
+    borderTopWidth: 0,
+    elevation: 0,
+    shadowOpacity: 0,
+    zIndex: 10,
     height: 80,
     paddingBottom: 16,
     paddingTop: 12,
@@ -44,7 +46,7 @@ export default function TabsLayout() {
       key={locale}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
+        tabBarActiveTintColor: colors.textPrimary,
         tabBarInactiveTintColor: colors.textDisabled,
         tabBarStyle,
         tabBarLabelStyle: labelStyle,
