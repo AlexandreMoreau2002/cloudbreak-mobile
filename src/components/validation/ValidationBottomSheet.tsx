@@ -107,8 +107,8 @@ export function ValidationBottomSheet({
                 <Text style={styles.answerButtonFilledText}>{i18n.t('terrain.answerYes')}</Text>
               </Pressable>
             </View>
-            <Pressable testID="terrain-later" onPress={onDismiss} style={styles.laterLink}>
-              <Text style={[styles.laterText, { color: colors.textSecondary }]}>{i18n.t('terrain.later')}</Text>
+            <Pressable testID="terrain-later" onPress={onDismiss} style={styles.laterGhostButton}>
+              <Text style={[styles.laterButtonText, { color: colors.textDisabled }]}>{i18n.t('terrain.later')}</Text>
             </Pressable>
           </View>
         );
@@ -119,25 +119,29 @@ export function ValidationBottomSheet({
             <View testID="terrain-gps-pill-denied" style={[styles.gpsPill, { backgroundColor: colors.border }]}>
               <Text style={[styles.gpsPillText, { color: colors.textSecondary }]}>{i18n.t('terrain.gpsUnavailable')}</Text>
             </View>
-            <Text style={[styles.question, { color: colors.textPrimary }]}>{i18n.t('terrain.deniedTitle')}</Text>
-            <Text style={[styles.body, { color: colors.textSecondary }]}>{i18n.t('terrain.deniedBody')}</Text>
+            <Text style={[styles.deniedTitle, { color: colors.textPrimary }]}>{i18n.t('terrain.deniedTitle')}</Text>
+            <Text style={[styles.deniedBody, { color: colors.textSecondary }]}>{i18n.t('terrain.deniedBody')}</Text>
             <Pressable
               testID="terrain-validate-manually"
-              style={[styles.ctaAccent, { backgroundColor: colors.accent }]}
+              style={[styles.ctaAccent, styles.ctaAccentFullWidth, { backgroundColor: colors.accent }]}
               onPress={onValidateManually}
             >
               <Text style={styles.ctaAccentText}>{i18n.t('terrain.validateManually')}</Text>
             </Pressable>
-            <Pressable testID="terrain-later" onPress={onDismiss} style={styles.laterLink}>
-              <Text style={[styles.laterText, { color: colors.textSecondary }]}>{i18n.t('terrain.later')}</Text>
+            <Pressable
+              testID="terrain-later"
+              onPress={onDismiss}
+              style={[styles.laterGhostButton, styles.laterGhostButtonBordered, { borderColor: colors.border }]}
+            >
+              <Text style={[styles.laterButtonText, { color: colors.textPrimary }]}>{i18n.t('terrain.later')}</Text>
             </Pressable>
           </View>
         );
       case 'success':
         return (
           <View style={styles.centered}>
-            <Text style={[styles.question, { color: colors.textPrimary }]}>{i18n.t('terrain.successTitle')}</Text>
-            <Text style={[styles.body, { color: colors.textSecondary }]}>{i18n.t('terrain.successBody')}</Text>
+            <Text style={[styles.successTitle, { color: colors.textPrimary }]}>{i18n.t('terrain.successTitle')}</Text>
+            <Text style={[styles.successBody, { color: colors.textSecondary }]}>{i18n.t('terrain.successBody')}</Text>
             <Pressable
               testID="terrain-close"
               style={[styles.ctaAccent, styles.ctaAccentFullWidth, { backgroundColor: colors.accent }]}
@@ -200,6 +204,31 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     textAlign: 'center',
     marginTop: 8,
+  },
+  deniedTitle: {
+    fontFamily: Typography.fontFamily.bold,
+    fontSize: 22,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  deniedBody: {
+    fontFamily: Typography.fontFamily.regular,
+    fontSize: Typography.fontSize.sm,
+    lineHeight: Math.round(Typography.fontSize.sm * 1.5),
+    marginBottom: 22,
+  },
+  successTitle: {
+    fontFamily: Typography.fontFamily.bold,
+    fontSize: 22,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  successBody: {
+    fontFamily: Typography.fontFamily.regular,
+    fontSize: Typography.fontSize.sm,
+    lineHeight: Math.round(Typography.fontSize.sm * 1.5),
+    textAlign: 'center',
+    maxWidth: 260,
     marginBottom: 22,
   },
   gpsPill: {
@@ -234,8 +263,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   answerButtonFilledText: { fontFamily: Typography.fontFamily.bold, fontSize: Typography.fontSize.sm, color: '#FFFFFF' },
-  laterLink: { alignSelf: 'center', marginTop: 10 },
-  laterText: { fontFamily: Typography.fontFamily.regular, fontSize: Typography.fontSize.sm },
+  laterGhostButton: {
+    width: '100%',
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.sm,
+  },
+  laterGhostButtonBordered: {
+    borderWidth: 1,
+  },
+  laterButtonText: {
+    fontFamily: Typography.fontFamily.semiBold,
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
   ctaAccent: {
     height: 52,
     borderRadius: 14,
