@@ -8,13 +8,13 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
 ## 2026-03-20 Story 2-1 — Auth Supabase
 
 ### 🔵 INFO
-- **[SecureStore]** JWT Supabase stocké via `expo-secure-store` — chiffré par le keychain iOS, non accessible depuis l'extérieur de l'app
+- **[Supabase session]** Le JWT Supabase est actuellement stocké via `AsyncStorage` (non chiffré) — migration vers `expo-secure-store` toujours requise avant release 1.0.0
 - **[AuthContext]** Token jamais loggé en clair — seul le `sub` (user_id) est utilisé dans l'app
 - **[AuthGuard]** Redirection via `useSegments` + `useRouter` — pas de `<Redirect>` dans le layout racine (évite les boucles infinies)
 
 ### 🟡 WARNING
 - **[Supabase]** "Confirm email" désactivé en dev → réactiver avant release 1.0.0
-- **[AsyncStorage]** Ne pas stocker de données sensibles (token, clés) — réservé au cache score (données non sensibles)
+- **[AsyncStorage]** Le cache score ne contient pas de données sensibles ; la session Supabase fait encore exception et constitue une dette suivie ci-dessous
 - **[supabaseClient.ts]** CORRECTION DOCUMENTATION : le client Supabase utilise `storage: AsyncStorage` (non chiffré), pas `expo-secure-store`. Le JWT et le refresh token Supabase sont donc stockés en clair dans AsyncStorage. Migrer vers `expo-secure-store` avant release 1.0.0 pour aligner l'implémentation avec la politique de sécurité déclarée dans ce fichier et dans `mobile/CLAUDE.md`.
 
 ---
@@ -58,7 +58,7 @@ CORRECTIONS RECOMMANDÉES AVANT BRANCHEMENT POSTHOG — aucun blocage pour le me
 - **[useLocationPermission / useLocationSettingsLink]** Aucun appel réseau, aucune donnée transmise au backend.
 
 ### Verdict
-SECURE — aucune donnée sensible exposée par la story 2.3. La consommation réelle de la position (validation terrain) arrive en story 6.1 — à ce moment-là, réévaluer si une politique de rétention/anonymisation des coordonnées est nécessaire côté backend.
+SECURE — aucune donnée sensible supplémentaire exposée par la story 2.3. La consommation réelle de la position est désormais couverte par la story 6.1 ; la rétention/anonymisation des coordonnées reste à réévaluer avant release 1.0.0.
 
 ---
 

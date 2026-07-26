@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-07-01_
+_Dernière mise à jour : 2026-07-26_
 
 ---
 
@@ -28,7 +28,7 @@ _Dernière mise à jour : 2026-07-01_
 | ScoreSkeleton — loader animé (story 3.4) | ✅ |
 | Détail conditions météo + fenêtre temporelle (story 3.5) | ✅ |
 | Lever du soleil + indicateur de stabilité (story 3.5) | ✅ |
-| Permission géolocalisation opt-in (onboarding step 4 + lien Profil vers réglages iOS) — story 2.3, aucune consommation de la position (prévue story 6.1) | ✅ |
+| Permission géolocalisation opt-in (onboarding step 4 + lien Profil vers réglages iOS) — story 2.3 | ✅ |
 | WeekStrip — changement de jour sur l'écran principal (story 3.5) | ✅ |
 | CloudLayerViz — couche nuageuse vs altitude sommet (story 3.5) | ✅ |
 | Traduction des codes score i18n via normalizeScoreResponse() (refacto i18n) | ✅ |
@@ -46,18 +46,21 @@ _Dernière mise à jour : 2026-07-01_
 | Login : ActivityIndicator dans bouton submit pendant loading (story 7.3) | ✅ |
 | Mode offline-light — cache TTL 3h, bandeau offline, pull-to-refresh, état `OFFLINE_NO_CACHE` sans données obsolètes (story 7.2) | ✅ |
 | Instrumentation analytics — `track()` stub DEBUG-only câblé sur ~25 events UI (onboarding, auth, home, recherche, favoris, paywall, profil, session) (story 1.7) | ✅ Stub, aucun réseau |
+| Validation terrain confirmation/infirmation avec détection GPS foreground (story 6.1) | ✅ Sans photo |
 
 ## Ce qui n'existe pas encore
 
 - Compteur de consultations restantes avant quota (AC3 story 4.2 — à planifier)
-- StoreKit 2 — intégration achat In-App réel (epic 4, story suivante)
+- Photo optionnelle après validation + calcul du taux de précision (story 6.2)
+- StoreKit 2 — intégration achat In-App réel (epic 4, story 4.3)
 - Notifications push (epic 5)
-- Validation terrain (epic 6)
-- Onboarding (epic 7)
+- Analytics PostHog réel (compte/SDK/réseau)
+- Déploiement VPS / production (epic 1)
 
 ---
 
 ## Prochaines étapes
 
-1. **Story 3.6** — Message contextuel hors-saison + partage deep link
-2. **Epic 4** — Paywall / freemium (StoreKit 2)
+1. **Story 6.2** — Photo optionnelle + calcul du taux de précision par zone
+2. **StoreKit 2** — paiement réel, actuellement bloqué par le compte Apple Developer
+3. **Notifications push** — actuellement bloquées par les prérequis Apple/APNs
