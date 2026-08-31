@@ -26,8 +26,8 @@ describe('legalUrls', () => {
 
     jest.isolateModules(() => {
       const { LEGAL_URLS } = require('@/constants/legalUrls');
-      expect(LEGAL_URLS.privacy).toBe('https://ops.cloudbreak.fr/fr/privacy');
-      expect(LEGAL_URLS.cgu).toBe('https://ops.cloudbreak.fr/fr/cgu');
+      expect(LEGAL_URLS.privacy).toBe('https://ops.cloudbreak-app.com/fr/privacy');
+      expect(LEGAL_URLS.cgu).toBe('https://ops.cloudbreak-app.com/fr/cgu');
       expect(LEGAL_URLS.support).toBe('mailto:support@cloudbreak.app');
     });
   });

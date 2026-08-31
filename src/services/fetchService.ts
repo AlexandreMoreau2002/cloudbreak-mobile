@@ -15,7 +15,7 @@ import { DEBUG, SIMULATE_DELAY_MS } from '@/constants/devConfig';
 
 // ── Config API ────────────────────────────────────────────────────────────────
 
-export const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.cloudbreak.fr';
+export const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.cloudbreak-app.com';
 
 export interface ApiFetchOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';

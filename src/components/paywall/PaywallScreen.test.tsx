@@ -221,7 +221,7 @@ describe('PaywallScreen', () => {
       <PaywallScreen visible onDismiss={mockOnDismiss} onSelectPlan={mockOnSelectPlan} />,
     );
     fireEvent.press(screen.getByTestId('paywall-privacy-link'));
-    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak.fr/fr/privacy');
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak-app.com/fr/privacy');
   });
 
   it('ouvre_le_lien_cgu_au_clic', () => {
@@ -229,7 +229,7 @@ describe('PaywallScreen', () => {
       <PaywallScreen visible onDismiss={mockOnDismiss} onSelectPlan={mockOnSelectPlan} />,
     );
     fireEvent.press(screen.getByTestId('paywall-cgu-link'));
-    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak.fr/fr/cgu');
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak-app.com/fr/cgu');
   });
 
   it('fonctionne_sans_onSelectPlan_prop', () => {

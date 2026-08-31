@@ -16,7 +16,7 @@ describe('fetchService', () => {
   });
 
   it('exporte une base API par défaut', () => {
-    expect(API_BASE).toBe('https://api.cloudbreak.fr');
+    expect(API_BASE).toBe('https://api.cloudbreak-app.com');
   });
 
   it('fait une requête GET avec auth et query params', async () => {
@@ -33,7 +33,7 @@ describe('fetchService', () => {
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.cloudbreak.fr/api/v1/peaks/search?q=mont+blanc',
+      'https://api.cloudbreak-app.com/api/v1/peaks/search?q=mont+blanc',
       {
         method: 'GET',
         headers: { Authorization: 'Bearer token-123' },
@@ -56,7 +56,7 @@ describe('fetchService', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.cloudbreak.fr/api/v1/user/favorites',
+      'https://api.cloudbreak-app.com/api/v1/user/favorites',
       {
         method: 'POST',
         headers: {
@@ -111,7 +111,7 @@ describe('fetchService', () => {
 
     expect(consoleSpy).toHaveBeenCalledWith('[fetchService] request', {
       method: 'GET',
-      url: 'https://api.cloudbreak.fr/api/v1/test',
+      url: 'https://api.cloudbreak-app.com/api/v1/test',
     });
     consoleSpy.mockRestore();
   });
@@ -244,7 +244,7 @@ describe('fetchService', () => {
     await apiFetch('/api/v1/peaks/search', null, { q: 'aiguille' });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.cloudbreak.fr/api/v1/peaks/search?q=aiguille',
+      'https://api.cloudbreak-app.com/api/v1/peaks/search?q=aiguille',
       {
         method: 'GET',
         headers: {},
@@ -263,7 +263,7 @@ describe('fetchService', () => {
     await apiFetch('/api/v1/peaks/search', 'token-abc', { q: 'aiguille' });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.cloudbreak.fr/api/v1/peaks/search?q=aiguille',
+      'https://api.cloudbreak-app.com/api/v1/peaks/search?q=aiguille',
       {
         method: 'GET',
         headers: { Authorization: 'Bearer token-abc' },
@@ -283,7 +283,7 @@ describe('fetchService', () => {
     await apiFetch('/api/v1/test', 'token-123', undefined, { signal: controller.signal });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.cloudbreak.fr/api/v1/test',
+      'https://api.cloudbreak-app.com/api/v1/test',
       expect.objectContaining({ signal: controller.signal }),
     );
   });

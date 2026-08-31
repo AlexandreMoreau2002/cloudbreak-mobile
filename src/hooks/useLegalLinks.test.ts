@@ -24,9 +24,9 @@ describe('useLegalLinks', () => {
     (Linking.openURL as jest.Mock).mockResolvedValueOnce(undefined);
     const { result } = renderHook(() => useLegalLinks());
 
-    await result.current.openLegalLink('https://ops.cloudbreak.fr/fr/privacy');
+    await result.current.openLegalLink('https://ops.cloudbreak-app.com/fr/privacy');
 
-    expect(Linking.openURL).toHaveBeenCalledWith('https://ops.cloudbreak.fr/fr/privacy');
+    expect(Linking.openURL).toHaveBeenCalledWith('https://ops.cloudbreak-app.com/fr/privacy');
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
@@ -43,7 +43,7 @@ describe('useLegalLinks', () => {
     (Linking.openURL as jest.Mock).mockRejectedValueOnce(new Error('no handler'));
     const { result } = renderHook(() => useLegalLinks());
 
-    await result.current.openLegalLink('https://ops.cloudbreak.fr/fr/cgu');
+    await result.current.openLegalLink('https://ops.cloudbreak-app.com/fr/cgu');
 
     expect(Alert.alert).toHaveBeenCalledWith('legal.errorTitle', 'legal.errorMessage');
   });

@@ -281,13 +281,13 @@ describe('ProfileScreen', () => {
   it('ouvre la politique de confidentialité au clic', () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('legal.privacy'));
-    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak.fr/fr/privacy');
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak-app.com/fr/privacy');
   });
 
   it("ouvre les conditions d'utilisation au clic", () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('legal.cgu'));
-    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak.fr/fr/cgu');
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak-app.com/fr/cgu');
   });
 
   it('ouvre le lien mailto du support au clic', () => {
