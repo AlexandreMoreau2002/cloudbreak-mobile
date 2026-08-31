@@ -55,7 +55,7 @@ appeler `openLegalLink(LEGAL_URLS.xxx)` — aucun état d'erreur à gérer local
 
 ```ts
 // src/constants/legalUrls.ts
-const LEGAL_BASE_URL = process.env.EXPO_PUBLIC_LEGAL_BASE_URL ?? 'https://ops.cloudbreak.fr';
+const LEGAL_BASE_URL = process.env.EXPO_PUBLIC_LEGAL_BASE_URL ?? 'https://ops.cloudbreak-app.com';
 const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? 'support@cloudbreak.app';
 
 export const LEGAL_URLS = {
@@ -69,7 +69,7 @@ Les pages légales (`/fr/privacy`, `/fr/cgu`) ne sont **pas** servies par le bac
 revert) mais par le service séparé `cloudbreak-ops` (Next.js 16 + next-intl, story 4.5). La variable d'environnement
 `EXPO_PUBLIC_LEGAL_BASE_URL` permet de pointer :
 - en dev : `http://localhost:3100` (le service `ops` lancé en local, `npm run dev -- --port 3100`)
-- en prod : `https://ops.cloudbreak.fr` (valeur par défaut si la variable n'est pas définie)
+- en prod : `https://ops.cloudbreak-app.com` (valeur par défaut si la variable n'est pas définie)
 
 **`EXPO_PUBLIC_SUPPORT_EMAIL`** existe parce que l'adresse support n'est pas encore définitive au moment de
 l'écriture de cette story — `support@cloudbreak.app` n'est qu'un placeholder de fallback, jamais codé en dur
@@ -104,11 +104,11 @@ story 4.3, pas commencée). Sur demande explicite (alignement avec une maquette 
 
 Avant la release 1.0.0 :
 
-1. Réserver et déployer le domaine `ops.cloudbreak.fr` (voir `ops/docs/story-1-legal-pages.md` pour le détail du
+1. Réserver et déployer le domaine `ops.cloudbreak-app.com` (voir `ops/docs/story-1-legal-pages.md` pour le détail du
    service `cloudbreak-ops`)
-2. Vérifier que `https://ops.cloudbreak.fr/fr/privacy` et `https://ops.cloudbreak.fr/fr/cgu` répondent 200 en prod
+2. Vérifier que `https://ops.cloudbreak-app.com/fr/privacy` et `https://ops.cloudbreak-app.com/fr/cgu` répondent 200 en prod
 3. Confirmer que `EXPO_PUBLIC_LEGAL_BASE_URL` en build de prod (EAS / App Store Connect) est soit absente (le
-   fallback `https://ops.cloudbreak.fr` suffit), soit explicitement définie sur la même valeur
+   fallback `https://ops.cloudbreak-app.com` suffit), soit explicitement définie sur la même valeur
 4. **Choisir l'adresse email support définitive** et définir `EXPO_PUBLIC_SUPPORT_EMAIL` en conséquence (secrets
    EAS) — `support@cloudbreak.app` n'est qu'un placeholder tant que l'adresse réelle n'est pas décidée
 5. Vérifier que l'adresse support choisie est une boîte mail active et surveillée avant la review Apple

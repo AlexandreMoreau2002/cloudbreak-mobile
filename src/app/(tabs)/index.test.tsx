@@ -821,8 +821,8 @@ describe('HomeScreen', () => {
 
     await waitFor(() =>
       expect(shareSpy).toHaveBeenCalledWith({
-        message: 'https://merdenua.ge/sommet/mont-blanc',
-        url: 'https://merdenua.ge/sommet/mont-blanc',
+        message: 'https://cloudbreak-app.com/sommet/mont-blanc',
+        url: 'https://cloudbreak-app.com/sommet/mont-blanc',
       }),
     );
     shareSpy.mockRestore();
@@ -850,8 +850,8 @@ describe('HomeScreen', () => {
     expect(mockTrack).toHaveBeenCalledWith('forecast_shared', { peak_id: 'peak-1' });
     await waitFor(() =>
       expect(shareSpy).toHaveBeenCalledWith({
-        message: 'https://merdenua.ge/sommet/mont-blanc',
-        url: 'https://merdenua.ge/sommet/mont-blanc',
+        message: 'https://cloudbreak-app.com/sommet/mont-blanc',
+        url: 'https://cloudbreak-app.com/sommet/mont-blanc',
       }),
     );
     shareSpy.mockRestore();
@@ -888,7 +888,7 @@ describe('HomeScreen', () => {
     await shareForecast('mont-blanc');
 
     await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith('Partage indisponible', 'https://merdenua.ge/sommet/mont-blanc'),
+      expect(alertSpy).toHaveBeenCalledWith('Partage indisponible', 'https://cloudbreak-app.com/sommet/mont-blanc'),
     );
     shareSpy.mockRestore();
     alertSpy.mockRestore();

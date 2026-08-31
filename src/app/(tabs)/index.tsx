@@ -34,7 +34,7 @@ import type { Peak, ScoreResponse } from '@/services/mockData/types';
 const SEARCH_ROUTE = '/(tabs)/search' as Href;
 
 export function getShareForecastUrl(slug: string | null): string | null {
-  return slug ? `https://merdenua.ge/sommet/${slug}` : null;
+  return slug ? `https://cloudbreak-app.com/sommet/${slug}` : null;
 }
 
 export async function shareForecast(
