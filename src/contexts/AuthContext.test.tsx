@@ -1,9 +1,9 @@
-import React from 'react';
-import { deleteAccount, provisionUser, updateUserSurvey } from '@/services/api/user';
 import { AuthError } from '@supabase/supabase-js';
 import { Text, TouchableOpacity, Platform } from 'react-native';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import React from 'react';
+import { deleteAccount, provisionUser, updateUserSurvey } from '@/services/api/user';
 
 const mockUnsubscribe = jest.fn();
 const mockGetSession = jest.fn().mockResolvedValue({ data: { session: null } });

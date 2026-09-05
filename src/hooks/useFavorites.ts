@@ -13,10 +13,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { DEBUG, MOCK_API } from '@/constants/devConfig';
+import { useAccountGate } from '@/contexts/AccountGateContext';
 import type { AsyncState, Peak } from '@/services/mockData/types';
 import { addFavorite as apiAddFavorite } from '@/services/api/user';
 import { fetchFavorites, removeFavorite as apiRemoveFavorite } from '@/services/api/peaks';
-import { useAccountGate } from '@/contexts/AccountGateContext';
 
 const CACHE_VERSION = 'v1';
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3h

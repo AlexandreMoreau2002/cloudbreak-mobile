@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '@/contexts/AuthContext';
 import i18n from '@/utils/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
-import { AccountForm, type AccountMode } from '@/components/account';
 import { AuthBackdrop } from '@/components/account/AuthBackdrop';
+import { AccountForm, type AccountMode } from '@/components/account';
 
 export default function AccountScreen() {
   const router = useRouter(); const params = useLocalSearchParams<{ firstRun?: string; mode?: string }>(); const { colors, typography } = useTheme(); const auth = useAuth(); const gate = useAccountGate(); const [mode, setMode] = useState<AccountMode>(params.mode === 'login' ? 'connexion' : 'creation'); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null);

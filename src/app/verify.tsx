@@ -1,10 +1,10 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import i18n from '@/utils/i18n';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { CodeInput } from '@/components/account';
+import i18n from '@/utils/i18n';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
 
 export default function VerifyScreen() {

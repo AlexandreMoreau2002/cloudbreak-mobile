@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import type { SurveyAnswers } from '@/contexts/AuthContext';
 import type { UserSurvey } from '@/services/api/user';
+import type { SurveyAnswers } from '@/contexts/AuthContext';
 
 export function SurveyForm({ onSubmit }: { onSubmit: (answers: SurveyAnswers) => void }) {
   const { colors, typography } = useTheme(); const [acquisitionSource, setAcquisition] = useState<SurveyAnswers['acquisitionSource']>(); const [practice, setPractice] = useState<SurveyAnswers['practice']>(); const [newsletterOptIn, setNewsletter] = useState(false);

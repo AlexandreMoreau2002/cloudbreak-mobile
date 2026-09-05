@@ -1,14 +1,4 @@
 import { Alert } from 'react-native';
-import { useEffect, useRef } from 'react';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
-import { AccountGateProvider, useAccountGate } from '@/contexts/AccountGateContext';
-import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
-import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
-import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
-import i18n from '@/utils/i18n';
-import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 import {
   JosefinSans_300Light,
   JosefinSans_400Regular,
@@ -16,6 +6,16 @@ import {
   JosefinSans_700Bold,
   useFonts,
 } from '@expo-google-fonts/josefin-sans';
+import { useEffect, useRef } from 'react';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
+import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
+import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
+import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
+import { AccountGateProvider, useAccountGate } from '@/contexts/AccountGateContext';
+import i18n from '@/utils/i18n';
+import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 
 SplashScreen.preventAutoHideAsync();
 

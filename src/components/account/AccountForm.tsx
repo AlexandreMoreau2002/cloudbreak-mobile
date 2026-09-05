@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { LoadingSpinner } from '@/components/loading-spinner';
-import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { LEGAL_URLS } from '@/constants/legalUrls';
+import { useLegalLinks } from '@/hooks/useLegalLinks';
+import { LoadingSpinner } from '@/components/loading-spinner';
 
 export type AccountMode = 'creation' | 'connexion';
 interface Props { mode: AccountMode; loading: boolean; error?: string | null; onSubmit: (email: string, password: string) => void; onApple: () => void; onModeChange: () => void; }
