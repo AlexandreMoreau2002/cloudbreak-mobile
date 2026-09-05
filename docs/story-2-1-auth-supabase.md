@@ -1,5 +1,10 @@
 # Story 2-1 — Authentification Supabase (Mobile)
 
+> Le flux initial login/signup de cette story a depuis été étendu par le parcours invité des
+> stories 2.5/2.6/2.8. La session est encore persistée via AsyncStorage (dette à migrer vers
+> SecureStore). Les preuves OTP, Anonymous Auth et Apple restent dans
+> [`story-2-5-manual-test-guide.md`](story-2-5-manual-test-guide.md) et ne sont pas affirmées ici.
+
 ## Ce qui a été fait
 
 | Fichier | Rôle |
@@ -45,14 +50,17 @@ Les credentials Supabase sont lus depuis `app.config.ts` via `Constants.expoConf
 
 `metro.config.js` exclut les fichiers `*.test.*` et `*.spec.*` du bundle Metro pour éviter que les imports Node.js de Jest ne cassent l'app.
 
-### Supabase — configuration dev
+### Supabase — configuration dev et évolution du flow
 
 > ⚠️ **Dette de configuration — à corriger avant release 1.0.0**
 
-- **Confirm email désactivé** : Authentication → Providers → Email → "Confirm email" → **OFF**
-- Désactivé intentionnellement en développement pour fluidifier les tests (pas besoin de confirmer chaque email)
-- **À réactiver impérativement avant la release App Store** : Authentication → Providers → Email → "Confirm email" → ON
-- Sans cette étape, n'importe qui peut créer un compte avec un email invalide
+- Le réglage historique de cette story était **Confirm email = OFF**. Pour le flow OTP des
+  stories 2.5/2.8, il doit être **ON** et le template doit envoyer `{{ .Token }}`. Cette
+  configuration dashboard, la réception d'un vrai code et le `verifyOtp.type` accepté ne sont
+  pas encore validés.
+- Anonymous Auth et Apple doivent également être activés pour le nouveau parcours ; voir le
+  guide de préflight. Aucun OTP/Apple réel n'est considéré comme testé tant que cette gate n'est
+  pas levée sur une build native.
 
 ## Comment tester
 
