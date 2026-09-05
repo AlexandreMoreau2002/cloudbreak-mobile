@@ -1,0 +1,10 @@
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import VerifyScreen from '@/app/verify';
+const mockPush = jest.fn(); const mockBack = jest.fn(); const mockComplete = jest.fn().mockResolvedValue(null); const mockResend = jest.fn().mockResolvedValue(null);
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: mockBack }) }));
+jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { background: '#fff', textPrimary: '#111', textSecondary: '#555', accent: '#b28c6e' }, typography: { fontFamily: { bold: 'System' } } }) }));
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ completeEmailUpgrade: mockComplete, resendEmailUpgrade: mockResend }) }));
+jest.mock('@/contexts/AccountGateContext', () => ({ useAccountGate: () => ({ emailUpgradeCredentials: { email: 'a@b.com', password: 'Aa!123456' } }) }));
+jest.mock('@/components/account', () => { const { TouchableOpacity, Text } = require('react-native'); return { CodeInput: ({ onChange }: { onChange: (value: string) => void }) => <TouchableOpacity testID="code" onPress={() => onChange('123456')}><Text>code</Text></TouchableOpacity> }; });
+jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
+describe('VerifyScreen route contracts', () => { beforeEach(() => jest.clearAllMocks()); it('confirms a six digit code and continues to survey', async () => { const { getByTestId } = render(<VerifyScreen />); fireEvent.press(getByTestId('code')); fireEvent.press(getByTestId('verify-submit')); await waitFor(() => expect(mockComplete).toHaveBeenCalledWith('a@b.com', 'Aa!123456', '123456')); expect(mockPush).toHaveBeenCalledWith('/survey'); }); it('resends and clears through the auth boundary', async () => { const { getByText } = render(<VerifyScreen />); fireEvent.press(getByText('verify.resend')); await waitFor(() => expect(mockResend).toHaveBeenCalledWith('a@b.com')); }); });

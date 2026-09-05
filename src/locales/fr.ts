@@ -49,6 +49,7 @@ export default {
     retry: 'Réessayer',
     noData: 'Données non disponibles',
     networkHint: 'Vérifie ta connexion et réessaie.',
+    back: 'Retour',
   },
   home: {
     comingSoon: 'À venir',
@@ -227,9 +228,9 @@ export default {
     error: 'Erreur',
     emptyFields: 'Veuillez remplir tous les champs',
   },
-  account: { eyebrow: 'MER DE NUAGE', createTitle: 'Crée ton compte', loginTitle: 'Content de te revoir', createSubtitle: 'Pour cette fonctionnalité, il te faut un compte. Tes sommets, tes alertes et ton historique te suivent ensuite partout.', loginSubtitle: 'Retrouve tes sommets et ton historique.', apple: 'Continuer avec Apple', or: 'ou', create: 'Créer un compte', login: 'Se connecter', show: 'VOIR', hide: 'MASQUER', forgot: 'Mot de passe oublié ?', legalPrefix: 'En créant un compte, tu acceptes les', cgu: 'CGU', legalAnd: 'et la', privacy: 'Politique de confidentialité', hasAccount: "J'ai déjà un compte ?", noAccount: 'Pas encore de compte ?', modeLogin: 'Se connecter', explore: "Explorer d'abord" },
+  account: { eyebrow: 'MER DE NUAGE', createTitle: 'Crée ton compte', loginTitle: 'Content de te revoir', createSubtitle: 'Pour cette fonctionnalité, il te faut un compte. Tes sommets, tes alertes et ton historique te suivent ensuite partout.', loginSubtitle: 'Retrouve tes sommets et ton historique.', apple: 'Continuer avec Apple', or: 'ou', create: 'Créer un compte', login: 'Se connecter', show: 'VOIR', hide: 'MASQUER', forgot: 'Mot de passe oublié ?', legalPrefix: 'En créant un compte, tu acceptes les', cgu: 'CGU', legalAnd: 'et la', privacy: 'Politique de confidentialité', hasAccount: "J'ai déjà un compte ?", noAccount: 'Pas encore de compte ?', modeLogin: 'Se connecter', explore: "Explorer d'abord", errorTaken: 'Cet e-mail est déjà pris.', errorWrongPassword: 'E-mail ou mot de passe incorrect.', errorNetwork: 'Pas de réseau. Réessaie dans un instant.', strength1: 'Faible', strength2: 'Correct', strength3: 'Bon', strength4: 'Excellent' },
   verify: { title: 'Entre le code reçu', subtitle: "On vient d'envoyer un code à 6 chiffres à", confirm: 'Confirmer', resend: 'Renvoyer le code', resendWait: 'Nouveau code dans %{count} s', modify: "Modifier l'adresse", error: 'Code incorrect ou expiré.' },
-  survey: { skip: 'Passer', created: 'Compte créé', title: "Deux questions, et c'est tout.", subtitle: 'Ça nous aide à savoir pour qui on construit. Tu peux tout laisser vide.', discovery: 'Comment as-tu découvert Cloudbreak ?', practice: 'Tu es plutôt ?', appStore: 'App Store', google: 'Recherche Google', instagram: 'Instagram', tiktok: 'TikTok', wordOfMouth: 'Bouche à oreille', other: 'Autre', hiker: 'Randonneur', trail: 'Traileur', paraglider: 'Parapentiste', photographer: 'Photographe', alpinist: 'Alpiniste', newsletter: 'Recevoir les actualités Cloudbreak', continue: 'Continuer', finish: 'Terminer' },
+  survey: { skip: 'Passer', created: 'Compte créé', title: "Deux questions, et c'est tout.", subtitle: 'Ça nous aide à savoir pour qui on construit. Tu peux tout laisser vide.', discovery: 'Comment as-tu découvert Cloudbreak ?', practice: 'Tu es plutôt ?', appStore: 'App Store', google: 'Recherche Google', instagram: 'Instagram', tiktok: 'TikTok', wordOfMouth: 'Bouche à oreille', other: 'Autre', hiker: 'Randonneur', trail: 'Traileur', paraglider: 'Parapentiste', photographer: 'Photographe', alpinist: 'Alpiniste', newsletter: 'Recevoir les actualités Cloudbreak', continue: 'Continuer', finish: 'Terminer', error: 'Impossible d’enregistrer tes réponses. Réessaie.' },
   onboarding: {
     tagline: 'Mer de nuages — prévisions par sommet',
     step1Eyebrow: '01 · Bienvenue',
