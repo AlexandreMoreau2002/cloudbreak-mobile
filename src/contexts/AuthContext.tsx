@@ -6,7 +6,12 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/services/supabaseClient';
-import { deleteAccount as deleteAccountService } from '@/services/api/user';
+import {
+  deleteAccount as deleteAccountService,
+  provisionUser,
+  updateUserSurvey,
+  type UserSurvey,
+} from '@/services/api/user';
 
 function isNetworkError(e: unknown): boolean {
   if (!(e instanceof Error)) return false;
@@ -17,9 +22,10 @@ function isNetworkError(e: unknown): boolean {
 export type LocationPermissionStatus = 'undetermined' | 'granted' | 'denied';
 
 export interface SurveyAnswers {
-  acquisitionSource?: string;
-  practice?: string;
-  newsletterOptIn: boolean;
+  acquisitionSource?: UserSurvey['acquisitionSource'];
+  practice?: UserSurvey['practice'];
+  newsletterOptIn?: boolean;
+  skipped?: boolean;
 }
 
 interface AuthState {
@@ -106,13 +112,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signIn(email: string, password: string): Promise<AuthError | null> {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error && isNetworkError(error)) setAuthServiceUnavailable(true);
-      return error;
+      if (error) return error;
+      if (data?.session) {
+        setSession(data.session);
+        return provisionPermanentSession(data.session.access_token);
+      }
+      return null;
     } catch {
       setAuthServiceUnavailable(true);
       return new AuthError('Service d\'authentification indisponible');
     }
+  }
+
+  async function provisionPermanentSession(token: string): Promise<AuthError | null> {
+    try {
+      await provisionUser(token);
+      return null;
+    } catch (error) {
+      if (isNetworkError(error)) setAuthServiceUnavailable(true);
+      return error instanceof AuthError ? error : new AuthError(
+        error instanceof Error ? error.message : 'Provisioning du compte impossible',
+      );
+    }
+  }
+
+  async function provisionCurrentPermanentSession(): Promise<AuthError | null> {
+    const { data } = await supabase.auth.getSession();
+    const currentSession = data.session;
+    if (!currentSession || currentSession.user.is_anonymous === true) return null;
+    setSession(currentSession);
+    return provisionPermanentSession(currentSession.access_token);
   }
 
   async function ensureAnonymousSession(): Promise<AuthError | null> {
@@ -135,7 +166,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       type: 'email_change',
     }));
     if (verificationError) return verificationError;
-    return runAuthOperation(() => supabase.auth.updateUser({ password }));
+    const passwordError = await runAuthOperation(() => supabase.auth.updateUser({ password }));
+    if (passwordError) return passwordError;
+    return provisionCurrentPermanentSession();
   }
 
   async function resendEmailUpgrade(email: string): Promise<AuthError | null> {
@@ -172,9 +205,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token: credential.identityToken,
         nonce: rawNonce,
       };
-      return currentSession?.user.is_anonymous === true
-        ? runAuthOperation(() => supabase.auth.linkIdentity(appleCredentials))
-        : runAuthOperation(() => supabase.auth.signInWithIdToken(appleCredentials));
+      const authError = currentSession?.user.is_anonymous === true
+        ? await runAuthOperation(() => supabase.auth.linkIdentity(appleCredentials))
+        : await runAuthOperation(() => supabase.auth.signInWithIdToken(appleCredentials));
+      if (authError) return authError;
+      return provisionCurrentPermanentSession();
     } catch (error) {
       if (
         typeof error === 'object'
@@ -192,16 +227,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function saveSurvey(answer: SurveyAnswers): Promise<AuthError | null> {
-    return runAuthOperation(() => supabase.auth.updateUser({
-      data: {
-        ...(answer.acquisitionSource === undefined
-          ? {}
-          : { acquisition_source: answer.acquisitionSource }),
-        ...(answer.practice === undefined ? {} : { practice: answer.practice }),
-        newsletter_opt_in: answer.newsletterOptIn,
-        survey_completed_at: new Date().toISOString(),
-      },
-    }));
+    const token = session?.access_token;
+    if (!token || session?.user.is_anonymous === true) return new AuthError('Non authentifié');
+    try {
+      await updateUserSurvey(token, answer);
+      return null;
+    } catch (error) {
+      if (isNetworkError(error)) setAuthServiceUnavailable(true);
+      return error instanceof AuthError ? error : new AuthError(
+        error instanceof Error ? error.message : 'Enregistrement du sondage impossible',
+      );
+    }
   }
 
   async function signOutToAnonymous(): Promise<AuthError | null> {

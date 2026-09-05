@@ -1,5 +1,5 @@
 import React from 'react';
-import { deleteAccount } from '@/services/api/user';
+import { deleteAccount, provisionUser, updateUserSurvey } from '@/services/api/user';
 import { AuthError } from '@supabase/supabase-js';
 import { Text, TouchableOpacity, Platform } from 'react-native';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -43,6 +43,8 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 jest.mock('@/services/api/user', () => ({
   deleteAccount: jest.fn().mockResolvedValue(undefined),
+  provisionUser: jest.fn().mockResolvedValue({}),
+  updateUserSurvey: jest.fn().mockResolvedValue({}),
 }));
 
 jest.mock('expo-location', () => ({
@@ -50,6 +52,8 @@ jest.mock('expo-location', () => ({
 }));
 
 const mockDeleteAccount = deleteAccount as jest.MockedFunction<typeof deleteAccount>;
+const mockProvisionUser = provisionUser as jest.MockedFunction<typeof provisionUser>;
+const mockUpdateUserSurvey = updateUserSurvey as jest.MockedFunction<typeof updateUserSurvey>;
 
 jest.mock('@/services/supabaseClient', () => ({
   supabase: {
@@ -117,6 +121,8 @@ describe('AuthContext', () => {
     mockGetRandomBytesAsync.mockResolvedValue(Uint8Array.from([0, 1, 2, 255]));
     mockDigestStringAsync.mockResolvedValue('hashed-apple-nonce');
     mockDeleteAccount.mockResolvedValue(undefined);
+    mockProvisionUser.mockResolvedValue({} as never);
+    mockUpdateUserSurvey.mockResolvedValue({} as never);
     mockAsyncStorageClear.mockResolvedValue(undefined);
     jest.requireMock('expo-location').getForegroundPermissionsAsync.mockResolvedValue({ status: 'undetermined' });
   });
@@ -176,6 +182,36 @@ describe('AuthContext', () => {
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
     fireEvent.press(getByTestId('signIn'));
     expect(mockSignIn).toHaveBeenCalledWith({ email: 'a@b.com', password: 'pass' });
+  });
+
+  it('provisionne une session permanente après signIn réussi', async () => {
+    const permanentSession = {
+      access_token: 'permanent-token', user: { id: 'u1', is_anonymous: false },
+    };
+    mockSignIn.mockResolvedValueOnce({ data: { session: permanentSession }, error: null });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    await act(async () => { await getAuth().signIn('a@b.com', 'pass'); });
+
+    expect(mockProvisionUser).toHaveBeenCalledWith('permanent-token');
+  });
+
+  it('ne masque pas un échec réseau du provisioning après signIn', async () => {
+    const permanentSession = {
+      access_token: 'permanent-token', user: { id: 'u1', is_anonymous: false },
+    };
+    mockSignIn.mockResolvedValueOnce({ data: { session: permanentSession }, error: null });
+    mockProvisionUser.mockRejectedValueOnce(new Error('network request failed'));
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => { error = await getAuth().signIn('a@b.com', 'pass'); });
+
+    expect(error).toBeInstanceOf(AuthError);
+    expect(getAuth().isAnonymous).toBe(false);
+    expect(getAuth().authServiceUnavailable).toBe(true);
   });
 
   it('signUp appelle supabase.auth.signUp', async () => {
@@ -658,6 +694,21 @@ describe('AuthContext', () => {
     osSpy.restore();
   });
 
+  it('provisionne Apple uniquement après obtention effective d’une session permanente', async () => {
+    const permanentSession = {
+      access_token: 'apple-token', user: { id: 'u1', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValue({ data: { session: permanentSession } });
+    const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    await act(async () => { await getAuth().signInWithApple(); });
+
+    expect(mockProvisionUser).toHaveBeenCalledWith('apple-token');
+    osSpy.restore();
+  });
+
   it("traite l'annulation Apple comme une sortie sans erreur", async () => {
     const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
     mockAppleSignInAsync.mockRejectedValueOnce(
@@ -740,29 +791,31 @@ describe('AuthContext', () => {
     osSpy.restore();
   });
 
-  it('enregistre le sondage dans les métadonnées Supabase', async () => {
+  it('enregistre le sondage via le backend', async () => {
+    mockGetSession.mockResolvedValueOnce({ data: {
+      session: { access_token: 'test-token', user: { id: 'u1', is_anonymous: false } },
+    } });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     await act(async () => {
       await getAuth().saveSurvey({
         acquisitionSource: 'app_store',
-        practice: 'hiking',
+        practice: 'hiker',
         newsletterOptIn: true,
       });
     });
 
-    expect(mockUpdateUser).toHaveBeenCalledWith({
-      data: {
-        acquisition_source: 'app_store',
-        practice: 'hiking',
-        newsletter_opt_in: true,
-        survey_completed_at: expect.any(String),
-      },
+    expect(mockUpdateUserSurvey).toHaveBeenCalledWith('test-token', {
+      acquisitionSource: 'app_store', practice: 'hiker', newsletterOptIn: true,
     });
+    expect(mockUpdateUser).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.anything() }));
   });
 
-  it('marque le sondage passé sans inventer de réponses optionnelles', async () => {
+  it('envoie les réponses partielles sans inventer de réponses optionnelles', async () => {
+    mockGetSession.mockResolvedValueOnce({ data: {
+      session: { access_token: 'test-token', user: { id: 'u1', is_anonymous: false } },
+    } });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
@@ -770,12 +823,8 @@ describe('AuthContext', () => {
       await getAuth().saveSurvey({ newsletterOptIn: false });
     });
 
-    expect(mockUpdateUser).toHaveBeenCalledWith({
-      data: {
-        newsletter_opt_in: false,
-        survey_completed_at: expect.any(String),
-      },
-    });
+    expect(mockUpdateUserSurvey).toHaveBeenCalledWith('test-token', { newsletterOptIn: false });
+    expect(mockUpdateUser).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.anything() }));
   });
 
   it('se déconnecte puis recrée une session invitée', async () => {
