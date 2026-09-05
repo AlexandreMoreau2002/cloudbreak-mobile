@@ -1,0 +1,5 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, View } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
+export function AuthBackdrop() { const { colors } = useTheme(); return <View pointerEvents="none" style={StyleSheet.absoluteFill}><LinearGradient colors={[colors.accentSecondary, colors.background]} locations={[0, 0.82]} style={styles.sky} /><View style={[styles.peakBack, { borderBottomColor: colors.accentSecondary }]} /><View style={[styles.peakFront, { borderBottomColor: colors.accent }]} /></View>; }
+const styles = StyleSheet.create({ sky: { height: 460, opacity: 0.22 }, peakBack: { position: 'absolute', top: 120, left: -40, borderLeftWidth: 170, borderRightWidth: 170, borderBottomWidth: 260, borderLeftColor: 'transparent', borderRightColor: 'transparent', opacity: 0.35 }, peakFront: { position: 'absolute', top: 160, right: -100, borderLeftWidth: 220, borderRightWidth: 220, borderBottomWidth: 300, borderLeftColor: 'transparent', borderRightColor: 'transparent', opacity: 0.28 } });

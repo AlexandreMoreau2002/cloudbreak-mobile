@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import i18n from '@/utils/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { CodeInput } from '@/components/account';
+import { useAccountGate } from '@/contexts/AccountGateContext';
 
 export default function VerifyScreen() {
-  const { colors, typography } = useTheme(); const auth = useAuth(); const router = useRouter(); const { email = '', password = '' } = useLocalSearchParams<{ email?: string; password?: string }>(); const [code, setCode] = useState(''); const [error, setError] = useState(false); const [loading, setLoading] = useState(false); const [resend, setResend] = useState(0);
+  const { colors, typography } = useTheme(); const auth = useAuth(); const gate = useAccountGate(); const router = useRouter(); const { email = '', password = '' } = gate.emailUpgradeCredentials ?? {}; const [code, setCode] = useState(''); const [error, setError] = useState(false); const [loading, setLoading] = useState(false); const [resend, setResend] = useState(0);
   useEffect(() => { if (!resend) return; const id = setInterval(() => setResend((n) => n - 1), 1000); return () => clearInterval(id); }, [resend]);
-  async function confirm() { if (code.length !== 6) return; setLoading(true); const err = await auth.completeEmailUpgrade(String(email), String(password), code); setLoading(false); if (err) { setError(true); return; } router.push('/survey'); }
+  async function confirm() { if (code.length !== 6 || !email || !password) return; setLoading(true); const err = await auth.completeEmailUpgrade(email, password, code); setLoading(false); if (err) { setError(true); return; } router.push('/survey'); }
   async function resendCode() { if (resend) return; await auth.resendEmailUpgrade(String(email)); setCode(''); setResend(30); }
   return <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}><TouchableOpacity testID="verify-back" onPress={() => router.back()} style={styles.back}><Text style={{ color: colors.textPrimary, fontSize: 28 }}>‹</Text></TouchableOpacity><View style={styles.center}><Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold }]}>{i18n.t('verify.title')}</Text><Text style={{ color: colors.textSecondary, textAlign: 'center' }}>{i18n.t('verify.subtitle')} <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{email}</Text></Text><CodeInput value={code} onChange={setCode} error={error} />{error ? <Text accessibilityRole="alert" style={{ color: '#C25C4A', textAlign: 'center' }}>{i18n.t('verify.error')}</Text> : null}</View><View style={styles.bottom}><TouchableOpacity testID="verify-submit" disabled={code.length !== 6 || loading} onPress={confirm} style={[styles.submit, { backgroundColor: colors.accent, opacity: code.length === 6 && !loading ? 1 : 0.4 }]}><Text style={{ color: '#fff' }}>{loading ? i18n.t('common.loading') : i18n.t('verify.confirm')}</Text></TouchableOpacity><TouchableOpacity onPress={resendCode} disabled={resend > 0}><Text style={{ color: colors.accent, textAlign: 'center' }}>{resend ? i18n.t('verify.resendWait', { count: resend }) : i18n.t('verify.resend')}</Text></TouchableOpacity><TouchableOpacity onPress={() => router.back()}><Text style={[styles.modify, { color: colors.textSecondary }]}>{i18n.t('verify.modify')}</Text></TouchableOpacity></View></SafeAreaView>;
 }

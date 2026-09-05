@@ -7,9 +7,9 @@ describe('SurveyForm', () => {
   it('selects answers and submits newsletter opt-in', () => {
     const onSubmit = jest.fn();
     const { getByTestId } = render(<SurveyForm onSubmit={onSubmit} />);
-    fireEvent.press(getByTestId('survey-acquisition-appstore'));
+    fireEvent.press(getByTestId('survey-acquisition-app_store'));
     fireEvent.press(getByTestId('survey-newsletter'));
     fireEvent.press(getByTestId('survey-submit'));
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ acquisitionSource: 'appstore', newsletterOptIn: true }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ acquisitionSource: 'app_store', newsletterOptIn: true }));
   });
 });
