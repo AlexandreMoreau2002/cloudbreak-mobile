@@ -57,6 +57,28 @@ describe('AccountGateContext', () => {
     expect(mockPush).toHaveBeenCalledWith('/account');
   });
 
+  it('conserve les identifiants d’upgrade en mémoire pendant le parcours', async () => {
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+
+    expect(result.current.emailUpgradeCredentials).toBeNull();
+    act(() => result.current.setEmailUpgradeCredentials({ email: 'alex@example.com', password: 'secret' }));
+    expect(result.current.emailUpgradeCredentials).toEqual({ email: 'alex@example.com', password: 'secret' });
+
+    await act(async () => result.current.cancelAccountFlow());
+    expect(result.current.emailUpgradeCredentials).toBeNull();
+  });
+
+  it('nettoie les identifiants après finalisation du parcours', async () => {
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+    act(() => {
+      result.current.setEmailUpgradeCredentials({ email: 'alex@example.com', password: 'secret' });
+      result.current.requireAccount({ kind: 'first_run' });
+    });
+
+    await act(async () => result.current.finishAccountCreation());
+    expect(result.current.emailUpgradeCredentials).toBeNull();
+  });
+
   it('rejoue le favori avec la session permanente puis revient à l’écran d’origine', async () => {
     const { result, rerender } = renderHook(() => useAccountGate(), { wrapper });
     act(() => result.current.requireAccount({ kind: 'favorite', peakId: 'peak-42' }));

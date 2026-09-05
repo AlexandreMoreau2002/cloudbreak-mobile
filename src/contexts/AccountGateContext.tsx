@@ -9,12 +9,18 @@ export type PendingAction =
   | { kind: 'favorite'; peakId: string }
   | { kind: 'quota'; retry: () => void | Promise<void> }
   | { kind: 'first_run' };
+export interface EmailUpgradeCredentials {
+  email: string;
+  password: string;
+}
 interface AccountGateValue {
   pendingAction: PendingAction | null;
   requireAccount: (action: PendingAction) => void;
   finishAccountCreation: () => Promise<void>;
   cancelAccountFlow: () => Promise<void>;
   maybePromptFirstRun: () => Promise<void>;
+  emailUpgradeCredentials: EmailUpgradeCredentials | null;
+  setEmailUpgradeCredentials: (credentials: EmailUpgradeCredentials) => void;
 }
 const AccountGateContext = createContext<AccountGateValue | null>(null);
 
@@ -22,6 +28,7 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
   const router = useRouter();
   const { session } = useAuth();
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [emailUpgradeCredentials, setEmailUpgradeCredentials] = useState<EmailUpgradeCredentials | null>(null);
   const firstRunPromptChecked = useRef(false);
   const requireAccount = useCallback((action: PendingAction) => {
     setPendingAction(action);
@@ -33,6 +40,7 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
   }, [router]);
   const finishAccountCreation = useCallback(async () => {
     const action = pendingAction;
+    setEmailUpgradeCredentials(null);
     if (!action) return;
     setPendingAction(null);
     if (action.kind === 'first_run') { await markPromptSeen(); return; }
@@ -46,6 +54,7 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
   }, [markPromptSeen, pendingAction, router, session]);
   const cancelAccountFlow = useCallback(async () => {
     const action = pendingAction;
+    setEmailUpgradeCredentials(null);
     setPendingAction(null);
     if (action?.kind === 'first_run') { await markPromptSeen(); return; }
     router.back();
@@ -60,7 +69,7 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
       // Storage is best-effort: do not block the app or repeatedly prompt on failure.
     }
   }, [requireAccount, session]);
-  return <AccountGateContext.Provider value={{ pendingAction, requireAccount, finishAccountCreation, cancelAccountFlow, maybePromptFirstRun }}>{children}</AccountGateContext.Provider>;
+  return <AccountGateContext.Provider value={{ pendingAction, requireAccount, finishAccountCreation, cancelAccountFlow, maybePromptFirstRun, emailUpgradeCredentials, setEmailUpgradeCredentials }}>{children}</AccountGateContext.Provider>;
 }
 export function useAccountGate(): AccountGateValue {
   const value = useContext(AccountGateContext);
