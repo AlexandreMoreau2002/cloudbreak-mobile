@@ -3,6 +3,8 @@ import i18n from '@/utils/i18n';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import { track } from '@/services/analytics';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAccountGate } from '@/contexts/AccountGateContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { EmptyState } from '@/components/empty-state';
@@ -22,6 +24,8 @@ export default function SearchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, typography, spacing, radius } = useTheme();
+  const { session, isAnonymous } = useAuth();
+  const { requireAccount } = useAccountGate();
   const { state, query, setQuery } = usePeakSearch();
   const { state: favState, addFavorite, removeFavorite } = useFavorites();
   const { setSelectedPeak } = useSelectedPeak();
@@ -32,6 +36,18 @@ export default function SearchScreen() {
     track('peak_selected', { peak_id: peak.id, source: 'search' });
     setSelectedPeak(peak);
     router.push(HOME_ROUTE);
+  }
+
+  function handleToggleFavorite(peakId: string, isFav: boolean) {
+    if (!isFav) {
+      if (isAnonymous || session?.user?.is_anonymous) {
+        requireAccount({ kind: 'favorite', peakId });
+        return;
+      }
+      addFavorite(peakId);
+      return;
+    }
+    removeFavorite(peakId);
   }
 
   function renderItem({ item }: { item: Peak }) {
@@ -54,7 +70,7 @@ export default function SearchScreen() {
         </View>
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: isFav ? colors.accent : colors.accent + '22' }]}
-          onPress={() => isFav ? removeFavorite(item.id) : addFavorite(item.id)}
+          onPress={() => handleToggleFavorite(item.id, isFav)}
           accessibilityLabel={i18n.t(isFav ? 'search.removeFavorite' : 'search.addFavorite')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >

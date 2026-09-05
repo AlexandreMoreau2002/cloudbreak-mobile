@@ -204,9 +204,21 @@ export default function HomeScreen() {
     /* istanbul ignore next - aucun sommet n'affiche ce bouton */
     if (isFavorite(peakId)) {
       removeFavorite(peakId);
-    } else {
-      addFavorite(peakId);
+      return;
     }
+    if (isAnonymous || session?.user?.is_anonymous) {
+      requireAccount({ kind: 'favorite', peakId });
+      return;
+    }
+    addFavorite(peakId);
+  }
+
+  function handleQuotaAction() {
+    if (isAnonymous || session?.user?.is_anonymous) {
+      requireAccount({ kind: 'quota', retry: refresh });
+      return;
+    }
+    showPaywall('quota');
   }
 
   function handleDismissQuota() {
@@ -285,7 +297,7 @@ export default function HomeScreen() {
                   icon="lock-closed-outline"
                   title={i18n.t('paywall.quotaTitle')}
                   message={i18n.t('home.quotaUpgrade')}
-                  action={{ label: i18n.t('home.discoverPro'), onPress: () => showPaywall('quota') }}
+                  action={{ label: i18n.t('home.discoverPro'), onPress: handleQuotaAction }}
                   actionTestID="quota-open-paywall-button"
                   secondaryAction={{ label: i18n.t('home.notNow'), onPress: handleDismissQuota }}
                 />

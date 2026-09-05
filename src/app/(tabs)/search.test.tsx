@@ -8,11 +8,14 @@ let mockPeakSearch = {
   setQuery: jest.fn(),
 };
 let mockFavoritesState: { status: string; data: unknown[] } = { status: 'success', data: [] };
+let mockAuth = { session: { access_token: 'token', user: { is_anonymous: false } }, isAnonymous: false };
 
 const mockFavCallbacks = {
   addFavorite: jest.fn(),
   removeFavorite: jest.fn(),
 };
+
+const mockRequireAccount = jest.fn();
 
 jest.mock('@/hooks/usePeakSearch', () => ({
   usePeakSearch: () => mockPeakSearch,
@@ -41,6 +44,14 @@ jest.mock('@/contexts/ThemeContext', () => ({
 
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
+}));
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => mockAuth,
+}));
+
+jest.mock('@/contexts/AccountGateContext', () => ({
+  useAccountGate: () => ({ requireAccount: mockRequireAccount }),
 }));
 
 jest.mock('@/utils/i18n', () => ({ t: (k: string) => k }));
@@ -111,6 +122,7 @@ describe('SearchScreen', () => {
     jest.clearAllMocks();
     mockPeakSearch = { state: { status: 'idle' }, query: '', setQuery: jest.fn() };
     mockFavoritesState = { status: 'success', data: [] };
+    mockAuth = { session: { access_token: 'token', user: { is_anonymous: false } }, isAnonymous: false };
   });
 
   it('affiche le hint quand query < 2 chars', () => {
@@ -193,6 +205,21 @@ describe('SearchScreen', () => {
     const { getByLabelText } = render(<SearchScreen />);
     fireEvent.press(getByLabelText('search.addFavorite'));
     expect(mockFavCallbacks.addFavorite).toHaveBeenCalledWith('other');
+  });
+
+  it('un invité ouvre account au tap favori sans mutation API', () => {
+    mockAuth = { session: { access_token: 'guest-token', user: { is_anonymous: true } }, isAnonymous: true };
+    mockPeakSearch = {
+      state: { status: 'success', data: [{ id: 'other', name: 'Autre', slug: 'autre', lat: 0, lng: 0, altitude: 1000 }] },
+      query: 'test',
+      setQuery: jest.fn(),
+    };
+    const { getByLabelText } = render(<SearchScreen />);
+
+    fireEvent.press(getByLabelText('search.addFavorite'));
+
+    expect(mockRequireAccount).toHaveBeenCalledWith({ kind: 'favorite', peakId: 'other' });
+    expect(mockFavCallbacks.addFavorite).not.toHaveBeenCalled();
   });
 
   it('supprime un favori au tap sur le bouton coeur favori', () => {

@@ -668,6 +668,37 @@ describe('HomeScreen', () => {
     expect(addFavorite).toHaveBeenCalledWith('peak-1');
   });
 
+  it('un invité ouvre account au tap favori sans mutation API', () => {
+    const addFavorite = jest.fn();
+    mockUseAuth.mockReturnValue({
+      session: { access_token: 'guest-token', user: { is_anonymous: true } },
+      loading: false,
+      isAnonymous: true,
+      locationPermission: 'granted',
+    });
+    mockUseFavorites.mockReturnValue({
+      state: { status: 'success', data: [] },
+      addFavorite,
+      removeFavorite: jest.fn(),
+      refresh: jest.fn(),
+    });
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess();
+
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('favorite-toggle-button'));
+
+    expect(mockRequireAccount).toHaveBeenCalledWith({ kind: 'favorite', peakId: 'peak-1' });
+    expect(addFavorite).not.toHaveBeenCalled();
+  });
+
   it('retire le sommet courant des favoris quand il est deja favori', () => {
     const removeFavorite = jest.fn();
     mockUseFavorites.mockReturnValue({
@@ -1252,6 +1283,31 @@ describe('HomeScreen', () => {
     expect(openPaywallBtn).toBeTruthy();
     fireEvent.press(openPaywallBtn);
     expect(mockShowPaywall).toHaveBeenCalled();
+  });
+
+  it('le CTA quota invité ouvre account avec retry, jamais le paywall', () => {
+    mockUseAuth.mockReturnValue({
+      session: { access_token: 'guest-token', user: { is_anonymous: true } },
+      loading: false,
+      isAnonymous: true,
+      locationPermission: 'granted',
+    });
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    const retry = jest.fn();
+    mockUseWeekData.mockReturnValue({ data: null, loading: false, error: 'QUOTA_EXCEEDED', quotaExceeded: false, fromCache: false, cachedAt: null, refresh: retry });
+
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('quota-open-paywall-button'));
+
+    expect(mockRequireAccount).toHaveBeenCalledWith({ kind: 'quota', retry });
+    expect(mockShowPaywall).not.toHaveBeenCalled();
   });
 
   it('affiche le bouton Pas maintenant sur la carte quota et masque la carte au clic', () => {
