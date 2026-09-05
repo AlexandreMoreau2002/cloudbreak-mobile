@@ -7,6 +7,7 @@ import { AccountGateProvider, useAccountGate } from '@/contexts/AccountGateConte
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
+import i18n from '@/utils/i18n';
 import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 import {
   JosefinSans_300Light,
@@ -26,6 +27,7 @@ function AuthGuard() {
   const segments = useSegments();
   const { session, loading, ensureAnonymousSession } = useAuth();
   const { maybePromptFirstRun } = useAccountGate();
+  useLanguage();
   const { completed, hydrated } = useOnboarding();
   const anonymousAttempted = useRef(false);
 
@@ -43,14 +45,14 @@ function AuthGuard() {
       else if (!anonymousAttempted.current) {
         anonymousAttempted.current = true;
         void ensureAnonymousSession().then((error) => {
-          if (error) Alert.alert('Connexion indisponible', 'Impossible de démarrer une session. Vérifiez votre connexion puis relancez l’application.');
+          if (error) Alert.alert(i18n.t('common.serviceUnavailable'), i18n.t('common.networkHint'));
           else router.replace(TABS_ROUTE);
         });
       }
     } else if (!session && !anonymousAttempted.current) {
       anonymousAttempted.current = true;
       void ensureAnonymousSession().then((error) => {
-        if (error) Alert.alert('Connexion indisponible', 'Impossible de démarrer une session. Vérifiez votre connexion puis relancez l’application.');
+        if (error) Alert.alert(i18n.t('common.serviceUnavailable'), i18n.t('common.networkHint'));
         else router.replace(TABS_ROUTE);
       });
     } else if (session && inAuthGroup) {

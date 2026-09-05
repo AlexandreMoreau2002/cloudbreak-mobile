@@ -227,6 +227,9 @@ export default {
     error: 'Error',
     emptyFields: 'Please fill in all fields',
   },
+  account: { eyebrow: 'SEA OF CLOUDS', createTitle: 'Create your account', loginTitle: 'Welcome back', createSubtitle: 'You need an account for this feature. Your summits, alerts, and history follow you everywhere.', loginSubtitle: 'Find your summits and history again.', apple: 'Continue with Apple', or: 'or', create: 'Create account', login: 'Sign in', show: 'SHOW', hide: 'HIDE', forgot: 'Forgot password?', legal: 'By creating an account, you accept the Terms and Privacy Policy.', hasAccount: 'Already have an account?', noAccount: 'No account yet?', modeLogin: 'Sign in', explore: 'Explore first' },
+  verify: { title: 'Enter the code', subtitle: 'We sent a 6-digit code to', confirm: 'Confirm', resend: 'Resend code', resendWait: 'New code in %{count}s', modify: 'Change email', error: 'Code incorrect or expired.' },
+  survey: { skip: 'Skip', created: 'Account created', title: 'Two questions, that’s all.', subtitle: 'It helps us know who we’re building for. You can leave everything blank.', discovery: 'How did you discover Cloudbreak?', practice: 'What are you?', appStore: 'App Store', google: 'Google search', wordOfMouth: 'Word of mouth', other: 'Other', hiker: 'Hiker', trail: 'Trail runner', paraglider: 'Paraglider', photographer: 'Photographer', alpinist: 'Alpinist', newsletter: 'Receive Cloudbreak updates', continue: 'Continue', finish: 'Finish' },
   onboarding: {
     tagline: 'Sea-of-clouds forecast by summit',
     step1Eyebrow: '01 · Welcome',
