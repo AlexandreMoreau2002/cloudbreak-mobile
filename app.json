@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.alexandremoreau.cloudbreak",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Cloudbreak utilise votre position pour vous proposer les sommets les plus proches."
       }
