@@ -40,7 +40,8 @@
         }
       ],
       "expo-font",
-      "expo-localization"
+      "expo-localization",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,

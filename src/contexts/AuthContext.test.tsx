@@ -20,7 +20,16 @@ const mockLinkIdentity = jest.fn().mockResolvedValue({ error: null });
 const mockSignInAnonymously = jest.fn().mockResolvedValue({ error: null });
 const mockSignInWithIdToken = jest.fn().mockResolvedValue({ error: null });
 const mockAppleSignInAsync = jest.fn().mockResolvedValue({ identityToken: 'apple-id-token' });
+const mockGetRandomBytesAsync = jest.fn().mockResolvedValue(Uint8Array.from([0, 1, 2, 255]));
+const mockDigestStringAsync = jest.fn().mockResolvedValue('hashed-apple-nonce');
 const mockAsyncStorageClear = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('expo-crypto', () => ({
+  getRandomBytesAsync: (...args: unknown[]) => mockGetRandomBytesAsync(...args),
+  digestStringAsync: (...args: unknown[]) => mockDigestStringAsync(...args),
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+  CryptoEncoding: { HEX: 'hex' },
+}));
 
 jest.mock('expo-apple-authentication', () => ({
   signInAsync: (...args: unknown[]) => mockAppleSignInAsync(...args),
@@ -105,6 +114,8 @@ describe('AuthContext', () => {
     mockSignInAnonymously.mockResolvedValue({ error: null });
     mockSignInWithIdToken.mockResolvedValue({ error: null });
     mockAppleSignInAsync.mockResolvedValue({ identityToken: 'apple-id-token' });
+    mockGetRandomBytesAsync.mockResolvedValue(Uint8Array.from([0, 1, 2, 255]));
+    mockDigestStringAsync.mockResolvedValue('hashed-apple-nonce');
     mockDeleteAccount.mockResolvedValue(undefined);
     mockAsyncStorageClear.mockResolvedValue(undefined);
     jest.requireMock('expo-location').getForegroundPermissionsAsync.mockResolvedValue({ status: 'undetermined' });
@@ -182,7 +193,7 @@ describe('AuthContext', () => {
     );
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
     fireEvent.press(getByTestId('signOut'));
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 
   it('signOut ignore les erreurs supabase.auth.signOut', async () => {
@@ -262,7 +273,7 @@ describe('AuthContext', () => {
     fireEvent.press(getByTestId('deleteAccount'));
 
     await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalledWith('token-123'));
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(mockAsyncStorageClear).toHaveBeenCalledTimes(1);
   });
 
@@ -580,7 +591,7 @@ describe('AuthContext', () => {
   });
 
   it("lie le jeton Apple natif à la session anonyme au lieu de remplacer l'utilisateur", async () => {
-    mockGetSession.mockResolvedValueOnce({
+    mockGetSession.mockResolvedValue({
       data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
     });
     const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
@@ -591,8 +602,42 @@ describe('AuthContext', () => {
       await getAuth().signInWithApple();
     });
 
-    expect(mockAppleSignInAsync).toHaveBeenCalledWith({ requestedScopes: [0, 1] });
-    expect(mockLinkIdentity).toHaveBeenCalledWith({ provider: 'apple', token: 'apple-id-token' });
+    expect(mockGetRandomBytesAsync).toHaveBeenCalledWith(32);
+    expect(mockDigestStringAsync).toHaveBeenCalledWith('SHA-256', '000102ff', {
+      encoding: 'hex',
+    });
+    expect(mockAppleSignInAsync).toHaveBeenCalledWith({
+      nonce: 'hashed-apple-nonce',
+      requestedScopes: [0, 1],
+    });
+    expect(mockLinkIdentity).toHaveBeenCalledWith({
+      provider: 'apple', token: 'apple-id-token', nonce: '000102ff',
+    });
+    expect(mockSignInWithIdToken).not.toHaveBeenCalled();
+    osSpy.restore();
+  });
+
+  it("préserve l'UUID invité quand ensureAnonymousSession puis Apple s'enchaînent dans le même rendu", async () => {
+    const guestSession = {
+      access_token: 'guest-token',
+      user: { id: 'guest', is_anonymous: true },
+    };
+    mockGetSession
+      .mockResolvedValueOnce({ data: { session: null } })
+      .mockResolvedValueOnce({ data: { session: guestSession } });
+    mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
+    const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    await act(async () => {
+      expect(await getAuth().ensureAnonymousSession()).toBeNull();
+      expect(await getAuth().signInWithApple()).toBeNull();
+    });
+
+    expect(mockLinkIdentity).toHaveBeenCalledWith({
+      provider: 'apple', token: 'apple-id-token', nonce: '000102ff',
+    });
     expect(mockSignInWithIdToken).not.toHaveBeenCalled();
     osSpy.restore();
   });
@@ -607,7 +652,7 @@ describe('AuthContext', () => {
     });
 
     expect(mockSignInWithIdToken).toHaveBeenCalledWith({
-      provider: 'apple', token: 'apple-id-token',
+      provider: 'apple', token: 'apple-id-token', nonce: '000102ff',
     });
     expect(mockLinkIdentity).not.toHaveBeenCalled();
     osSpy.restore();
@@ -751,6 +796,7 @@ describe('AuthContext', () => {
     });
 
     expect(calls).toEqual(['signOut', 'signInAnonymously']);
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 
   it('recrée une session invitée même si la déconnexion locale rejette', async () => {
@@ -763,5 +809,20 @@ describe('AuthContext', () => {
     });
 
     expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+  });
+
+  it("retourne l'erreur quand la recréation de session invitée échoue", async () => {
+    const anonymousError = new AuthError('Anonymous sign-ins are disabled');
+    mockSignInAnonymously.mockResolvedValueOnce({ error: anonymousError });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => {
+      error = await getAuth().signOutToAnonymous();
+    });
+
+    expect(error).toBe(anonymousError);
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 });

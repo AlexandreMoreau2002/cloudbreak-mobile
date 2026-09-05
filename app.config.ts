@@ -8,6 +8,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-image',
     'expo-web-browser',
+    'expo-apple-authentication',
     [
       'expo-location',
       {

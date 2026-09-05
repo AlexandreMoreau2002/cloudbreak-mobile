@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import * as Crypto from 'expo-crypto';
 import * as Location from 'expo-location';
 import { AuthError, Session } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -38,7 +39,7 @@ interface AuthContextValue extends AuthState {
   resendEmailUpgrade: (email: string) => Promise<AuthError | null>;
   signInWithApple: () => Promise<AuthError | null>;
   saveSurvey: (answer: SurveyAnswers) => Promise<AuthError | null>;
-  signOutToAnonymous: () => Promise<void>;
+  signOutToAnonymous: () => Promise<AuthError | null>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   setLocationPermission: (status: LocationPermissionStatus) => void;
@@ -147,7 +148,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      const randomBytes = await Crypto.getRandomBytesAsync(32);
+      const rawNonce = Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+        { encoding: Crypto.CryptoEncoding.HEX }
+      );
       const credential = await AppleAuthentication.signInAsync({
+        nonce: hashedNonce,
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
@@ -157,8 +166,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return new AuthError('Apple n\'a pas retourné de jeton d\'identité');
       }
 
-      const appleCredentials = { provider: 'apple' as const, token: credential.identityToken };
-      return isAnonymous
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const appleCredentials = {
+        provider: 'apple' as const,
+        token: credential.identityToken,
+        nonce: rawNonce,
+      };
+      return currentSession?.user.is_anonymous === true
         ? runAuthOperation(() => supabase.auth.linkIdentity(appleCredentials))
         : runAuthOperation(() => supabase.auth.signInWithIdToken(appleCredentials));
     } catch (error) {
@@ -190,20 +204,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }));
   }
 
-  async function signOutToAnonymous(): Promise<void> {
-    await supabase.auth.signOut().catch(() => null);
-    await runAuthOperation(() => supabase.auth.signInAnonymously());
+  async function signOutToAnonymous(): Promise<AuthError | null> {
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
+    return runAuthOperation(() => supabase.auth.signInAnonymously());
   }
 
   async function signOut(): Promise<void> {
-    await supabase.auth.signOut().catch(() => null);
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
   }
 
   async function deleteAccount(): Promise<void> {
     const token = session?.access_token;
     if (!token) throw new Error('Non authentifié');
     await deleteAccountService(token);
-    await supabase.auth.signOut().catch(() => null);
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
     await AsyncStorage.clear();
   }
 
