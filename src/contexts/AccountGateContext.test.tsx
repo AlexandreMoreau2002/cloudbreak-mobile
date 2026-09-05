@@ -124,6 +124,34 @@ describe('AccountGateContext', () => {
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
   });
 
+  it('déclenche le prompt first-run une seule fois pour une session invitée non vue', async () => {
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+
+    await act(async () => result.current.maybePromptFirstRun());
+    await act(async () => result.current.maybePromptFirstRun());
+
+    expect(mockAsyncStorage.getItem).toHaveBeenCalledWith('hasSeenAccountPrompt');
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(result.current.pendingAction).toEqual({ kind: 'first_run' });
+  });
+
+  it('ne déclenche pas le prompt si le flag est déjà vu ou si le compte est permanent', async () => {
+    mockAsyncStorage.getItem.mockResolvedValue('true');
+    const { result, rerender } = renderHook(() => useAccountGate(), { wrapper });
+
+    await act(async () => result.current.maybePromptFirstRun());
+    expect(mockPush).not.toHaveBeenCalled();
+
+    mockAsyncStorage.getItem.mockResolvedValue(null);
+    mockAuthState.session = {
+      access_token: 'permanent-token',
+      user: { id: 'account', is_anonymous: false },
+    };
+    rerender(undefined);
+    await act(async () => result.current.maybePromptFirstRun());
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
   it('échoue explicitement hors provider', () => {
     expect(() => renderHook(() => useAccountGate())).toThrow(
       'useAccountGate must be used within AccountGateProvider',

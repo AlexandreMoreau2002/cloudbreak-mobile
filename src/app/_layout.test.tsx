@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import RootLayout from '@/app/_layout';
 import { render, waitFor } from '@testing-library/react-native';
 
@@ -14,6 +15,7 @@ const mockUseSegments = jest.fn();
 const mockUseAuth = jest.fn();
 const mockUseOnboarding = jest.fn();
 const mockEnsureAnonymousSession = jest.fn();
+const mockAlert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
 jest.mock('expo-router', () => ({
   Stack: () => null,
@@ -206,6 +208,15 @@ describe('RootLayout', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     });
+  });
+
+  it('signale une erreur de création de session anonyme sans boucler', async () => {
+    mockEnsureAnonymousSession.mockResolvedValueOnce(new Error('offline'));
+    render(<RootLayout />);
+
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(1));
+    expect(mockEnsureAnonymousSession).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)');
   });
 
   it('ne redirige pas tant que hydrated est false', async () => {

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { addFavorite } from '@/services/api/user';
 
@@ -14,6 +14,7 @@ interface AccountGateValue {
   requireAccount: (action: PendingAction) => void;
   finishAccountCreation: () => Promise<void>;
   cancelAccountFlow: () => Promise<void>;
+  maybePromptFirstRun: () => Promise<void>;
 }
 const AccountGateContext = createContext<AccountGateValue | null>(null);
 
@@ -21,6 +22,7 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
   const router = useRouter();
   const { session } = useAuth();
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const firstRunPromptChecked = useRef(false);
   const requireAccount = useCallback((action: PendingAction) => {
     setPendingAction(action);
     router.push(action.kind === 'first_run' ? { pathname: '/account', params: { firstRun: '1' } } : '/account');
@@ -48,7 +50,17 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
     if (action?.kind === 'first_run') { await markPromptSeen(); return; }
     router.back();
   }, [markPromptSeen, pendingAction, router]);
-  return <AccountGateContext.Provider value={{ pendingAction, requireAccount, finishAccountCreation, cancelAccountFlow }}>{children}</AccountGateContext.Provider>;
+  const maybePromptFirstRun = useCallback(async () => {
+    if (firstRunPromptChecked.current || !session?.user.is_anonymous) return;
+    firstRunPromptChecked.current = true;
+    try {
+      const seen = await AsyncStorage.getItem(ACCOUNT_PROMPT_SEEN_KEY);
+      if (!seen) requireAccount({ kind: 'first_run' });
+    } catch {
+      // Storage is best-effort: do not block the app or repeatedly prompt on failure.
+    }
+  }, [requireAccount, session]);
+  return <AccountGateContext.Provider value={{ pendingAction, requireAccount, finishAccountCreation, cancelAccountFlow, maybePromptFirstRun }}>{children}</AccountGateContext.Provider>;
 }
 export function useAccountGate(): AccountGateValue {
   const value = useContext(AccountGateContext);
