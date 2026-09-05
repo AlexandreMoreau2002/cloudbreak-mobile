@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { addFavorite } from '@/services/api/user';
+import { supabase } from '@/services/supabaseClient';
 
 const ACCOUNT_PROMPT_SEEN_KEY = 'hasSeenAccountPrompt';
 export type PendingAction =
@@ -44,14 +45,22 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
     if (!action) return;
     setPendingAction(null);
     if (action.kind === 'first_run') { await markPromptSeen(); return; }
+    // Auth state updates are asynchronous. Read Supabase's session here rather
+    // than using the session captured by the render that opened the gate.
+    const { data } = await supabase.auth.getSession();
+    const freshSession = data.session;
+    if (!freshSession || freshSession.user.is_anonymous) {
+      router.back();
+      return;
+    }
     if (action.kind === 'favorite') {
-      if (session && !session.user.is_anonymous) await addFavorite(session.access_token, action.peakId);
+      await addFavorite(freshSession.access_token, action.peakId);
       router.back();
       return;
     }
     await action.retry();
     router.back();
-  }, [markPromptSeen, pendingAction, router, session]);
+  }, [markPromptSeen, pendingAction, router]);
   const cancelAccountFlow = useCallback(async () => {
     const action = pendingAction;
     setEmailUpgradeCredentials(null);

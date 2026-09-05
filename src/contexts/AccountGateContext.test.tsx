@@ -11,6 +11,7 @@ const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
 const mockAddFavorite = jest.fn();
+const mockGetSession = jest.fn();
 const mockAuthState = {
   session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } },
 };
@@ -25,6 +26,10 @@ jest.mock('@/contexts/AuthContext', () => ({
 
 jest.mock('@/services/api/user', () => ({
   addFavorite: (...args: unknown[]) => mockAddFavorite(...args),
+}));
+
+jest.mock('@/services/supabaseClient', () => ({
+  supabase: { auth: { getSession: (...args: unknown[]) => mockGetSession(...args) } },
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -45,6 +50,7 @@ describe('AccountGateContext', () => {
       access_token: 'guest-token',
       user: { id: 'guest', is_anonymous: true },
     };
+    mockGetSession.mockResolvedValue({ data: { session: mockAuthState.session } });
     mockAsyncStorage.setItem.mockResolvedValue(undefined);
   });
 
@@ -86,6 +92,7 @@ describe('AccountGateContext', () => {
       access_token: 'permanent-token',
       user: { id: 'account', is_anonymous: false },
     };
+    mockGetSession.mockResolvedValue({ data: { session: mockAuthState.session } });
     rerender(undefined);
 
     await act(async () => result.current.finishAccountCreation());
@@ -95,16 +102,56 @@ describe('AccountGateContext', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
+  it('relit la session Supabase fraîche avant de rejouer un favori après conversion', async () => {
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+    act(() => result.current.requireAccount({ kind: 'favorite', peakId: 'peak-fresh' }));
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'fresh-token', user: { id: 'account', is_anonymous: false } } },
+    });
+
+    await act(async () => result.current.finishAccountCreation());
+
+    expect(mockGetSession).toHaveBeenCalledTimes(1);
+    expect(mockAddFavorite).toHaveBeenCalledTimes(1);
+    expect(mockAddFavorite).toHaveBeenCalledWith('fresh-token', 'peak-fresh');
+  });
+
+  it('ne rejoue pas le favori sans session permanente fraîche', async () => {
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+    act(() => result.current.requireAccount({ kind: 'favorite', peakId: 'peak-anonymous' }));
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+
+    await act(async () => result.current.finishAccountCreation());
+
+    expect(mockAddFavorite).not.toHaveBeenCalled();
+  });
+
   it('rejoue le callback de quota après conversion', async () => {
     const retry = jest.fn().mockResolvedValue(undefined);
     const action: PendingAction = { kind: 'quota', retry };
     const { result } = renderHook(() => useAccountGate(), { wrapper });
     act(() => result.current.requireAccount(action));
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'fresh-token', user: { id: 'account', is_anonymous: false } } },
+    });
 
     await act(async () => result.current.finishAccountCreation());
 
     expect(retry).toHaveBeenCalledTimes(1);
     expect(result.current.pendingAction).toBeNull();
+  });
+
+  it('ne rejoue pas le quota sans session permanente fraîche', async () => {
+    const retry = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+    act(() => result.current.requireAccount({ kind: 'quota', retry }));
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
+    });
+
+    await act(async () => result.current.finishAccountCreation());
+
+    expect(retry).not.toHaveBeenCalled();
   });
 
   it('annule le parcours sans rejouer l’action et conserve la session invitée', async () => {
