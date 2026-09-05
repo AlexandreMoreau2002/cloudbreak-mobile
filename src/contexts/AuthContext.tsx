@@ -19,6 +19,8 @@ function isNetworkError(e: unknown): boolean {
   return msg.includes('network request failed') || msg.includes('failed to fetch');
 }
 
+const EMAIL_UPGRADE_UNAVAILABLE = 'EMAIL_UPGRADE_UNAVAILABLE';
+
 export type LocationPermissionStatus = 'undetermined' | 'granted' | 'denied';
 
 export interface SurveyAnswers {
@@ -154,7 +156,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function beginEmailUpgrade(email: string): Promise<AuthError | null> {
-    return runAuthOperation(() => supabase.auth.updateUser({ email }));
+    void email;
+    return new AuthError(EMAIL_UPGRADE_UNAVAILABLE);
   }
 
   async function completeEmailUpgrade(
@@ -162,19 +165,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     code: string
   ): Promise<AuthError | null> {
-    const verificationError = await runAuthOperation(() => supabase.auth.verifyOtp({
-      email,
-      token: code,
-      type: 'email_change',
-    }));
-    if (verificationError) return verificationError;
-    const passwordError = await runAuthOperation(() => supabase.auth.updateUser({ password }));
-    if (passwordError) return passwordError;
-    return provisionCurrentPermanentSession();
+    void email;
+    void password;
+    void code;
+    return new AuthError(EMAIL_UPGRADE_UNAVAILABLE);
   }
 
   async function resendEmailUpgrade(email: string): Promise<AuthError | null> {
-    return runAuthOperation(() => supabase.auth.resend({ email, type: 'email_change' }));
+    void email;
+    return new AuthError(EMAIL_UPGRADE_UNAVAILABLE);
   }
 
   async function signInWithApple(intent: AppleAuthIntent): Promise<AuthError | null> {
@@ -245,8 +244,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOutToAnonymous(): Promise<AuthError | null> {
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
-    return runAuthOperation(() => supabase.auth.signInAnonymously());
+    const error = await runAuthOperation(() => supabase.auth.signInAnonymously());
+    if (error) return error;
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.user.is_anonymous) {
+      return new AuthError('Session anonyme non confirmée');
+    }
+    setSession(data.session);
+    return null;
   }
 
   async function signOut(): Promise<void> {

@@ -10,6 +10,7 @@ import {
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
+let mockSegments: string[] = ['(tabs)', 'search'];
 const mockAddFavorite = jest.fn();
 const mockGetSession = jest.fn();
 const mockAuthState = {
@@ -18,6 +19,7 @@ const mockAuthState = {
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack, push: mockPush, replace: mockReplace }),
+  useSegments: () => mockSegments,
 }));
 
 jest.mock('@/contexts/AuthContext', () => ({
@@ -46,6 +48,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 describe('AccountGateContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSegments = ['(tabs)', 'search'];
     mockAuthState.session = {
       access_token: 'guest-token',
       user: { id: 'guest', is_anonymous: true },
@@ -99,7 +102,8 @@ describe('AccountGateContext', () => {
 
     expect(mockAddFavorite).toHaveBeenCalledWith('permanent-token', 'peak-42');
     expect(result.current.pendingAction).toBeNull();
-    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/search');
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it('relit la session Supabase fraîche avant de rejouer un favori après conversion', async () => {
@@ -163,7 +167,8 @@ describe('AccountGateContext', () => {
 
     expect(retry).not.toHaveBeenCalled();
     expect(result.current.pendingAction).toBeNull();
-    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/search');
+    expect(mockBack).not.toHaveBeenCalled();
     expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
   });
 

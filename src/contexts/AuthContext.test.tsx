@@ -544,76 +544,66 @@ describe('AuthContext', () => {
     expect(getAuth().authServiceUnavailable).toBe(true);
   });
 
-  it("démarre l'upgrade e-mail sur le compte anonyme courant", async () => {
-    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
-    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
-
-    await act(async () => {
-      await getAuth().beginEmailUpgrade('a@b.com');
-    });
-
-    expect(mockUpdateUser).toHaveBeenCalledWith({ email: 'a@b.com' });
-  });
-
-  it('lie e-mail, vérifie le code puis ajoute le mot de passe au même compte', async () => {
+  it("bloque explicitement l'upgrade e-mail tant que Supabase OTP n'est pas validé", async () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     let error: AuthError | null = null;
-    await act(async () => {
-      error = await getAuth().completeEmailUpgrade('a@b.com', 'Aa!123456', '123456');
-    });
+    await act(async () => { error = await getAuth().beginEmailUpgrade('a@b.com'); });
 
-    expect(error).toBeNull();
-    expect(mockVerifyOtp).toHaveBeenCalledWith({
-      email: 'a@b.com', token: '123456', type: 'email_change',
-    });
-    expect(mockUpdateUser).toHaveBeenLastCalledWith({ password: 'Aa!123456' });
-  });
-
-  it("n'ajoute pas le mot de passe quand Supabase refuse le code", async () => {
-    const otpError = new AuthError('Token has expired');
-    mockVerifyOtp.mockResolvedValueOnce({ error: otpError });
-    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
-    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
-
-    let error: AuthError | null = null;
-    await act(async () => {
-      error = await getAuth().completeEmailUpgrade('a@b.com', 'Aa!123456', '123456');
-    });
-
-    expect(error).toBe(otpError);
+    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 
-  it("renvoie l'OTP de changement d'e-mail à la nouvelle adresse", async () => {
+  it("ne vérifie ni ne modifie le compte quand l'upgrade e-mail est indisponible", async () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
-    await act(async () => {
-      await getAuth().resendEmailUpgrade('a@b.com');
-    });
+    let error: AuthError | null = null;
+    await act(async () => { error = await getAuth().completeEmailUpgrade('a@b.com', 'Aa!123456', '123456'); });
 
-    expect(mockResend).toHaveBeenCalledWith({ email: 'a@b.com', type: 'email_change' });
+    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 
-  it("propage une erreur d'auth levée pendant le renvoi du code", async () => {
-    const resendError = new AuthError('rate limit');
-    mockResend.mockRejectedValueOnce(resendError);
+  it("ignore un code fourni tant que l'upgrade e-mail est indisponible", async () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     let error: AuthError | null = null;
     await act(async () => {
-      error = await getAuth().resendEmailUpgrade('a@b.com');
+      error = await getAuth().completeEmailUpgrade('a@b.com', 'Aa!123456', '123456');
     });
 
-    expect(error).toBe(resendError);
+    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 
-  it("signale une erreur réseau retournée pendant l'upgrade e-mail", async () => {
-    const networkError = new AuthError('failed to fetch');
-    mockUpdateUser.mockResolvedValueOnce({ error: networkError });
+  it("ne renvoie pas d'OTP e-mail non validé", async () => {
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => { error = await getAuth().resendEmailUpgrade('a@b.com'); });
+
+    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
+    expect(mockResend).not.toHaveBeenCalled();
+  });
+
+  it("ne tente pas de renvoi après une erreur de configuration OTP", async () => {
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => { error = await getAuth().resendEmailUpgrade('a@b.com'); });
+
+    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
+    expect(mockResend).not.toHaveBeenCalled();
+  });
+
+  it("ne dépend pas du réseau pour signaler l'upgrade e-mail indisponible", async () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
@@ -622,8 +612,8 @@ describe('AuthContext', () => {
       error = await getAuth().beginEmailUpgrade('a@b.com');
     });
 
-    expect(error).toBe(networkError);
-    expect(getAuth().authServiceUnavailable).toBe(true);
+    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
+    expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 
   it("lie le jeton Apple natif à la session anonyme au lieu de remplacer l'utilisateur", async () => {
@@ -869,51 +859,56 @@ describe('AuthContext', () => {
     expect(mockUpdateUser).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.anything() }));
   });
 
-  it('se déconnecte puis recrée une session invitée', async () => {
-    const calls: string[] = [];
-    mockSignOut.mockImplementationOnce(async () => {
-      calls.push('signOut');
-      return { error: null };
-    });
+  it('crée une session invitée avant de confirmer la déconnexion', async () => {
+    const anonymousSession = {
+      access_token: 'guest-token', user: { id: 'guest', is_anonymous: true },
+    };
     mockSignInAnonymously.mockImplementationOnce(async () => {
-      calls.push('signInAnonymously');
-      return { error: null };
+      return { data: { session: anonymousSession }, error: null };
     });
+    mockGetSession.mockResolvedValueOnce({ data: { session: null } }).mockResolvedValueOnce({ data: { session: anonymousSession } });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     await act(async () => {
-      await getAuth().signOutToAnonymous();
-    });
-
-    expect(calls).toEqual(['signOut', 'signInAnonymously']);
-    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
-  });
-
-  it('recrée une session invitée même si la déconnexion locale rejette', async () => {
-    mockSignOut.mockRejectedValueOnce(new Error('network down'));
-    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
-    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
-
-    await act(async () => {
-      await getAuth().signOutToAnonymous();
+      expect(await getAuth().signOutToAnonymous()).toBeNull();
     });
 
     expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(getAuth().isAnonymous).toBe(true);
   });
 
-  it("retourne l'erreur quand la recréation de session invitée échoue", async () => {
+  it('préserve la session permanente si la session invitée ne peut pas être créée', async () => {
+    const permanentSession = {
+      access_token: 'permanent-token', user: { id: 'account', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: permanentSession } });
     const anonymousError = new AuthError('Anonymous sign-ins are disabled');
     mockSignInAnonymously.mockResolvedValueOnce({ error: anonymousError });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     let error: AuthError | null = null;
-    await act(async () => {
-      error = await getAuth().signOutToAnonymous();
-    });
+    await act(async () => { error = await getAuth().signOutToAnonymous(); });
 
     expect(error).toBe(anonymousError);
-    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(getAuth().isAnonymous).toBe(false);
+  });
+
+  it("refuse une session non anonyme retournée par l'API de session invitée", async () => {
+    const permanentSession = {
+      access_token: 'permanent-token', user: { id: 'account', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: permanentSession } }).mockResolvedValueOnce({ data: { session: permanentSession } });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => { error = await getAuth().signOutToAnonymous(); });
+
+    expect((error as unknown as AuthError).message).toBe('Session anonyme non confirmée');
+    expect(getAuth().isAnonymous).toBe(false);
   });
 });

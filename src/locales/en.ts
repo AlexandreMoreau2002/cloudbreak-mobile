@@ -150,6 +150,7 @@ export default {
     eyebrow: 'PROFILE',
     comingSoon: 'Profile — coming soon',
     signOut: 'Sign out',
+    signOutError: 'Unable to create a guest session. Try again.',
     darkMode: '🌙 Dark mode',
     lightMode: '☀️ Light mode',
     languageFr: 'FR',
@@ -234,7 +235,7 @@ export default {
     error: 'Error',
     emptyFields: 'Please fill in all fields',
   },
-  account: { eyebrow: 'SEA OF CLOUDS', createTitle: 'Create your account', loginTitle: 'Welcome back', createSubtitle: 'You need an account for this feature. Your summits, alerts, and history follow you everywhere.', loginSubtitle: 'Find your summits and history again.', apple: 'Continue with Apple', or: 'or', create: 'Create account', login: 'Sign in', show: 'SHOW', hide: 'HIDE', forgot: 'Forgot password?', legalPrefix: 'By creating an account, you accept the', cgu: 'Terms', legalAnd: 'and', privacy: 'Privacy Policy', hasAccount: 'Already have an account?', noAccount: 'No account yet?', modeLogin: 'Sign in', explore: 'Explore first', errorTaken: 'This email is already in use.', errorWrongPassword: 'Incorrect email or password.', errorNetwork: 'No network. Try again in a moment.', strength1: 'Weak', strength2: 'Fair', strength3: 'Good', strength4: 'Excellent' },
+  account: { eyebrow: 'SEA OF CLOUDS', createTitle: 'Create your account', loginTitle: 'Welcome back', createSubtitle: 'You need an account for this feature. Your summits, alerts, and history follow you everywhere.', loginSubtitle: 'Find your summits and history again.', apple: 'Continue with Apple', or: 'or', create: 'Create account', login: 'Sign in', show: 'SHOW', hide: 'HIDE', forgot: 'Forgot password?', legalPrefix: 'By creating an account, you accept the', cgu: 'Terms', legalAnd: 'and', privacy: 'Privacy Policy', hasAccount: 'Already have an account?', noAccount: 'No account yet?', modeLogin: 'Sign in', explore: 'Explore first', emailUpgradeUnavailable: 'Email account creation is temporarily unavailable. Use Apple or try again later.', errorTaken: 'This email is already in use.', errorWrongPassword: 'Incorrect email or password.', errorNetwork: 'No network. Try again in a moment.', strength1: 'Weak', strength2: 'Fair', strength3: 'Good', strength4: 'Excellent' },
   verify: { title: 'Enter the code', subtitle: 'We sent a 6-digit code to', confirm: 'Confirm', resend: 'Resend code', resendWait: 'New code in %{count}s', modify: 'Change email', error: 'Code incorrect or expired.' },
   survey: { skip: 'Skip', created: 'Account created', title: 'Two questions, that’s all.', subtitle: 'It helps us know who we’re building for. You can leave everything blank.', discovery: 'How did you discover Cloudbreak?', practice: 'What are you?', appStore: 'App Store', google: 'Google search', instagram: 'Instagram', tiktok: 'TikTok', wordOfMouth: 'Word of mouth', other: 'Other', hiker: 'Hiker', trail: 'Trail runner', paraglider: 'Paraglider', photographer: 'Photographer', alpinist: 'Alpinist', newsletter: 'Receive Cloudbreak updates', continue: 'Continue', finish: 'Finish', error: 'Unable to save your answers. Try again.' },
   onboarding: {

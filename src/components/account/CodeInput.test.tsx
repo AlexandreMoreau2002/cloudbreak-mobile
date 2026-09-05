@@ -8,5 +8,29 @@ describe('CodeInput', () => {
     const { getByTestId } = render(<CodeInput value="" onChange={onChange} />);
     fireEvent.changeText(getByTestId('code-input-0'), '123456');
     expect(onChange).toHaveBeenLastCalledWith('123456');
+    expect(getByTestId('code-input-0').props.maxLength).toBe(6);
+  });
+
+  it('keeps a hole when backspace clears a filled cell', () => {
+    const onChange = jest.fn();
+    const { getByTestId, rerender } = render(<CodeInput value="123456" onChange={onChange} />);
+
+    fireEvent.changeText(getByTestId('code-input-2'), '');
+    expect(onChange).toHaveBeenLastCalledWith('12456');
+    rerender(<CodeInput value="12456" onChange={onChange} />);
+    fireEvent.changeText(getByTestId('code-input-2'), '9');
+
+    expect(onChange).toHaveBeenLastCalledWith('129456');
+  });
+
+  it('handles native arrow keys and moves back on an empty cell', () => {
+    const onChange = jest.fn();
+    const { getByTestId } = render(<CodeInput value="123" onChange={onChange} />);
+
+    fireEvent(getByTestId('code-input-2'), 'keyPress', { nativeEvent: { key: 'ArrowLeft' } });
+    fireEvent(getByTestId('code-input-1'), 'keyPress', { nativeEvent: { key: 'ArrowRight' } });
+    fireEvent(getByTestId('code-input-3'), 'keyPress', { nativeEvent: { key: 'Backspace' } });
+
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

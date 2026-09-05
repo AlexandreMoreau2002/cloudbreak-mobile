@@ -35,6 +35,17 @@ describe('AccountScreen route contracts', () => {
     expect(mockPush).toHaveBeenCalledWith('/verify');
   });
 
+  it('keeps email creation on the account screen when OTP is not configured', async () => {
+    mockBegin.mockResolvedValueOnce({ message: 'EMAIL_UPGRADE_UNAVAILABLE' });
+    const { getByTestId } = render(<AccountScreen />);
+
+    fireEvent.press(getByTestId('form'));
+
+    await waitFor(() => expect(mockBegin).toHaveBeenCalledWith('a@b.com'));
+    expect(mockPush).not.toHaveBeenCalledWith('/verify');
+    expect(mockSetCredentials).not.toHaveBeenCalled();
+  });
+
   it('finishes an existing login through AccountGate without verification', async () => {
     mockParams = { mode: 'login' };
     mockPendingAction = { kind: 'favorite', peakId: 'peak-1' };

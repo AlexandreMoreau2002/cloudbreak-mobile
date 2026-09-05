@@ -20,7 +20,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showPaywall } = usePaywall();
-  const { session, signOut, deleteAccount, locationPermission, refreshLocationPermission } = useAuth();
+  const { session, signOutToAnonymous, deleteAccount, locationPermission, refreshLocationPermission } = useAuth();
   const { setSelectedPeak } = useSelectedPeak();
   const { resetOnboarding } = useOnboarding();
   const { locale, toggleLocale } = useLanguage();
@@ -30,6 +30,7 @@ export default function ProfileScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [signOutError, setSignOutError] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -37,9 +38,11 @@ export default function ProfileScreen() {
     }, [refreshLocationPermission]),
   );
 
-  function handleSignOut() {
+  async function handleSignOut() {
     track('signed_out');
-    signOut();
+    setSignOutError(false);
+    const error = await signOutToAnonymous();
+    if (error) setSignOutError(true);
   }
 
   function handleToggleTheme() {
@@ -154,12 +157,20 @@ export default function ProfileScreen() {
             {i18n.t('profile.sectionAccount')}
           </Text>
           <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
-            <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.signOutRow} onPress={() => void handleSignOut()} activeOpacity={0.7}>
               <Ionicons name="log-out-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
               <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
                 {i18n.t('profile.signOut')}
               </Text>
             </TouchableOpacity>
+            {signOutError ? (
+              <View style={styles.signOutErrorBox}>
+                <Text testID="profile-signout-error" style={styles.signOutError}>{i18n.t('profile.signOutError')}</Text>
+                <TouchableOpacity testID="profile-signout-retry" onPress={() => void handleSignOut()}>
+                  <Text style={[styles.signOutRetry, { color: colors.accent }]}>{i18n.t('common.retry')}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
             <TouchableOpacity style={styles.signOutRow} onPress={handleOpenDeleteModal} activeOpacity={0.7}>
               <Ionicons name="trash-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
               <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
@@ -229,6 +240,9 @@ const styles = StyleSheet.create({
   signOutRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
   signOutIcon: { width: 20, textAlign: 'center' },
   signOutLabel: { flex: 1, fontSize: 15, lineHeight: Math.round(15 * 1.5), color: '#C25C4A' },
+  signOutErrorBox: { paddingHorizontal: 16, paddingBottom: 14, gap: 4 },
+  signOutError: { color: '#C25C4A', fontSize: 13 },
+  signOutRetry: { fontSize: 13, fontWeight: '600' },
 
   devButton: { borderWidth: 1, borderRadius: 12, borderStyle: 'dashed', padding: 12, alignItems: 'center', marginTop: 8 },
   devText: { fontSize: 12, lineHeight: Math.round(12 * 1.5) },

@@ -24,6 +24,7 @@ jest.mock('@/utils/i18n', () => ({
 jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
 
 const mockSignOut = jest.fn();
+const mockSignOutToAnonymous = jest.fn().mockResolvedValue(null);
 const mockDeleteAccount = jest.fn();
 const mockToggleScheme = jest.fn();
 const mockToggleLocale = jest.fn();
@@ -35,6 +36,7 @@ let mockLocationPermission: 'undetermined' | 'granted' | 'denied' = 'denied';
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     signOut: mockSignOut,
+    signOutToAnonymous: mockSignOutToAnonymous,
     deleteAccount: mockDeleteAccount,
     session: mockSession,
     locationPermission: mockLocationPermission,
@@ -103,6 +105,7 @@ describe('ProfileScreen', () => {
     mockScheme = 'light';
     mockLocale = 'fr';
     mockSession = { user: { email: 'test@example.com' } };
+    mockSignOutToAnonymous.mockResolvedValue(null);
     mockLocationPermission = 'denied';
   });
 
@@ -209,10 +212,11 @@ describe('ProfileScreen', () => {
     expect(getByText('profile.signOut')).toBeTruthy();
   });
 
-  it('appelle signOut au clic sur se déconnecter', () => {
+  it('crée une vraie session invitée au clic sur se déconnecter', async () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('profile.signOut'));
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockSignOutToAnonymous).toHaveBeenCalledTimes(1));
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
 
   it('tracks signed_out then calls signOut', () => {
@@ -220,7 +224,17 @@ describe('ProfileScreen', () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('profile.signOut'));
     expect(track).toHaveBeenCalledWith('signed_out');
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockSignOutToAnonymous).toHaveBeenCalledTimes(1);
+  });
+
+  it('propose de réessayer si la session invitée ne peut pas être créée', async () => {
+    mockSignOutToAnonymous.mockResolvedValueOnce(new Error('Anonymous sign-ins are disabled'));
+    const { getByText, getByTestId } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.signOut'));
+    await waitFor(() => expect(getByTestId('profile-signout-error')).toBeTruthy());
+
+    fireEvent.press(getByTestId('profile-signout-retry'));
+    await waitFor(() => expect(mockSignOutToAnonymous).toHaveBeenCalledTimes(2));
   });
 
   it('tracks theme_toggled then calls toggleScheme', () => {
