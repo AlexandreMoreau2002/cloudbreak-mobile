@@ -28,6 +28,8 @@ export interface SurveyAnswers {
   skipped?: boolean;
 }
 
+export type AppleAuthIntent = 'creation' | 'connexion';
+
 interface AuthState {
   loading: boolean;
   session: Session | null;
@@ -43,7 +45,7 @@ interface AuthContextValue extends AuthState {
   beginEmailUpgrade: (email: string) => Promise<AuthError | null>;
   completeEmailUpgrade: (email: string, password: string, code: string) => Promise<AuthError | null>;
   resendEmailUpgrade: (email: string) => Promise<AuthError | null>;
-  signInWithApple: () => Promise<AuthError | null>;
+  signInWithApple: (intent: AppleAuthIntent) => Promise<AuthError | null>;
   saveSurvey: (answer: SurveyAnswers) => Promise<AuthError | null>;
   signOutToAnonymous: () => Promise<AuthError | null>;
   signOut: () => Promise<void>;
@@ -175,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return runAuthOperation(() => supabase.auth.resend({ email, type: 'email_change' }));
   }
 
-  async function signInWithApple(): Promise<AuthError | null> {
+  async function signInWithApple(intent: AppleAuthIntent): Promise<AuthError | null> {
     if (Platform.OS !== 'ios') {
       return new AuthError('Sign in with Apple est indisponible sur cette plateforme');
     }
@@ -199,16 +201,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return new AuthError('Apple n\'a pas retourné de jeton d\'identité');
       }
 
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
       const appleCredentials = {
         provider: 'apple' as const,
         token: credential.identityToken,
         nonce: rawNonce,
       };
-      const authError = currentSession?.user.is_anonymous === true
+      const authError = intent === 'creation'
         ? await runAuthOperation(() => supabase.auth.linkIdentity(appleCredentials))
         : await runAuthOperation(() => supabase.auth.signInWithIdToken(appleCredentials));
       if (authError) return authError;
+      // Auth state callbacks are asynchronous; always read the session after
+      // the provider call so provisioning uses the session Supabase actually
+      // established (and preserves the anonymous UUID for linkIdentity).
       return provisionCurrentPermanentSession();
     } catch (error) {
       if (

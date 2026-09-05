@@ -635,7 +635,7 @@ describe('AuthContext', () => {
     await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
 
     await act(async () => {
-      await getAuth().signInWithApple();
+      await getAuth().signInWithApple('creation');
     });
 
     expect(mockGetRandomBytesAsync).toHaveBeenCalledWith(32);
@@ -650,6 +650,29 @@ describe('AuthContext', () => {
       provider: 'apple', token: 'apple-id-token', nonce: '000102ff',
     });
     expect(mockSignInWithIdToken).not.toHaveBeenCalled();
+    osSpy.restore();
+  });
+
+  it("provisionne la session fraîche après le link Apple en conservant l'UUID invité", async () => {
+    const linkedSession = {
+      access_token: 'linked-token',
+      user: { id: 'guest', is_anonymous: false },
+    };
+    mockGetSession
+      .mockResolvedValueOnce({ data: { session: null } })
+      .mockResolvedValueOnce({ data: { session: linkedSession } });
+    mockLinkIdentity.mockResolvedValueOnce({ data: { identity: { id: 'apple' } }, error: null });
+    const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    await act(async () => {
+      expect(await getAuth().signInWithApple('creation')).toBeNull();
+    });
+
+    expect(mockLinkIdentity).toHaveBeenCalled();
+    expect(mockProvisionUser).toHaveBeenCalledWith('linked-token');
+    expect(getAuth().session?.user.id).toBe('guest');
     osSpy.restore();
   });
 
@@ -668,7 +691,7 @@ describe('AuthContext', () => {
 
     await act(async () => {
       expect(await getAuth().ensureAnonymousSession()).toBeNull();
-      expect(await getAuth().signInWithApple()).toBeNull();
+      expect(await getAuth().signInWithApple('creation')).toBeNull();
     });
 
     expect(mockLinkIdentity).toHaveBeenCalledWith({
@@ -684,7 +707,7 @@ describe('AuthContext', () => {
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     await act(async () => {
-      await getAuth().signInWithApple();
+      await getAuth().signInWithApple('connexion');
     });
 
     expect(mockSignInWithIdToken).toHaveBeenCalledWith({
@@ -703,9 +726,28 @@ describe('AuthContext', () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
-    await act(async () => { await getAuth().signInWithApple(); });
+    await act(async () => { await getAuth().signInWithApple('connexion'); });
 
     expect(mockProvisionUser).toHaveBeenCalledWith('apple-token');
+    osSpy.restore();
+  });
+
+  it("retourne l'erreur de provisioning après une connexion Apple réussie", async () => {
+    const permanentSession = {
+      access_token: 'apple-token', user: { id: 'u1', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValue({ data: { session: permanentSession } });
+    const provisioningError = new Error('provisioning failed');
+    mockProvisionUser.mockRejectedValueOnce(provisioningError);
+    const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => { error = await getAuth().signInWithApple('connexion'); });
+
+    expect(error).toBeInstanceOf(AuthError);
+    expect(mockSignInWithIdToken).toHaveBeenCalled();
     osSpy.restore();
   });
 
@@ -719,7 +761,7 @@ describe('AuthContext', () => {
 
     let error: AuthError | null = new AuthError('not replaced');
     await act(async () => {
-      error = await getAuth().signInWithApple();
+      error = await getAuth().signInWithApple('connexion');
     });
 
     expect(error).toBeNull();
@@ -736,7 +778,7 @@ describe('AuthContext', () => {
 
     let error: AuthError | null = null;
     await act(async () => {
-      error = await getAuth().signInWithApple();
+      error = await getAuth().signInWithApple('connexion');
     });
 
     expect(error).toBeInstanceOf(AuthError);
@@ -752,7 +794,7 @@ describe('AuthContext', () => {
 
     let error: AuthError | null = null;
     await act(async () => {
-      error = await getAuth().signInWithApple();
+      error = await getAuth().signInWithApple('connexion');
     });
 
     expect(error).toBeInstanceOf(AuthError);
@@ -769,7 +811,7 @@ describe('AuthContext', () => {
 
     let error: AuthError | null = null;
     await act(async () => {
-      error = await getAuth().signInWithApple();
+      error = await getAuth().signInWithApple('connexion');
     });
 
     expect(error).toBe(appleError);
@@ -783,7 +825,7 @@ describe('AuthContext', () => {
 
     let error: AuthError | null = null;
     await act(async () => {
-      error = await getAuth().signInWithApple();
+      error = await getAuth().signInWithApple('connexion');
     });
 
     expect(error).toBeInstanceOf(AuthError);
