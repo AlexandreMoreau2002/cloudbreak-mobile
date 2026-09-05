@@ -19,6 +19,7 @@ import { ErrorState } from '@/components/error-state';
 import { PeakHeader } from '@/components/peak-header';
 import { EmptyState } from '@/components/empty-state';
 import { usePaywall } from '@/contexts/PaywallContext';
+import { useAccountGate } from '@/contexts/AccountGateContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HomeSkeleton } from '@/components/home-skeleton';
 import { OfflineBanner } from '@/components/offline-banner';
@@ -64,7 +65,7 @@ export default function HomeScreen() {
   useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { session, locationPermission } = useAuth();
+  const { session, isAnonymous, locationPermission } = useAuth();
   const { colors, typography, spacing } = useTheme();
   const [quotaDismissed, setQuotaDismissed] = useState(false);
   const [lastSuccessfulPeak, setLastSuccessfulPeak] = useState<Peak | null>(null);
@@ -74,6 +75,7 @@ export default function HomeScreen() {
   const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded, fromCache, cachedAt, refresh } = useWeekData(selectedPeak?.id ?? null, token);
 
   const { showPaywall } = usePaywall();
+  const { requireAccount } = useAccountGate();
   const userClickedHourRef = useRef(false);
 
   // Sommet différent sélectionné → la carte quota doit pouvoir se réafficher pour lui aussi
@@ -82,8 +84,11 @@ export default function HomeScreen() {
   }, [selectedPeak?.id]);
 
   useEffect(() => {
-    if (quotaExceeded) showPaywall('quota');
-  }, [quotaExceeded, showPaywall]);
+    if (quotaExceeded) {
+      if (isAnonymous || session?.user?.is_anonymous) requireAccount({ kind: 'quota', retry: refresh });
+      else showPaywall('quota');
+    }
+  }, [quotaExceeded, refresh, requireAccount, isAnonymous, session?.user?.is_anonymous, showPaywall]);
 
   useEffect(() => {
     if (quotaExceeded && selectedPeak) {
@@ -262,18 +267,6 @@ export default function HomeScreen() {
             onSelectHour={(h) => { userClickedHourRef.current = true; setSelectedHour(h); }}
             onValidateTerrain={handleValidateTerrain}
           />
-          {quotaExceeded ? (
-            <TouchableOpacity
-              testID="quota-counter-badge"
-              style={[styles.quotaCounterBadge, { borderColor: colors.border, backgroundColor: colors.surface }]}
-              onPress={() => showPaywall('home_badge')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.quotaCounterText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs }]}>
-                {i18n.t('paywall.quotaCounterNone')}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
           <WeekStrip selectedDate={selectedDate} onSelectDate={handleSelectDate} dayScores={weekData?.bestByDate} />
           <ConditionsSection score={displayScore} />
           <FavoritesGrid favorites={favorites} onSelectPeak={handleSelectFavoritePeak} />

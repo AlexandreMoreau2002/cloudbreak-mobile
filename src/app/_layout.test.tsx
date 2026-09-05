@@ -2,12 +2,18 @@ import React from 'react';
 import RootLayout from '@/app/_layout';
 import { render, waitFor } from '@testing-library/react-native';
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+}));
+
 const mockReplace = jest.fn();
 const mockHideAsync = jest.fn();
 const mockUseFonts = jest.fn();
 const mockUseSegments = jest.fn();
 const mockUseAuth = jest.fn();
 const mockUseOnboarding = jest.fn();
+const mockEnsureAnonymousSession = jest.fn();
 
 jest.mock('expo-router', () => ({
   Stack: () => null,
@@ -57,9 +63,10 @@ jest.mock('@/hooks/useAppSessionTracking', () => ({
 describe('RootLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEnsureAnonymousSession.mockResolvedValue(null);
     mockUseFonts.mockReturnValue([true]);
     mockUseSegments.mockReturnValue(['(tabs)']);
-    mockUseAuth.mockReturnValue({ session: null, loading: false });
+    mockUseAuth.mockReturnValue({ session: null, loading: false, ensureAnonymousSession: mockEnsureAnonymousSession });
     mockUseOnboarding.mockReturnValue({
       completed: true,
       hydrated: true,
@@ -75,12 +82,13 @@ describe('RootLayout', () => {
     expect(mockHideAsync).not.toHaveBeenCalled();
   });
 
-  it('cache le splash puis redirige vers login sans session hors groupe auth', async () => {
+  it('crée une session anonyme puis affiche les tabs sans imposer login', async () => {
     render(<RootLayout />);
 
     await waitFor(() => {
       expect(mockHideAsync).toHaveBeenCalledTimes(1);
-      expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+      expect(mockEnsureAnonymousSession).toHaveBeenCalledTimes(1);
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     });
   });
 
@@ -120,7 +128,7 @@ describe('RootLayout', () => {
 
   it('redirige vers onboarding si le flag est absent et pas de session', async () => {
     mockUseSegments.mockReturnValue(['(tabs)']);
-    mockUseAuth.mockReturnValue({ session: null, loading: false });
+    mockUseAuth.mockReturnValue({ session: null, loading: false, ensureAnonymousSession: mockEnsureAnonymousSession });
     mockUseOnboarding.mockReturnValue({
       completed: false,
       hydrated: true,
@@ -167,9 +175,9 @@ describe('RootLayout', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('redirige vers login si onboarding terminé, sur le segment onboarding, sans session', async () => {
+  it('crée une session anonyme si onboarding terminé sur le segment onboarding', async () => {
     mockUseSegments.mockReturnValue(['onboarding']);
-    mockUseAuth.mockReturnValue({ session: null, loading: false });
+    mockUseAuth.mockReturnValue({ session: null, loading: false, ensureAnonymousSession: mockEnsureAnonymousSession });
     mockUseOnboarding.mockReturnValue({
       completed: true,
       hydrated: true,
@@ -179,7 +187,8 @@ describe('RootLayout', () => {
     render(<RootLayout />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+      expect(mockEnsureAnonymousSession).toHaveBeenCalledTimes(1);
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     });
   });
 

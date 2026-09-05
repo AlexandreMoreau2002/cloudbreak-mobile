@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
+import { AccountGateProvider } from '@/contexts/AccountGateContext';
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
@@ -17,14 +18,14 @@ import {
 SplashScreen.preventAutoHideAsync();
 
 const TABS_ROUTE = '/(tabs)' as Href;
-const AUTH_LOGIN_ROUTE = '/(auth)/login' as Href;
 const ONBOARDING_ROUTE = '/onboarding' as Href;
 
 function AuthGuard() {
   const router = useRouter();
   const segments = useSegments();
-  const { session, loading } = useAuth();
+  const { session, loading, ensureAnonymousSession } = useAuth();
   const { completed, hydrated } = useOnboarding();
+  const anonymousAttempted = useRef(false);
 
   useEffect(() => {
     if (loading || !hydrated) return;
@@ -35,13 +36,18 @@ function AuthGuard() {
     }
     const inAuthGroup = segments[0] === '(auth)';
     if (inOnboarding) {
-      router.replace(session ? TABS_ROUTE : AUTH_LOGIN_ROUTE);
-    } else if (!session && !inAuthGroup) {
-      router.replace(AUTH_LOGIN_ROUTE);
+      if (session) router.replace(TABS_ROUTE);
+      else if (!anonymousAttempted.current) {
+        anonymousAttempted.current = true;
+        void ensureAnonymousSession().then((error) => { if (!error) router.replace(TABS_ROUTE); });
+      }
+    } else if (!session && !anonymousAttempted.current) {
+      anonymousAttempted.current = true;
+      void ensureAnonymousSession().then((error) => { if (!error) router.replace(TABS_ROUTE); });
     } else if (session && inAuthGroup) {
       router.replace(TABS_ROUTE);
     }
-  }, [session, loading, completed, hydrated, segments, router]);
+  }, [session, loading, completed, hydrated, segments, router, ensureAnonymousSession]);
 
   return null;
 }
@@ -73,8 +79,10 @@ export default function RootLayout() {
         <LanguageProvider>
           <AuthProvider>
             <SelectedPeakProvider>
-              <AuthGuard />
-              <AppStack />
+              <AccountGateProvider>
+                <AuthGuard />
+                <AppStack />
+              </AccountGateProvider>
             </SelectedPeakProvider>
           </AuthProvider>
         </LanguageProvider>

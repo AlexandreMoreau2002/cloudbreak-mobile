@@ -186,6 +186,11 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+const mockRequireAccount = jest.fn();
+jest.mock('@/contexts/AccountGateContext', () => ({
+  useAccountGate: () => ({ requireAccount: mockRequireAccount }),
+}));
+
 const mockUseSelectedPeak = jest.fn();
 jest.mock('@/contexts/SelectedPeakContext', () => ({
   useSelectedPeak: () => mockUseSelectedPeak(),
@@ -344,7 +349,7 @@ describe('HomeScreen', () => {
     mockPush.mockReset();
     mockSetSelectedDate.mockReset();
     mockSetSelectedHour.mockReset();
-    mockUseAuth.mockReturnValue({ session: { access_token: 'mock-token' }, loading: false, locationPermission: 'granted' });
+    mockUseAuth.mockReturnValue({ session: { access_token: 'mock-token' }, loading: false, isAnonymous: false, locationPermission: 'granted' });
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: null,
       selectedDate: '2026-03-24',
@@ -1146,7 +1151,7 @@ describe('HomeScreen', () => {
     expect(mockSetSelectedHour).toHaveBeenCalledWith(8);
   });
 
-  it('ouvre le paywall automatiquement quand quotaExceeded passe a true', () => {
+  it('un compte permanent au quota atteint ouvre le paywall', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
@@ -1158,9 +1163,41 @@ describe('HomeScreen', () => {
     setupSuccess(MOCK_SCORE_DATA, '2026-03-24', 6, true);
 
     render(<HomeScreen />);
-    expect(screen.getByTestId('quota-counter-badge')).toBeTruthy();
-    expect(mockShowPaywall).toHaveBeenCalled();
+    expect(mockShowPaywall).toHaveBeenCalledWith('quota');
+    expect(mockRequireAccount).not.toHaveBeenCalled();
     expect(mockTrack).toHaveBeenCalledWith('quota_badge_viewed', { peak_id: 'peak-1' });
+  });
+
+  it('un quota atteint par un invité ouvre account, jamais le paywall', () => {
+    mockUseAuth.mockReturnValue({
+      session: { access_token: 'guest-token' },
+      loading: false,
+      isAnonymous: true,
+      locationPermission: 'granted',
+    });
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    const retry = jest.fn();
+    mockUseWeekData.mockReturnValue({
+      data: null,
+      loading: false,
+      error: 'QUOTA_EXCEEDED',
+      quotaExceeded: true,
+      fromCache: false,
+      cachedAt: null,
+      refresh: retry,
+    });
+
+    render(<HomeScreen />);
+
+    expect(mockRequireAccount).toHaveBeenCalledWith({ kind: 'quota', retry });
+    expect(mockShowPaywall).not.toHaveBeenCalled();
   });
 
   it('ne re-track pas quota_badge_viewed sur un rerender sans changement de quota ni de sommet', () => {
@@ -1183,7 +1220,7 @@ describe('HomeScreen', () => {
     expect(callsAfterRerender).toBe(1);
   });
 
-  it('affiche le badge quota et appelle showPaywall au clic', () => {
+  it('n’affiche aucun indicateur de quota sur la Home', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
@@ -1195,10 +1232,7 @@ describe('HomeScreen', () => {
     setupSuccess(MOCK_SCORE_DATA, '2026-03-24', 6, true);
 
     render(<HomeScreen />);
-    const badge = screen.getByTestId('quota-counter-badge');
-    expect(badge).toBeTruthy();
-    fireEvent.press(badge);
-    expect(mockShowPaywall).toHaveBeenCalled();
+    expect(screen.queryByTestId('quota-counter-badge')).toBeNull();
   });
 
   it('affiche la carte quota exceeded et appelle showPaywall au clic sur le bouton', () => {
@@ -1479,4 +1513,3 @@ describe('HomeScreen', () => {
   });
 
 });
-
