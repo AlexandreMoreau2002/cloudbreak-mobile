@@ -2,12 +2,22 @@
 
 ## État
 
-Implémentation présente sur `feature/parcours-compte-2-5-2-6-2-8`, **review bloquée**.
-Le code et les tests unitaires sont livrés avec les stories 2.6 et 2.8, mais le préflight
-Supabase n'est pas levé : Anonymous Auth, le provider Apple, la confirmation e-mail et le
-template/type OTP restent à prouver sur l'instance dev. Voir
-[`story-2-5-manual-test-guide.md`](story-2-5-manual-test-guide.md). Aucun OTP ou Apple réel
-n'est donc déclaré validé.
+Implémentation livrée sur `feature/parcours-compte-2-5-2-6-2-8` avec les stories 2.6 et 2.8.
+Checks automatiques verts : `npm test` (106 suites / 793 tests), `tsc --noEmit`, `expo lint` ;
+backend `make validate` 243 tests à 100 % de couverture.
+
+**Le préflight Supabase reste à lever sur l'instance dev** : Anonymous Auth ON, provider Apple,
+confirmation e-mail ON + template/type OTP. Voir
+[`story-2-5-manual-test-guide.md`](story-2-5-manual-test-guide.md). Aucun OTP ni Apple réel n'est
+déclaré validé.
+
+**Décision produit — parcours création par e-mail désactivé dans ce lot.** Tant que le type
+`verifyOtp` n'est pas prouvé sur l'instance réelle, `beginEmailUpgrade` /
+`completeEmailUpgrade` / `resendEmailUpgrade` renvoient `EMAIL_UPGRADE_UNAVAILABLE` : l'écran
+`/account` affiche une copy dédiée et reste en place. Le parcours **Apple** (création +
+connexion) est, lui, entièrement câblé. Réactivation du parcours e-mail = une story de suivi
+une fois le préflight Supabase confirmé (retirer le court-circuit dans `AuthContext.tsx`,
+rebrancher `/verify`).
 
 ## Parcours et architecture de session
 
@@ -46,6 +56,9 @@ dashboard Supabase configuré, ni la réception d'un e-mail, ni une build iOS si
 manuel doit confirmer UUID avant/après conversion, quota conservé, annulation, code erroné,
 expiration, renvoi et adresse déjà utilisée avant de passer la story à `done`.
 
-La dernière exécution de `npm run validate` n'est pas verte : elle échoue sur
-`src/app/_layout.test.tsx` car le mock Supabase requis est incomplet. Cette correction est en
-cours ; aucune validation finale mobile n'est revendiquée dans cette fiche.
+`npm test` + `tsc --noEmit` + `expo lint` passent dans le worktree (106 suites / 793 tests).
+Le mock Supabase de `src/app/_layout.test.tsx` a été complété (commit `9a10741`) — la suite est
+verte. Les tests ne prouvent toujours pas un dashboard Supabase configuré, la réception d'un
+e-mail, ni une build iOS signée : le guide manuel doit confirmer UUID avant/après conversion,
+quota conservé, annulation, code erroné, expiration, renvoi et adresse déjà utilisée avant de
+passer la story à `done`.

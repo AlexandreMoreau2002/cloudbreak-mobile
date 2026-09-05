@@ -3,6 +3,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { addFavorite } from '@/services/api/user';
+import { DEBUG } from '@/constants/devConfig';
 import { supabase } from '@/services/supabaseClient';
 
 const ACCOUNT_PROMPT_SEEN_KEY = 'hasSeenAccountPrompt';
@@ -43,6 +44,7 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
         : currentSegment === 'profile'
           ? '/(tabs)/profile'
           : '/(tabs)';
+    if (DEBUG) console.debug('[AccountGate] requireAccount', { kind: action.kind, returnRoute: returnRoute.current });
     setPendingAction(action);
     router.push(action.kind === 'first_run' ? { pathname: '/account', params: { firstRun: '1' } } : '/account');
   }, [router, segments]);
@@ -60,6 +62,7 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
     // than using the session captured by the render that opened the gate.
     const { data } = await supabase.auth.getSession();
     const freshSession = data.session;
+    if (DEBUG) console.debug('[AccountGate] finishAccountCreation', { kind: action.kind, isAnonymous: freshSession?.user.is_anonymous ?? null });
     if (!freshSession || freshSession.user.is_anonymous) {
       restoreReturnRoute();
       return;

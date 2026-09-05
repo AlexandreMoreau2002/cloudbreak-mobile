@@ -11,6 +11,7 @@ import {
   updateUserSurvey,
   type UserSurvey,
 } from '@/services/api/user';
+import { DEBUG } from '@/constants/devConfig';
 import { supabase } from '@/services/supabaseClient';
 
 function isNetworkError(e: unknown): boolean {
@@ -95,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (DEBUG) console.debug('[AuthContext] auth state change', { event: _event, isAnonymous: newSession?.user.is_anonymous ?? null });
       setSession(newSession);
     });
 
@@ -152,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function ensureAnonymousSession(): Promise<AuthError | null> {
     if (session) return null;
+    if (DEBUG) console.debug('[AuthContext] ensureAnonymousSession → signInAnonymously');
     return runAuthOperation(() => supabase.auth.signInAnonymously());
   }
 
@@ -205,6 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token: credential.identityToken,
         nonce: rawNonce,
       };
+      if (DEBUG) console.debug('[AuthContext] signInWithApple', { intent });
       const authError = intent === 'creation'
         ? await runAuthOperation(() => supabase.auth.linkIdentity(appleCredentials))
         : await runAuthOperation(() => supabase.auth.signInWithIdToken(appleCredentials));
@@ -244,6 +248,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOutToAnonymous(): Promise<AuthError | null> {
+    if (DEBUG) console.debug('[AuthContext] signOutToAnonymous → new guest session');
     const error = await runAuthOperation(() => supabase.auth.signInAnonymously());
     if (error) return error;
     const { data } = await supabase.auth.getSession();
