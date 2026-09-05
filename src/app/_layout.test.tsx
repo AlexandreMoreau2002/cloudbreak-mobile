@@ -8,6 +8,14 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   setItem: jest.fn(),
 }));
 
+jest.mock('@/services/supabaseClient', () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn(),
+    },
+  },
+}));
+
 const mockReplace = jest.fn();
 const mockHideAsync = jest.fn();
 const mockUseFonts = jest.fn();
@@ -94,15 +102,14 @@ describe('RootLayout', () => {
     });
   });
 
-  it('redirige vers les tabs avec une session dans le groupe auth', async () => {
-    mockUseSegments.mockReturnValue(['(auth)']);
+  it('ne redirige pas une session existante depuis un écran public', async () => {
+    mockUseSegments.mockReturnValue(['account']);
     mockUseAuth.mockReturnValue({ session: { access_token: 'token' }, loading: false });
 
     render(<RootLayout />);
 
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
-    });
+    await waitFor(() => expect(mockHideAsync).toHaveBeenCalledTimes(1));
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('ne redirige pas pendant le loading', async () => {
