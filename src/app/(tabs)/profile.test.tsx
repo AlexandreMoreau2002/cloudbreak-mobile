@@ -27,7 +27,7 @@ const mockSignOut = jest.fn();
 const mockDeleteAccount = jest.fn();
 const mockToggleScheme = jest.fn();
 const mockToggleLocale = jest.fn();
-let mockSession: { user: { email?: string } } | null = { user: { email: 'test@example.com' } };
+let mockSession: { user: { email?: string; is_anonymous?: boolean } } | null = { user: { email: 'test@example.com' } };
 
 const mockRefreshLocationPermission = jest.fn();
 let mockLocationPermission: 'undetermined' | 'granted' | 'denied' = 'denied';
@@ -123,6 +123,38 @@ describe('ProfileScreen', () => {
 
     expect(getByText('profile.title')).toBeTruthy();
     expect(queryByText('test@example.com')).toBeNull();
+  });
+
+  it('affiche la carte invitée sans actions sensibles', () => {
+    mockSession = { user: { is_anonymous: true } };
+
+    const { getByText, queryByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.guest.title')).toBeTruthy();
+    expect(getByText('profile.guest.subtitle')).toBeTruthy();
+    expect(getByText('profile.guest.createAccount')).toBeTruthy();
+    expect(getByText('profile.guest.login')).toBeTruthy();
+    expect(queryByText('profile.signOut')).toBeNull();
+    expect(queryByText('profile.deleteAccount')).toBeNull();
+    expect(queryByText('test@example.com')).toBeNull();
+  });
+
+  it('ouvre la création de compte depuis la carte invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.guest.createAccount'));
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/account', params: { mode: 'creation' } });
+  });
+
+  it('ouvre la connexion depuis la carte invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.guest.login'));
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/account', params: { mode: 'login' } });
   });
 
   it('affiche le banner pro', () => {

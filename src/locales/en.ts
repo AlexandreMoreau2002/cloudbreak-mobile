@@ -171,6 +171,12 @@ export default {
     location: 'Location',
     locationEnabled: 'Enabled',
     locationDisabled: 'Disabled',
+    guest: {
+      title: 'Guest mode',
+      subtitle: 'Create an account to save your summits.',
+      createAccount: 'Create an account',
+      login: 'I already have an account',
+    },
     locationSettingsErrorTitle: 'Could not open settings',
     locationSettingsErrorMessage: 'Open iOS Settings manually to enable location.',
     deleteAccount: 'Delete my account',

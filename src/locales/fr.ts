@@ -171,6 +171,12 @@ export default {
     location: 'Localisation',
     locationEnabled: 'Activée',
     locationDisabled: 'Désactivée',
+    guest: {
+      title: 'Mode invité',
+      subtitle: 'Crée un compte pour sauvegarder tes sommets.',
+      createAccount: 'Créer un compte',
+      login: "J'ai déjà un compte",
+    },
     locationSettingsErrorTitle: 'Impossible d\'ouvrir les réglages',
     locationSettingsErrorMessage: 'Ouvre les réglages iOS manuellement pour activer la géolocalisation.',
     deleteAccount: 'Supprimer mon compte',

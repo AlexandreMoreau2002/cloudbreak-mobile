@@ -14,7 +14,7 @@ import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocationSettingsLink } from '@/hooks/useLocationSettingsLink';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { DeleteAccountModal, ProBanner, SettingsRow, UserCard } from '@/components/profile';
+import { DeleteAccountModal, GuestAccountCard, ProBanner, SettingsRow, UserCard } from '@/components/profile';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -71,6 +71,7 @@ export default function ProfileScreen() {
   };
 
   const email = session?.user?.email ?? '';
+  const isAnonymous = session?.user?.is_anonymous === true;
 
   return (
     <ScrollView
@@ -84,7 +85,14 @@ export default function ProfileScreen() {
         {i18n.t('profile.title')}
       </Text>
 
-      <UserCard email={email} />
+      {isAnonymous ? (
+        <GuestAccountCard
+          onCreateAccount={() => router.push({ pathname: '/account', params: { mode: 'creation' } })}
+          onLogin={() => router.push({ pathname: '/account', params: { mode: 'login' } })}
+        />
+      ) : (
+        <UserCard email={email} />
+      )}
 
       <ProBanner
         label={i18n.t('profile.proBannerLabel')}
@@ -140,23 +148,27 @@ export default function ProfileScreen() {
         />
       </View>
 
-      <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
-        {i18n.t('profile.sectionAccount')}
-      </Text>
-      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
-          <Ionicons name="log-out-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
-          <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
-            {i18n.t('profile.signOut')}
+      {!isAnonymous && (
+        <>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+            {i18n.t('profile.sectionAccount')}
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.signOutRow} onPress={handleOpenDeleteModal} activeOpacity={0.7}>
-          <Ionicons name="trash-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
-          <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
-            {i18n.t('profile.deleteAccount')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+            <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
+              <Ionicons name="log-out-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
+              <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
+                {i18n.t('profile.signOut')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.signOutRow} onPress={handleOpenDeleteModal} activeOpacity={0.7}>
+              <Ionicons name="trash-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
+              <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
+                {i18n.t('profile.deleteAccount')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       <DeleteAccountModal
         visible={deleteModalVisible}
