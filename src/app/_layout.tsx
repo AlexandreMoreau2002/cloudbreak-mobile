@@ -38,7 +38,6 @@ function AuthGuard() {
       if (!inOnboarding) router.replace(ONBOARDING_ROUTE);
       return;
     }
-    const inAuthGroup = segments[0] === '(auth)';
     if (session?.user?.is_anonymous) void maybePromptFirstRun();
     if (inOnboarding) {
       if (session) router.replace(TABS_ROUTE);
@@ -55,8 +54,6 @@ function AuthGuard() {
         if (error) Alert.alert(i18n.t('common.serviceUnavailable'), i18n.t('common.networkHint'));
         else router.replace(TABS_ROUTE);
       });
-    } else if (session && inAuthGroup) {
-      router.replace(TABS_ROUTE);
     }
   }, [session, loading, completed, hydrated, segments, router, ensureAnonymousSession, maybePromptFirstRun]);
 
