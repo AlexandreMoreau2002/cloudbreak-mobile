@@ -1,5 +1,6 @@
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import AccountScreen from '@/app/account';
+import { AuthBackdrop } from '@/components/account/AuthBackdrop';
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
@@ -20,14 +21,14 @@ jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { backg
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ beginEmailUpgrade: mockBegin, signIn: mockSignIn, signInWithApple: mockApple }) }));
 jest.mock('@/contexts/AccountGateContext', () => ({ useAccountGate: () => ({ pendingAction: mockPendingAction, cancelAccountFlow: mockCancel, finishAccountCreation: mockFinish, setEmailUpgradeCredentials: mockSetCredentials }) }));
 jest.mock('@/components/account', () => { const { TouchableOpacity: Button, Text: Label, View } = require('react-native'); return { AccountForm: ({ onSubmit, onApple, mode }: { onSubmit: (email: string, password: string) => void; onApple: () => void; mode: string }) => <View><Button testID="form" onPress={() => onSubmit('a@b.com', 'Aa!123456')}><Label>{mode}</Label></Button><Button testID="apple" onPress={onApple}><Label>Apple</Label></Button></View> }; });
-jest.mock('@/components/account/AuthBackdrop', () => ({ AuthBackdrop: () => null }));
 jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
 
 describe('AccountScreen route contracts', () => {
   beforeEach(() => { jest.clearAllMocks(); mockApple.mockResolvedValue(null); mockParams = {}; mockPendingAction = null; });
 
   it('sends email creation to verification while retaining credentials in memory', async () => {
-    const { getByTestId } = render(<AccountScreen />);
+    const { getByTestId, UNSAFE_getByType } = render(<AccountScreen />);
+    expect(UNSAFE_getByType(AuthBackdrop)).toBeTruthy();
     fireEvent.press(getByTestId('form'));
     await waitFor(() => expect(mockBegin).toHaveBeenCalledWith('a@b.com'));
     expect(mockSetCredentials).toHaveBeenCalledWith({ email: 'a@b.com', password: 'Aa!123456' });
