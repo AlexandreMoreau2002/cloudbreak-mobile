@@ -32,13 +32,14 @@ describe('secureSessionStorage', () => {
     const big = 'x'.repeat(7000);
     await secureSessionStorage.setItem(KEY, big);
 
-    // fragmentée dans le Keychain, jamais en un seul bloc
-    expect(mockKeychain.get(KEY)).toBe('5');
+    // fragmentée dans le Keychain (7000 / 512 = 14), jamais en un seul bloc
+    expect(mockKeychain.get(KEY)).toBe('14');
+    expect(mockKeychain.get(`${KEY}__chunk__0`)!.length).toBeLessThanOrEqual(512);
     expect(await secureSessionStorage.getItem(KEY)).toBe(big);
   });
 
   it('réécrit sans laisser de fragments orphelins', async () => {
-    await secureSessionStorage.setItem(KEY, 'y'.repeat(5000)); // 4 fragments
+    await secureSessionStorage.setItem(KEY, 'y'.repeat(5000)); // 10 fragments
     await secureSessionStorage.setItem(KEY, 'z'.repeat(100)); // 1 fragment
 
     expect(await secureSessionStorage.getItem(KEY)).toBe('z'.repeat(100));
@@ -70,7 +71,7 @@ describe('secureSessionStorage', () => {
   });
 
   it('retourne null si un fragment est manquant (stockage corrompu)', async () => {
-    await secureSessionStorage.setItem(KEY, 'a'.repeat(4000)); // 3 fragments
+    await secureSessionStorage.setItem(KEY, 'a'.repeat(4000)); // 8 fragments
     mockKeychain.delete(`${KEY}__chunk__1`);
 
     expect(await secureSessionStorage.getItem(KEY)).toBeNull();

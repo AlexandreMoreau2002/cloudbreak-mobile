@@ -17,8 +17,9 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEBUG } from '@/constants/devConfig';
 
-// Marge volontaire sous la limite de 2048 octets (couvre les valeurs multi-octets).
-const CHUNK_SIZE = 1536;
+// Limite SecureStore : 2048 octets par valeur. On découpe par nombre de caractères ;
+// 512 garantit de tenir même si chaque caractère pèse 4 octets en UTF-8 (512 × 4 = 2048).
+const CHUNK_SIZE = 512;
 
 function chunkKey(key: string, index: number): string {
   return `${key}__chunk__${index}`;
