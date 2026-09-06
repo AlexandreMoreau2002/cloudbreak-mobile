@@ -19,6 +19,28 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
 
 ---
 
+## 2026-09-06 Stories 2.5/2.6/2.8 — Parcours compte : Keychain + consentement newsletter
+
+### 🟢 RÉSOLU
+- **[supabaseClient.ts]** La session Supabase (access + refresh token) est désormais rangée
+  dans le **Keychain iOS** via `expo-secure-store`, plus dans AsyncStorage en clair.
+  L'adaptateur [`secureSessionStorage`](../src/services/secureSessionStorage.ts) fragmente la
+  valeur (limite ~2048 octets de SecureStore) et **migre** une session héritée d'AsyncStorage
+  au premier accès (recopie dans le Keychain puis suppression du token en clair) — aucune
+  reconnexion forcée. Plugin `expo-secure-store` ajouté à `app.config.ts` → **rebuild natif
+  requis** (`npx expo run:ios`). Clôt la dette ouverte depuis la story 2-1
+  (`security_jwt_asyncstorage_debt`).
+
+### 🔵 INFO
+- **[useNewsletterConsent / api/user.ts]** Le consentement newsletter est lu via
+  `GET /api/v1/user/me` et modifié via `PATCH /api/v1/user/preferences` (compte permanent
+  requis, `403 ACCOUNT_REQUIRED` sinon). Aucune donnée personnelle nouvelle stockée sur
+  l'appareil ; le booléen transite en HTTPS, jamais loggé (seul `if (DEBUG) console.debug`).
+- **[RGPD]** Le retrait de consentement est aussi simple que l'octroi (une bascule dans
+  Profil → Compte → Newsletter), conforme à l'art. 7-3.
+
+---
+
 ## 2026-07-17 Story 7-2 — Mode Offline-Light & Cache TTL
 
 ### 🔵 INFO

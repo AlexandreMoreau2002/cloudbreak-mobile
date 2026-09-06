@@ -48,6 +48,15 @@ mémoire React et sont effacés à la fin ou à l'annulation.
 Les requêtes REST reproductibles sont dans [`backend/http/user-provisioning.http`](../../backend/http/user-provisioning.http)
 et utilisent `CLOUDBREAK_JWT` injecté par l'environnement ; aucun token ne doit être commité.
 
+## Stockage de session — Keychain
+
+La session Supabase persistée par `createClient` passe désormais par
+[`secureSessionStorage`](../src/services/secureSessionStorage.ts) (Keychain iOS via
+`expo-secure-store`), avec fragmentation sous la limite de 2048 octets et migration
+transparente depuis l'ancien stockage AsyncStorage (recopie puis purge du token en clair).
+Le plugin `expo-secure-store` est déclaré dans `app.config.ts` : **un rebuild natif
+(`npx expo run:ios`) est nécessaire** avant de tester le parcours sur simulateur.
+
 ## Vérification
 
 Les tests mobile mockent Supabase, l'AuthContext, le gate et le routeur : ils couvrent le mur

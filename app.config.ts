@@ -9,6 +9,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-image',
     'expo-web-browser',
     'expo-apple-authentication',
+    'expo-secure-store',
     [
       'expo-location',
       {
