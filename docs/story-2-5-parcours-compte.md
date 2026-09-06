@@ -6,18 +6,17 @@ Implémentation livrée sur `feature/parcours-compte-2-5-2-6-2-8` avec les stori
 Checks automatiques verts : `npm test` (106 suites / 793 tests), `tsc --noEmit`, `expo lint` ;
 backend `make validate` 243 tests à 100 % de couverture.
 
-**Le préflight Supabase reste à lever sur l'instance dev** : Anonymous Auth ON, provider Apple,
-confirmation e-mail ON + template/type OTP. Voir
-[`story-2-5-manual-test-guide.md`](story-2-5-manual-test-guide.md). Aucun OTP ni Apple réel n'est
-déclaré validé.
+**Parcours e-mail raccordé (2026-09-06).** `beginEmailUpgrade` appelle
+`supabase.auth.updateUser({ email })`, `completeEmailUpgrade` appelle
+`verifyOtp({ type: 'email_change' })` puis `updateUser({ password })` puis le provisioning, et
+`resendEmailUpgrade` appelle `resend({ type: 'email_change' })`. Reste à valider sur l'instance
+dev : `Confirm email` ON, `Secure email change` OFF, template avec `{{ .Token }}`, et confirmer
+que `email_change` est bien le type OTP accepté (sinon basculer sur `signup` — seul point
+incertain). Procédure : [`story-2-5-manual-test-guide.md`](story-2-5-manual-test-guide.md).
 
-**Décision produit — parcours création par e-mail désactivé dans ce lot.** Tant que le type
-`verifyOtp` n'est pas prouvé sur l'instance réelle, `beginEmailUpgrade` /
-`completeEmailUpgrade` / `resendEmailUpgrade` renvoient `EMAIL_UPGRADE_UNAVAILABLE` : l'écran
-`/account` affiche une copy dédiée et reste en place. Le parcours **Apple** (création +
-connexion) est, lui, entièrement câblé. Réactivation du parcours e-mail = une story de suivi
-une fois le préflight Supabase confirmé (retirer le court-circuit dans `AuthContext.tsx`,
-rebrancher `/verify`).
+**Sign in with Apple : câblé mais non testable** tant que le compte Apple Developer payant
+(99 €/an) n'est pas pris — la capability l'exige. Le reste du lot (invité, e-mail, newsletter,
+Keychain) se teste sans compte Apple.
 
 ## Parcours et architecture de session
 
@@ -28,7 +27,7 @@ accessibles sans compte. `AccountGateContext` ouvre `/account` au premier lancem
 dismissible) ou au point d'usage : second check, favori, ou alerte future.
 
 Une création e-mail appelle `updateUser({ email })`, conserve l'UUID anonyme, puis `/verify`
-utilise provisoirement `verifyOtp` avec `type: email_change`; après le mot de passe, le compte
+utilise `verifyOtp` avec `type: email_change`; après le mot de passe, le compte
 est provisionné par `POST /api/v1/user/provision`. Une création Apple utilise le nonce natif,
 `linkIdentity` et le même provisioning. Une connexion existante utilise
 `signInWithPassword`/`signInWithIdToken`, abandonne la session anonyme et ne montre ni code ni

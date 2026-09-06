@@ -544,30 +544,18 @@ describe('AuthContext', () => {
     expect(getAuth().authServiceUnavailable).toBe(true);
   });
 
-  it("bloque explicitement l'upgrade e-mail tant que Supabase OTP n'est pas validé", async () => {
+  it("démarre l'upgrade e-mail sur le compte anonyme courant", async () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
-    let error: AuthError | null = null;
-    await act(async () => { error = await getAuth().beginEmailUpgrade('a@b.com'); });
+    await act(async () => {
+      await getAuth().beginEmailUpgrade('a@b.com');
+    });
 
-    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
-    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(mockUpdateUser).toHaveBeenCalledWith({ email: 'a@b.com' });
   });
 
-  it("ne vérifie ni ne modifie le compte quand l'upgrade e-mail est indisponible", async () => {
-    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
-    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
-
-    let error: AuthError | null = null;
-    await act(async () => { error = await getAuth().completeEmailUpgrade('a@b.com', 'Aa!123456', '123456'); });
-
-    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
-    expect(mockVerifyOtp).not.toHaveBeenCalled();
-    expect(mockUpdateUser).not.toHaveBeenCalled();
-  });
-
-  it("ignore un code fourni tant que l'upgrade e-mail est indisponible", async () => {
+  it('lie e-mail, vérifie le code puis ajoute le mot de passe au même compte', async () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
@@ -576,34 +564,56 @@ describe('AuthContext', () => {
       error = await getAuth().completeEmailUpgrade('a@b.com', 'Aa!123456', '123456');
     });
 
-    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
-    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(error).toBeNull();
+    expect(mockVerifyOtp).toHaveBeenCalledWith({
+      email: 'a@b.com', token: '123456', type: 'email_change',
+    });
+    expect(mockUpdateUser).toHaveBeenLastCalledWith({ password: 'Aa!123456' });
+  });
+
+  it("n'ajoute pas le mot de passe quand Supabase refuse le code", async () => {
+    const otpError = new AuthError('Token has expired');
+    mockVerifyOtp.mockResolvedValueOnce({ error: otpError });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => {
+      error = await getAuth().completeEmailUpgrade('a@b.com', 'Aa!123456', '123456');
+    });
+
+    expect(error).toBe(otpError);
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 
-  it("ne renvoie pas d'OTP e-mail non validé", async () => {
+  it("renvoie l'OTP de changement d'e-mail à la nouvelle adresse", async () => {
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    await act(async () => {
+      await getAuth().resendEmailUpgrade('a@b.com');
+    });
+
+    expect(mockResend).toHaveBeenCalledWith({ email: 'a@b.com', type: 'email_change' });
+  });
+
+  it("propage une erreur d'auth levée pendant le renvoi du code", async () => {
+    const resendError = new AuthError('rate limit');
+    mockResend.mockRejectedValueOnce(resendError);
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     let error: AuthError | null = null;
-    await act(async () => { error = await getAuth().resendEmailUpgrade('a@b.com'); });
+    await act(async () => {
+      error = await getAuth().resendEmailUpgrade('a@b.com');
+    });
 
-    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
-    expect(mockResend).not.toHaveBeenCalled();
+    expect(error).toBe(resendError);
   });
 
-  it("ne tente pas de renvoi après une erreur de configuration OTP", async () => {
-    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
-    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
-
-    let error: AuthError | null = null;
-    await act(async () => { error = await getAuth().resendEmailUpgrade('a@b.com'); });
-
-    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
-    expect(mockResend).not.toHaveBeenCalled();
-  });
-
-  it("ne dépend pas du réseau pour signaler l'upgrade e-mail indisponible", async () => {
+  it("signale une erreur réseau retournée pendant l'upgrade e-mail", async () => {
+    const networkError = new AuthError('failed to fetch');
+    mockUpdateUser.mockResolvedValueOnce({ error: networkError });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
@@ -612,8 +622,8 @@ describe('AuthContext', () => {
       error = await getAuth().beginEmailUpgrade('a@b.com');
     });
 
-    expect((error as unknown as AuthError).message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
-    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(error).toBe(networkError);
+    expect(getAuth().authServiceUnavailable).toBe(true);
   });
 
   it("lie le jeton Apple natif à la session anonyme au lieu de remplacer l'utilisateur", async () => {

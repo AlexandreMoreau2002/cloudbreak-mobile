@@ -2,8 +2,10 @@
 
 ## État
 
-Implémentation livrée avec 2.5 et 2.6 sur `feature/parcours-compte-2-5-2-6-2-8`, **review
-bloquée** tant que le provisioning et le préflight Supabase ne sont pas éprouvés en réel.
+Implémentation livrée avec 2.5 et 2.6 sur `feature/parcours-compte-2-5-2-6-2-8`. Parcours e-mail
+raccordé (2026-09-06) ; reste à éprouver le provisioning + l'OTP sur l'instance Supabase dev
+(voir [`story-2-5-manual-test-guide.md`](story-2-5-manual-test-guide.md)). Le sondage via
+création **Apple** dépend du compte Apple Developer payant.
 
 ## Fonctionnement
 

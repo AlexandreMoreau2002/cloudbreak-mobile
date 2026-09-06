@@ -20,8 +20,6 @@ function isNetworkError(e: unknown): boolean {
   return msg.includes('network request failed') || msg.includes('failed to fetch');
 }
 
-const EMAIL_UPGRADE_UNAVAILABLE = 'EMAIL_UPGRADE_UNAVAILABLE';
-
 export type LocationPermissionStatus = 'undetermined' | 'granted' | 'denied';
 
 export interface SurveyAnswers {
@@ -159,8 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function beginEmailUpgrade(email: string): Promise<AuthError | null> {
-    void email;
-    return new AuthError(EMAIL_UPGRADE_UNAVAILABLE);
+    // Ajoute l'e-mail au compte anonyme courant → Supabase envoie un OTP (type email_change).
+    if (DEBUG) console.debug('[AuthContext] beginEmailUpgrade', { email });
+    return runAuthOperation(() => supabase.auth.updateUser({ email }));
   }
 
   async function completeEmailUpgrade(
@@ -168,15 +167,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     code: string
   ): Promise<AuthError | null> {
-    void email;
-    void password;
-    void code;
-    return new AuthError(EMAIL_UPGRADE_UNAVAILABLE);
+    if (DEBUG) console.debug('[AuthContext] completeEmailUpgrade', { email });
+    const verificationError = await runAuthOperation(() =>
+      supabase.auth.verifyOtp({ email, token: code, type: 'email_change' }),
+    );
+    if (verificationError) return verificationError;
+    const passwordError = await runAuthOperation(() => supabase.auth.updateUser({ password }));
+    if (passwordError) return passwordError;
+    return provisionCurrentPermanentSession();
   }
 
   async function resendEmailUpgrade(email: string): Promise<AuthError | null> {
-    void email;
-    return new AuthError(EMAIL_UPGRADE_UNAVAILABLE);
+    if (DEBUG) console.debug('[AuthContext] resendEmailUpgrade', { email });
+    return runAuthOperation(() => supabase.auth.resend({ email, type: 'email_change' }));
   }
 
   async function signInWithApple(intent: AppleAuthIntent): Promise<AuthError | null> {
