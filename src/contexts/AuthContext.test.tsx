@@ -859,7 +859,7 @@ describe('AuthContext', () => {
     expect(mockUpdateUser).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.anything() }));
   });
 
-  it('crée une session invitée avant de confirmer la déconnexion', async () => {
+  it('clôt la session courante puis crée une session invitée', async () => {
     const anonymousSession = {
       access_token: 'guest-token', user: { id: 'guest', is_anonymous: true },
     };
@@ -874,12 +874,12 @@ describe('AuthContext', () => {
       expect(await getAuth().signOutToAnonymous()).toBeNull();
     });
 
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
-    expect(mockSignOut).not.toHaveBeenCalled();
     expect(getAuth().isAnonymous).toBe(true);
   });
 
-  it('préserve la session permanente si la session invitée ne peut pas être créée', async () => {
+  it('déconnecte quand même si la session invitée ne peut pas être créée', async () => {
     const permanentSession = {
       access_token: 'permanent-token', user: { id: 'account', is_anonymous: false },
     };
@@ -893,8 +893,9 @@ describe('AuthContext', () => {
     await act(async () => { error = await getAuth().signOutToAnonymous(); });
 
     expect(error).toBe(anonymousError);
-    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(getAuth().isAnonymous).toBe(false);
+    expect(getAuth().session).toBeNull();
   });
 
   it("refuse une session non anonyme retournée par l'API de session invitée", async () => {
@@ -909,6 +910,7 @@ describe('AuthContext', () => {
     await act(async () => { error = await getAuth().signOutToAnonymous(); });
 
     expect((error as unknown as AuthError).message).toBe('Session anonyme non confirmée');
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(getAuth().isAnonymous).toBe(false);
   });
 });

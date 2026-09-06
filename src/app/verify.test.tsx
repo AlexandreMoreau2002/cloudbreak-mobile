@@ -2,6 +2,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import VerifyScreen from '@/app/verify';
 const mockPush = jest.fn(); const mockBack = jest.fn(); const mockComplete = jest.fn().mockResolvedValue(null); const mockResend = jest.fn().mockResolvedValue(null);
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: mockBack }) }));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { background: '#fff', textPrimary: '#111', textSecondary: '#555', accent: '#b28c6e' }, typography: { fontFamily: { bold: 'System' } } }) }));
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ completeEmailUpgrade: mockComplete, resendEmailUpgrade: mockResend }) }));
 jest.mock('@/contexts/AccountGateContext', () => ({ useAccountGate: () => ({ emailUpgradeCredentials: { email: 'a@b.com', password: 'Aa!123456' } }) }));

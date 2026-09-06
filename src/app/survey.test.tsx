@@ -2,6 +2,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import SurveyScreen from '@/app/survey';
 const mockSave = jest.fn().mockResolvedValue(null); const mockFinish = jest.fn().mockResolvedValue(undefined); const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace }) }));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { background: '#fff' } }) }));
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ saveSurvey: mockSave }) }));
 jest.mock('@/contexts/AccountGateContext', () => ({ useAccountGate: () => ({ pendingAction: { kind: 'favorite', peakId: 'peak-1' }, finishAccountCreation: mockFinish }) }));
