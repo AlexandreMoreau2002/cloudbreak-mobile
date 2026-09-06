@@ -12,6 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNewsletterConsent } from '@/hooks/useNewsletterConsent';
 import { useLocationSettingsLink } from '@/hooks/useLocationSettingsLink';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { DeleteAccountModal, GuestAccountCard, ProBanner, SettingsRow, UserCard } from '@/components/profile';
@@ -27,6 +28,7 @@ export default function ProfileScreen() {
   const { openLegalLink } = useLegalLinks();
   const { openLocationSettings } = useLocationSettingsLink();
   const { colors, typography, scheme, toggleScheme } = useTheme();
+  const { optedIn: newsletterOptIn, state: newsletterState, toggle: toggleNewsletter } = useNewsletterConsent();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -55,6 +57,11 @@ export default function ProfileScreen() {
     const nextLocale = locale === 'fr' ? 'en' : 'fr';
     track('language_toggled', { locale: nextLocale });
     toggleLocale();
+  }
+
+  function handleToggleNewsletter() {
+    track('newsletter_consent_toggled', { opted_in: !newsletterOptIn });
+    void toggleNewsletter();
   }
 
   function handleOpenDeleteModal() {
@@ -156,7 +163,22 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
             {i18n.t('profile.sectionAccount')}
           </Text>
-          <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+          <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <SettingsRow
+              icon="mail-outline"
+              label={i18n.t('profile.newsletter')}
+              value={
+                newsletterState.status === 'loading'
+                  ? i18n.t('common.loading')
+                  : newsletterOptIn
+                    ? i18n.t('profile.newsletterOn')
+                    : i18n.t('profile.newsletterOff')
+              }
+              onPress={handleToggleNewsletter}
+              isLast
+            />
+          </View>
+          <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TouchableOpacity style={styles.signOutRow} onPress={() => void handleSignOut()} activeOpacity={0.7}>
               <Ionicons name="log-out-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
               <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>

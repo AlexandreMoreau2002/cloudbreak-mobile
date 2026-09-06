@@ -47,6 +47,29 @@ export async function updateUserSurvey(token: string, survey: UserSurvey): Promi
   return apiFetch<UserProfile>('/api/v1/user/survey', token, undefined, { method: 'PATCH', body });
 }
 
+export interface UserMe {
+  id: string;
+  is_anonymous: boolean;
+  provisioned: boolean;
+  survey_completed_at?: string | null;
+  survey_skipped_at?: string | null;
+  newsletter_opt_in?: boolean | null;
+}
+
+export async function fetchMe(token: string): Promise<UserMe> {
+  return apiFetch<UserMe>('/api/v1/user/me', token);
+}
+
+export async function updateUserPreferences(
+  token: string,
+  newsletterOptIn: boolean,
+): Promise<UserProfile> {
+  return apiFetch<UserProfile>('/api/v1/user/preferences', token, undefined, {
+    method: 'PATCH',
+    body: { newsletter_opt_in: newsletterOptIn },
+  });
+}
+
 export async function fetchUserSubscription(token: string): Promise<MockSubscription> {
   if (MOCK_API) {
     if (DEBUG) console.debug('[api/user] MOCK fetchUserSubscription');

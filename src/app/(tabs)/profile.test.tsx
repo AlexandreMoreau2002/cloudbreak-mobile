@@ -79,6 +79,16 @@ jest.mock('@/hooks/useLocationSettingsLink', () => ({
   useLocationSettingsLink: () => ({ openLocationSettings: mockOpenLocationSettings }),
 }));
 
+const mockToggleNewsletter = jest.fn();
+let mockNewsletter = {
+  optedIn: false,
+  state: { status: 'success' as const, data: false },
+  toggle: mockToggleNewsletter,
+};
+jest.mock('@/hooks/useNewsletterConsent', () => ({
+  useNewsletterConsent: () => mockNewsletter,
+}));
+
 let mockScheme = 'light';
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
@@ -107,6 +117,11 @@ describe('ProfileScreen', () => {
     mockSession = { user: { email: 'test@example.com' } };
     mockSignOutToAnonymous.mockResolvedValue(null);
     mockLocationPermission = 'denied';
+    mockNewsletter = {
+      optedIn: false,
+      state: { status: 'success', data: false },
+      toggle: mockToggleNewsletter,
+    };
   });
 
   it('s\'affiche sans erreur', () => {
@@ -314,6 +329,36 @@ describe('ProfileScreen', () => {
       expect(getByText('profile.deleteAccountModal.errorGeneric')).toBeTruthy();
     });
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche la ligne newsletter avec la valeur désactivée par défaut', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.newsletter')).toBeTruthy();
+    expect(getByText('profile.newsletterOff')).toBeTruthy();
+  });
+
+  it('affiche "Activée" quand le consentement newsletter est donné', () => {
+    mockNewsletter = {
+      optedIn: true,
+      state: { status: 'success', data: true },
+      toggle: mockToggleNewsletter,
+    };
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.newsletterOn')).toBeTruthy();
+  });
+
+  it('bascule le consentement newsletter et le tracke au clic', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.newsletter'));
+    expect(track).toHaveBeenCalledWith('newsletter_consent_toggled', { opted_in: true });
+    expect(mockToggleNewsletter).toHaveBeenCalledTimes(1);
+  });
+
+  it('masque la ligne newsletter pour une session invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { queryByText } = render(<ProfileScreen />);
+    expect(queryByText('profile.newsletter')).toBeNull();
   });
 
   it('affiche la section légale avec les trois entrées', () => {

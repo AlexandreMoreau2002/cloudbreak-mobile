@@ -22,6 +22,17 @@ stocké séparément et `GET /api/v1/user/me` expose les timestamps. Le backend 
 nécessaire via le même get-or-create idempotent que `/provision` ; voir
 [`backend/docs/story-2-5-provisioning.md`](../../backend/docs/story-2-5-provisioning.md).
 
+## Retrait du consentement newsletter (RGPD)
+
+Le consentement newsletter fixé au sondage est **révocable à tout moment** depuis l'onglet
+Profil → section « Compte » → ligne « Newsletter » (visible uniquement pour un compte
+permanent). Le hook [`useNewsletterConsent`](../src/hooks/useNewsletterConsent.ts) lit l'état
+courant via `GET /api/v1/user/me` (`newsletter_opt_in`) et bascule via
+`PATCH /api/v1/user/preferences` (`{ newsletter_opt_in: bool }`) — mise à jour optimiste,
+rollback si l'appel échoue. Contrairement au sondage, cet endpoint n'a pas de champ terminal :
+on peut retirer **et** ré-accorder le consentement (RGPD art. 7-3). Event analytics :
+`newsletter_consent_toggled` (`opted_in`).
+
 ## Tests
 
 Les tests mobile mockent `saveSurvey`, le routeur et le gate : réponses partielles, toutes les

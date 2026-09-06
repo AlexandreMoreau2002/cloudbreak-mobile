@@ -50,6 +50,7 @@ _Dernière mise à jour : 2026-09-05_
 | Parcours invité, mur différé et replay d'action (stories 2.5/2.6/2.8) | 🟡 Implémenté, review bloquée par le préflight Supabase |
 | Création Apple iOS (story 2.6) | 🟡 Code présent, provider/build native non validés |
 | Mini-sondage post-création (story 2.8) | 🟡 Code présent, persistance réelle non validée |
+| Retrait/ré-octroi consentement newsletter — Profil → Compte → Newsletter, `PATCH /api/v1/user/preferences` (stories 2.5/2.8, RGPD) | 🟡 Code présent, persistance réelle non validée |
 
 ## Ce qui n'existe pas encore
 

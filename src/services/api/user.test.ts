@@ -6,6 +6,8 @@ import {
   updatePushToken,
   provisionUser,
   updateUserSurvey,
+  fetchMe,
+  updateUserPreferences,
 } from '@/services/api/user';
 import { apiFetch } from '@/services/fetchService';
 import { MOCK_SUBSCRIPTION } from '@/services/mockData/user';
@@ -179,6 +181,30 @@ describe('updateUserSurvey', () => {
     expect(mockApiFetch).toHaveBeenCalledWith(
       '/api/v1/user/survey', TOKEN, undefined, {
         method: 'PATCH', body: { skipped: true },
+      },
+    );
+  });
+});
+
+describe('fetchMe', () => {
+  it('appelle GET /api/v1/user/me avec le token', async () => {
+    const me = { id: 'u1', is_anonymous: false, provisioned: true, newsletter_opt_in: true };
+    mockApiFetch.mockResolvedValueOnce(me);
+
+    await expect(fetchMe(TOKEN)).resolves.toEqual(me);
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/user/me', TOKEN);
+  });
+});
+
+describe('updateUserPreferences', () => {
+  it('appelle PATCH /api/v1/user/preferences avec newsletter_opt_in', async () => {
+    const profile = { supabase_user_id: 'u1', auth_provider: 'email', newsletter_opt_in: false };
+    mockApiFetch.mockResolvedValueOnce(profile);
+
+    await expect(updateUserPreferences(TOKEN, false)).resolves.toEqual(profile);
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/v1/user/preferences', TOKEN, undefined, {
+        method: 'PATCH', body: { newsletter_opt_in: false },
       },
     );
   });
