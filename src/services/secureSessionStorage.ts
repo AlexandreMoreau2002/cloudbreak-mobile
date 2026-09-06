@@ -84,6 +84,9 @@ export const secureSessionStorage = {
   async setItem(key: string, value: string): Promise<void> {
     if (DEBUG) console.debug('[secureSessionStorage] setItem', { key, size: value.length });
     await writeChunked(key, value);
+    // Purge d'un éventuel résidu de migration : si un crash a interrompu getItem()
+    // entre writeChunked et removeItem, la valeur en clair pourrait subsister ici.
+    await AsyncStorage.removeItem(key);
   },
 
   async removeItem(key: string): Promise<void> {

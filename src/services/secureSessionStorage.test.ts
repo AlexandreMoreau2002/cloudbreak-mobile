@@ -46,6 +46,13 @@ describe('secureSessionStorage', () => {
     expect(mockKeychain.has(`${KEY}__chunk__1`)).toBe(false);
   });
 
+  it('purge AsyncStorage à chaque écriture (résidu de migration)', async () => {
+    mockAsyncStore.set(KEY, 'plaintext-residuel');
+    await secureSessionStorage.setItem(KEY, 'nouvelle-session');
+    expect(mockAsyncStore.has(KEY)).toBe(false);
+    expect(await secureSessionStorage.getItem(KEY)).toBe('nouvelle-session');
+  });
+
   it('supprime la valeur et purge AsyncStorage', async () => {
     await secureSessionStorage.setItem(KEY, 'abc');
     mockAsyncStore.set(KEY, 'legacy');

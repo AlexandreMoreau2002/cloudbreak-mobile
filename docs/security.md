@@ -31,6 +31,9 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
   requis** (`npx expo run:ios`). Clôt la dette ouverte depuis la story 2-1
   (`security_jwt_asyncstorage_debt`).
 
+### 🟢 RÉSOLU (dans la même branche)
+- **[secureSessionStorage.ts]** `setItem` purge désormais AsyncStorage (`await AsyncStorage.removeItem(key)`) après `writeChunked`, en plus du chemin de migration de `getItem`. Un résidu de token en clair laissé par un crash pendant la migration est effacé au prochain rafraîchissement de session, plus seulement à la déconnexion.
+
 ### 🔵 INFO
 - **[useNewsletterConsent / api/user.ts]** Le consentement newsletter est lu via
   `GET /api/v1/user/me` et modifié via `PATCH /api/v1/user/preferences` (compte permanent
@@ -38,6 +41,8 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
   l'appareil ; le booléen transite en HTTPS, jamais loggé (seul `if (DEBUG) console.debug`).
 - **[RGPD]** Le retrait de consentement est aussi simple que l'octroi (une bascule dans
   Profil → Compte → Newsletter), conforme à l'art. 7-3.
+- **[secureSessionStorage.ts — migration path]** La logique de migration lit d'abord le Keychain (`readChunked`), puis AsyncStorage seulement si le Keychain est vide. Un crash après `writeChunked` mais avant `AsyncStorage.removeItem` laisse le Keychain valide : au redémarrage, `readChunked` retourne les données du Keychain et la migration n'est pas ré-exécutée — pas de boucle, pas de perte de session. La purge d'un résidu AsyncStorage est garantie par `setItem` (voir RÉSOLU ci-dessus).
+- **[supabaseClient.ts:8]** `detectSessionInUrl: false` — désactivé, conforme à un contexte mobile sans deep-link auth. Aucune session ne peut être injectée via URL.
 
 ---
 
