@@ -384,7 +384,7 @@ describe('ProfileScreen', () => {
   it('ouvre le lien mailto du support au clic', () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('legal.support'));
-    expect(mockOpenLegalLink).toHaveBeenCalledWith('mailto:support@cloudbreak.app');
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('mailto:support@cloudbreak-app.com');
   });
 
   it('branche les boutons DEV sur le sandbox et le reset du sommet sélectionné', () => {

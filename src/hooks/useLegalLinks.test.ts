@@ -34,9 +34,9 @@ describe('useLegalLinks', () => {
     (Linking.openURL as jest.Mock).mockResolvedValueOnce(undefined);
     const { result } = renderHook(() => useLegalLinks());
 
-    await result.current.openLegalLink('mailto:support@cloudbreak.app');
+    await result.current.openLegalLink('mailto:support@cloudbreak-app.com');
 
-    expect(Linking.openURL).toHaveBeenCalledWith('mailto:support@cloudbreak.app');
+    expect(Linking.openURL).toHaveBeenCalledWith('mailto:support@cloudbreak-app.com');
   });
 
   it("affiche une alerte si l'ouverture du lien échoue", async () => {
