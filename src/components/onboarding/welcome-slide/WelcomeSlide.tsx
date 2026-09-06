@@ -10,11 +10,11 @@
  *
  * Tous les textes proviennent d'i18n (namespace `onboarding.step1*` + `continue`).
  */
-import i18n from '@/utils/i18n';
 import { useEffect } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import i18n from '@/utils/i18n';
 import { track } from '@/services/analytics';
 import { useTheme } from '@/contexts/ThemeContext';
-import { StyleSheet, Text, View } from 'react-native';
 import { OnboardingCta } from '@/components/onboarding/cta';
 import { MountainViz } from '@/components/onboarding/mountain-viz';
 import { MascotBreadcrumb } from '@/components/onboarding/mascot-breadcrumb';
@@ -37,14 +37,16 @@ export function WelcomeSlide({ onContinue }: WelcomeSlideProps) {
       </View>
 
       <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-        <Text
-          style={[
-            styles.eyebrow,
-            { color: colors.textDisabled, fontFamily: typography.fontFamily.semiBold },
-          ]}
-        >
-          {i18n.t('onboarding.step1Eyebrow')}
-        </Text>
+        {__DEV__ ? (
+          <Text
+            style={[
+              styles.eyebrow,
+              { color: colors.textDisabled, fontFamily: typography.fontFamily.semiBold },
+            ]}
+          >
+            {i18n.t('onboarding.step1Eyebrow')}
+          </Text>
+        ) : null}
 
         <Text
           style={[

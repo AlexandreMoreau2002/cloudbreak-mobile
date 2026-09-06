@@ -175,4 +175,53 @@ describe('useOnboardingPeaks', () => {
 
     await waitFor(() => expect(result.current.results).toEqual({ status: 'error', error: 'Erreur inconnue' }));
   });
+  it('keeps available curated peaks when another slug fails', async () => {
+    mockFetchPeakBySlug.mockImplementation((_token, slug) => slug === 'mont-aiguille'
+      ? Promise.resolve(MOCK_PEAK_1) : Promise.reject(new Error('404')));
+    const { result } = renderHook(() => useOnboardingPeaks());
+    await waitFor(() => expect(result.current.curated).toEqual({ status: 'success', data: [MOCK_PEAK_1] }));
+  });
+
+  it.each(['', 'new query'])('aborts and ignores stale results after changing query to %s', async (query) => {
+    let resolveSearch!: (data: typeof MOCK_SEARCH_RESULTS) => void;
+    mockSearchPeaks.mockImplementation(() => new Promise(resolve => { resolveSearch = resolve; }));
+    const { result } = renderHook(() => useOnboardingPeaks());
+    await act(async () => {});
+    act(() => result.current.setQuery('saint'));
+    act(() => jest.advanceTimersByTime(300));
+    const signal = mockSearchPeaks.mock.calls[0][2];
+    act(() => result.current.setQuery(query));
+    expect(signal.aborted).toBe(true);
+    await act(async () => resolveSearch(MOCK_SEARCH_RESULTS));
+    expect(result.current.results.status).toBe(query ? 'loading' : 'idle');
+  });
+
+  it('aborts an in-flight search on unmount', async () => {
+    mockSearchPeaks.mockImplementation(() => new Promise(() => {}));
+    const { result, unmount } = renderHook(() => useOnboardingPeaks());
+    await act(async () => {});
+    act(() => result.current.setQuery('saint'));
+    act(() => jest.advanceTimersByTime(300));
+    const signal = mockSearchPeaks.mock.calls[0][2];
+    unmount();
+    expect(signal.aborted).toBe(true);
+  });
+
+  it('retries failed curated loading and the active search', async () => {
+    mockFetchPeakBySlug.mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() => useOnboardingPeaks());
+    await waitFor(() => expect(result.current.curated.status).toBe('error'));
+    mockFetchPeakBySlug.mockResolvedValue(MOCK_PEAK_1);
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.curated.status).toBe('success'));
+    mockSearchPeaks.mockRejectedValue(new Error('offline'));
+    act(() => result.current.setQuery('saint'));
+    await act(async () => jest.advanceTimersByTime(300));
+    expect(result.current.results.status).toBe('error');
+    mockSearchPeaks.mockResolvedValue(MOCK_SEARCH_RESULTS);
+    act(() => result.current.retry());
+    await act(async () => jest.advanceTimersByTime(300));
+    expect(result.current.results.data).toEqual(MOCK_SEARCH_RESULTS);
+  });
+
 });

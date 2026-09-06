@@ -21,6 +21,20 @@ code ni sondage. L'annulation native est silencieuse et ne détruit pas la sessi
 
 ## Préflight et test manuel
 
+Avant les tests, depuis `mobile/`, installer les dépendances, synchroniser la configuration
+iOS existante puis reconstruire l'application :
+
+```bash
+npm install
+npx expo prebuild --platform ios --no-install
+npx expo run:ios
+```
+
+Le prébuild sans `--clean` applique le plugin Apple et la capability Sign in with Apple.
+Redémarrer Metro seul ne fournit pas les modules natifs `ExpoCrypto` et
+`ExpoAppleAuthentication` au binaire déjà installé. L'échec de l'import d'`AuthContext` peut
+alors entraîner des erreurs de routes sans export par défaut et de providers manquants.
+
 Activer le provider Apple dans le projet Supabase ciblé, configurer les identifiants Apple
 associés au bundle iOS et produire une build native avec la capability Sign in with Apple. Tester
 ensuite : création depuis invité (UUID identique, `is_anonymous` devient false), reconnexion

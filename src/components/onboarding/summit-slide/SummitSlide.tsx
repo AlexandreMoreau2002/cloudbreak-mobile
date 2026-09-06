@@ -9,33 +9,30 @@
  *    fondu bas via `LinearGradient` pour signaler le scroll
  *  - dock bas : `MascotBreadcrumb active={1}` + CTA « Continuer »
  *
- * Dérogation `AsyncStateView` (voir `mobile/CLAUDE.md`) : volontairement PAS utilisé ici.
- * En cas d'erreur réseau sur les sommets curés (offline), l'écran ne bloque jamais —
- * il retombe sur `CURATED_PEAKS` (fallback statique embarqué) avec des lignes non
- * sélectionnables et un CTA toujours actif qui avance sans committer de sommet. C'est le
- * même esprit que la règle "carte quota jamais bloquante" : une erreur ici ne doit pas
- * empêcher l'utilisateur de terminer l'onboarding.
+ * Les erreurs et listes vides sont explicites, avec reprise possible. Le CTA permet
+ * toujours de poursuivre sans choisir de sommet.
  *
  * Choix design — champ `range` (design) vs `region` (API `Peak`) :
  *  `Peak` n'expose pas de champ `range` (massif). On affiche `region` quand l'API le
  *  renseigne, sinon on retombe sur `CURATED_PEAKS` (matché par `slug`) pour retrouver le
- *  massif des 6 sommets emblématiques. Pour la liste statique offline, `CURATED_PEAKS`
- *  fournit directement `range`.
+ *  massif des 6 sommets emblématiques.
  */
-import i18n from '@/utils/i18n';
-import { useEffect, useRef, useState } from 'react';
 import Svg, { Path } from 'react-native-svg';
+import { useEffect, useRef, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import i18n from '@/utils/i18n';
 import { track } from '@/services/analytics';
 import { useTheme } from '@/contexts/ThemeContext';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ErrorState } from '@/components/error-state';
+import { EmptyState } from '@/components/empty-state';
 import type { Peak } from '@/services/mockData/types';
 import { OnboardingCta } from '@/components/onboarding/cta';
 import { SkeletonBlock } from '@/components/skeleton-block';
+import { CURATED_PEAKS } from '@/constants/onboardingPeaks';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useOnboardingPeaks } from '@/hooks/onboarding/useOnboardingPeaks';
 import { MascotBreadcrumb } from '@/components/onboarding/mascot-breadcrumb';
-import { CURATED_PEAKS, type CuratedPeak } from '@/constants/onboardingPeaks';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 export interface SummitSlideProps {
   onContinue: () => void;
@@ -53,10 +50,6 @@ function toRowInfo(peak: Peak): SummitRowInfo {
   return { slug: peak.slug, name: peak.name, altitude: peak.altitude, rangeLabel };
 }
 
-function curatedToRowInfo(peak: CuratedPeak): SummitRowInfo {
-  return { slug: peak.slug, name: peak.name, altitude: peak.altitude, rangeLabel: peak.range };
-}
-
 function CheckIcon() {
   return (
     <Svg width={14} height={14} viewBox="0 0 16 16" fill="none">
@@ -67,7 +60,7 @@ function CheckIcon() {
 
 export function SummitSlide({ onContinue }: SummitSlideProps) {
   const { colors, typography } = useTheme();
-  const { curated, results, query, setQuery } = useOnboardingPeaks();
+  const { curated, results, query, setQuery, retry } = useOnboardingPeaks();
   const { setSelectedPeak } = useSelectedPeak();
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [isScrollable, setIsScrollable] = useState(false);
@@ -78,18 +71,8 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
   }, []);
 
   const isSearching = query.length >= 2;
-  const staticFallback = curated.status === 'error';
-
-  let selectablePeaks: Peak[] | null = null;
-  let staticRows: SummitRowInfo[] | null = null;
-
-  if (isSearching && results.status === 'success' && results.data) {
-    selectablePeaks = results.data;
-  } else if (curated.status === 'success' && curated.data) {
-    selectablePeaks = curated.data;
-  } else if (staticFallback) {
-    staticRows = CURATED_PEAKS.map(curatedToRowInfo);
-  }
+  const activeState = isSearching ? results : curated;
+  const selectablePeaks = activeState.status === 'success' ? activeState.data : null;
 
   function handleSelect(slug: string) {
     if (!selectablePeaks) return;
@@ -107,8 +90,8 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
     onContinue();
   }
 
-  function renderRow(info: SummitRowInfo, selectable: boolean) {
-    const isSelected = selectable && selectedSlug === info.slug;
+  function renderRow(info: SummitRowInfo) {
+    const isSelected = selectedSlug === info.slug;
     return (
       <Pressable
         key={info.slug}
@@ -152,7 +135,7 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
   }
 
   function renderList() {
-    const isLoading = isSearching ? results.status === 'loading' : curated.status === 'loading';
+    const isLoading = activeState.status === 'loading';
     if (isLoading) {
       return (
         <View>
@@ -170,14 +153,14 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
       );
     }
 
-    if (selectablePeaks) {
-      return <View>{selectablePeaks.map((p) => renderRow(toRowInfo(p), true))}</View>;
+    if (activeState.status === 'error') {
+      return <ErrorState title={i18n.t('onboarding.peaksError')} action={{ label: i18n.t('common.retry'), onPress: retry }} actionTestID="summit-retry" />;
     }
-
-    if (staticRows) {
-      return (
-        <View testID="summit-static-list">{staticRows.map((info) => renderRow(info, false))}</View>
-      );
+    if (selectablePeaks?.length === 0) {
+      return <EmptyState icon="search-outline" title={i18n.t('onboarding.peaksEmpty')} />;
+    }
+    if (selectablePeaks) {
+      return <View>{selectablePeaks.map((p) => renderRow(toRowInfo(p)))}</View>;
     }
 
     return null;
@@ -185,11 +168,13 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
 
   return (
     <View style={styles.root}>
-      <Text
-        style={[styles.eyebrow, { color: colors.textDisabled, fontFamily: typography.fontFamily.semiBold }]}
-      >
-        {i18n.t('onboarding.step2Eyebrow')}
-      </Text>
+      {__DEV__ ? (
+        <Text
+          style={[styles.eyebrow, { color: colors.textDisabled, fontFamily: typography.fontFamily.semiBold }]}
+        >
+          {i18n.t('onboarding.step2Eyebrow')}
+        </Text>
+      ) : null}
 
       <Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.light }]}>
         {i18n.t('onboarding.step2Title')}
@@ -224,6 +209,7 @@ export function SummitSlide({ onContinue }: SummitSlideProps) {
           testID="summit-list-scroll"
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={(_width, height) => {
             setIsScrollable(height > listAreaHeight.current);
           }}

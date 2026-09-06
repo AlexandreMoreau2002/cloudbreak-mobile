@@ -1,6 +1,8 @@
 import React from 'react';
-import SearchScreen from '@/app/(tabs)/search';
+import { FlatList } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
+
+import SearchScreen from '@/app/(tabs)/search';
 
 let mockPeakSearch = {
   state: { status: 'idle' } as { status: string; data?: unknown[]; error?: string },
@@ -16,9 +18,10 @@ const mockFavCallbacks = {
 };
 
 const mockRequireAccount = jest.fn();
+const mockRetry = jest.fn();
 
 jest.mock('@/hooks/usePeakSearch', () => ({
-  usePeakSearch: () => mockPeakSearch,
+  usePeakSearch: () => ({ ...mockPeakSearch, retry: mockRetry }),
 }));
 
 jest.mock('@/hooks/useFavorites', () => ({
@@ -70,15 +73,6 @@ jest.mock('@/contexts/SelectedPeakContext', () => ({
   useSelectedPeak: () => ({ setSelectedPeak: mockSetSelectedPeak }),
 }));
 
-jest.mock('@/components/error-state', () => {
-  const React = jest.requireActual('react');
-  const { Text } = jest.requireActual('react-native');
-  return {
-    ErrorState: function MockErrorState(props: { title: string }) {
-      return React.createElement(Text, null, props.title);
-    },
-  };
-});
 jest.mock('@/components/empty-state', () => {
   const React = jest.requireActual('react');
   const { Text } = jest.requireActual('react-native');
@@ -150,6 +144,21 @@ describe('SearchScreen', () => {
     };
     const { getByText } = render(<SearchScreen />);
     expect(getByText('common.error')).toBeTruthy();
+  });
+
+  it('permet de réessayer une recherche échouée', () => {
+    mockPeakSearch = { state: { status: 'error', error: 'Erreur réseau' }, query: 'mont', setQuery: jest.fn() };
+    const { getByText } = render(<SearchScreen />);
+    fireEvent.press(getByText('common.retry'));
+    expect(mockRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('transmet le premier tap sur un résultat même si le clavier est ouvert', () => {
+    mockPeakSearch = { state: { status: 'success', data: peaks }, query: 'mont', setQuery: jest.fn() };
+    const screen = render(<SearchScreen />);
+    expect(screen.UNSAFE_getByType(FlatList).props.keyboardShouldPersistTaps).toBe('handled');
+    fireEvent.press(screen.getByText('Autre'));
+    expect(mockSetSelectedPeak).toHaveBeenCalledWith(peaks[0]);
   });
 
   it('affiche ErrorState même si message absent', () => {

@@ -243,6 +243,8 @@ export default {
     step1Eyebrow: '01 · Bienvenue',
     step1Title: 'La mer de nuages,\nau bon moment.',
     step1Body: 'Cloudbreak calcule la probabilité d’une mer de nuages depuis votre sommet, heure par heure.',
+    peaksError: 'Impossible de charger les sommets',
+    peaksEmpty: 'Aucun sommet trouvé',
     step2Eyebrow: '02 · Sommet',
     step2Title: 'Choisissez un sommet\nde référence.',
     step2Body: 'Votre score d’accueil est calculé pour ce sommet. Vous pourrez en changer à tout moment.',

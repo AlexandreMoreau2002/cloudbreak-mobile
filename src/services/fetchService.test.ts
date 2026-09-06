@@ -204,6 +204,12 @@ describe('fetchService', () => {
     }
   });
 
+  it('préserve AbortError pour ne pas signaler une panne réseau après annulation', async () => {
+    const error = Object.assign(new Error('Aborted'), { name: 'AbortError' });
+    (global.fetch as jest.Mock).mockRejectedValue(error);
+    await expect(apiFetch('/api/v1/peaks/search', null)).rejects.toBe(error);
+  });
+
   it('attache httpStatus sur l erreur HTTP', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: false,

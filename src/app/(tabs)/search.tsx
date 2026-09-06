@@ -1,21 +1,22 @@
-import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import i18n from '@/utils/i18n';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import i18n from '@/utils/i18n';
 import { track } from '@/services/analytics';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAccountGate } from '@/contexts/AccountGateContext';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useFavorites } from '@/hooks/useFavorites';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
-import { useFavorites } from '@/hooks/useFavorites';
 import { usePeakSearch } from '@/hooks/usePeakSearch';
 import type { Peak } from '@/services/mockData/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAccountGate } from '@/contexts/AccountGateContext';
 import { AsyncStateView } from '@/components/async-state-view';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const HOME_ROUTE = '/(tabs)/' as Href;
 
@@ -26,7 +27,7 @@ export default function SearchScreen() {
   const { colors, typography, spacing, radius } = useTheme();
   const { session, isAnonymous } = useAuth();
   const { requireAccount } = useAccountGate();
-  const { state, query, setQuery } = usePeakSearch();
+  const { state, query, setQuery, retry } = usePeakSearch();
   const { state: favState, addFavorite, removeFavorite } = useFavorites();
   const { setSelectedPeak } = useSelectedPeak();
 
@@ -121,12 +122,14 @@ export default function SearchScreen() {
             <ErrorState
               title={i18n.t('common.error')}
               message={i18n.t('common.networkHint')}
+              action={{ label: i18n.t('common.retry'), onPress: retry }}
             />
           </View>
         }
       >
         <FlatList
           data={sorted}
+          keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: spacing.xl }}

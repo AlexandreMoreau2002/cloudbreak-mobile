@@ -51,6 +51,7 @@ export async function apiFetch<T>(
       body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
   } catch (cause) {
+    if (cause instanceof Error && cause.name === 'AbortError') throw cause;
     if (DEBUG) console.debug('[fetchService] network unreachable', { url: url.toString(), cause });
     const err = new Error('Impossible de joindre le serveur') as Error & { code: string };
     err.code = 'NETWORK_UNREACHABLE';

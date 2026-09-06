@@ -243,6 +243,8 @@ export default {
     step1Eyebrow: '01 · Welcome',
     step1Title: 'The sea of clouds,\nat the right time.',
     step1Body: 'Cloudbreak computes the probability of a cloud inversion from your summit, hour by hour.',
+    peaksError: 'Unable to load peaks',
+    peaksEmpty: 'No peaks found',
     step2Eyebrow: '02 · Summit',
     step2Title: 'Pick a default\nsummit.',
     step2Body: 'Your home score is built around this peak. You can change it any time.',
