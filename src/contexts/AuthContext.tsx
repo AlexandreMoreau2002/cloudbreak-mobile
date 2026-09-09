@@ -68,6 +68,8 @@ interface AuthContextValue extends AuthState {
   signUp: (email: string, password: string) => Promise<AuthError | null>;
   signIn: (email: string, password: string) => Promise<AuthError | null>;
   ensureAnonymousSession: () => Promise<AuthError | null>;
+  requestPasswordReset: (email: string, locale: AuthEmailLocale) => Promise<AuthError | null>;
+  completePasswordReset: (email: string, code: string, newPassword: string) => Promise<AuthError | null>;
   beginEmailUpgrade: (email: string, locale: AuthEmailLocale) => Promise<AuthError | null>;
   completeEmailUpgrade: (email: string, password: string, code: string) => Promise<AuthError | null>;
   retryEmailUpgradeProvisioning: () => Promise<AuthError | null>;
@@ -89,6 +91,9 @@ type AuthOperationStage =
   | 'email_otp_verify'
   | 'email_otp_resend'
   | 'email_password_set'
+  | 'password_reset_request'
+  | 'password_reset_verify'
+  | 'password_set'
   | 'email_provision_session'
   | 'email_provision_api'
   | 'permanent_provision'
@@ -314,6 +319,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return runAuthOperation('email_otp_start', () => supabase.auth.updateUser({ email }));
   }
 
+  async function requestPasswordReset(
+    email: string,
+    locale: AuthEmailLocale,
+  ): Promise<AuthError | null> {
+    if (DEBUG) console.debug('[AuthContext] requestPasswordReset');
+    await syncEmailLocale(locale);
+    return runAuthOperation('password_reset_request', () =>
+      supabase.auth.resetPasswordForEmail(email),
+    );
+  }
+
+  async function completePasswordReset(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<AuthError | null> {
+    if (DEBUG) console.debug('[AuthContext] completePasswordReset', { codeLength: code.length });
+    const verificationError = await runAuthOperation('password_reset_verify', () =>
+      supabase.auth.verifyOtp({ email, token: code, type: 'recovery' }),
+    );
+    if (verificationError) return verificationError;
+    const passwordError = await runAuthOperation('password_set', () =>
+      supabase.auth.updateUser({ password: newPassword }),
+    );
+    if (passwordError) return passwordError;
+    return provisionCurrentPermanentSession();
+  }
+
   async function completeEmailUpgrade(
     email: string,
     password: string,
@@ -459,7 +492,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         session, loading, isAnonymous, authServiceUnavailable, locationPermission,
         signUp, signIn, signOut, deleteAccount,
-        ensureAnonymousSession, beginEmailUpgrade, completeEmailUpgrade,
+        ensureAnonymousSession, requestPasswordReset, completePasswordReset,
+        beginEmailUpgrade, completeEmailUpgrade,
         resendEmailUpgrade, retryEmailUpgradeProvisioning, signInWithApple, saveSurvey, signOutToAnonymous,
         setLocationPermission, refreshLocationPermission,
       }}

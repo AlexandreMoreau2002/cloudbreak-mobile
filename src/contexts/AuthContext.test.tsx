@@ -17,6 +17,7 @@ const mockSignUp = jest.fn().mockResolvedValue({ error: null });
 const mockResend = jest.fn().mockResolvedValue({ error: null });
 const mockUpdateUser = jest.fn().mockResolvedValue({ error: null });
 const mockVerifyOtp = jest.fn().mockResolvedValue({ error: null });
+const mockResetPasswordForEmail = jest.fn().mockResolvedValue({ error: null });
 const mockLinkIdentity = jest.fn().mockResolvedValue({ error: null });
 const mockSignInAnonymously = jest.fn().mockResolvedValue({ error: null });
 const mockSignInWithIdToken = jest.fn().mockResolvedValue({ error: null });
@@ -77,6 +78,7 @@ jest.mock('@/services/supabaseClient', () => ({
       get getSession() { return mockGetSession; },
       get getUser() { return mockGetUser; },
       get linkIdentity() { return mockLinkIdentity; },
+      get resetPasswordForEmail() { return mockResetPasswordForEmail; },
       get signInAnonymously() { return mockSignInAnonymously; },
       get signInWithPassword() { return mockSignIn; },
       get signInWithIdToken() { return mockSignInWithIdToken; },
@@ -128,6 +130,7 @@ describe('AuthContext', () => {
     mockUpdateUser.mockReset();
     mockUpdateUser.mockResolvedValue({ error: null });
     mockVerifyOtp.mockResolvedValue({ error: null });
+    mockResetPasswordForEmail.mockResolvedValue({ error: null });
     mockLinkIdentity.mockResolvedValue({ error: null });
     mockSignInAnonymously.mockResolvedValue({ error: null });
     mockSignInWithIdToken.mockResolvedValue({ error: null });
@@ -1135,6 +1138,97 @@ describe('AuthContext', () => {
 
     expect((error as AuthError | null)?.message).toBe('EMAIL_UPGRADE_PROVISIONING_UNAVAILABLE');
     expect(mockProvisionUser).not.toHaveBeenCalled();
+  });
+
+  describe('password reset', () => {
+    it('synchronise la locale avant de demander le code de réinitialisation', async () => {
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let error: AuthError | null = null;
+      await act(async () => {
+        error = await getAuth().requestPasswordReset('a@b.com', 'fr');
+      });
+
+      expect(error).toBeNull();
+      expect(mockUpdateUser).toHaveBeenCalledWith({ data: { locale: 'fr' } });
+      expect(mockResetPasswordForEmail).toHaveBeenCalledWith('a@b.com');
+      expect(mockUpdateUser.mock.invocationCallOrder[0])
+        .toBeLessThan(mockResetPasswordForEmail.mock.invocationCallOrder[0]);
+    });
+
+    it('vérifie le code recovery, fixe le mot de passe, puis provisionne', async () => {
+      const permanentSession = {
+        access_token: 'permanent-token', user: { id: 'u1', is_anonymous: false },
+      };
+      mockGetSession.mockResolvedValue({ data: { session: permanentSession } });
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let error: AuthError | null = null;
+      await act(async () => {
+        error = await getAuth().completePasswordReset('a@b.com', '123456', 'NewPass1!');
+      });
+
+      expect(error).toBeNull();
+      expect(mockVerifyOtp).toHaveBeenCalledWith({
+        email: 'a@b.com', token: '123456', type: 'recovery',
+      });
+      expect(mockUpdateUser).toHaveBeenLastCalledWith({ password: 'NewPass1!' });
+      expect(mockProvisionUser).toHaveBeenCalledWith('permanent-token');
+    });
+
+    it("n'écrit pas le mot de passe si le code recovery est refusé", async () => {
+      const verifyError = new AuthError('Token has expired or is invalid');
+      mockVerifyOtp.mockResolvedValueOnce({ error: verifyError });
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let error: AuthError | null = null;
+      await act(async () => {
+        error = await getAuth().completePasswordReset('a@b.com', '000000', 'NewPass1!');
+      });
+
+      expect(error).toBe(verifyError);
+      expect(mockUpdateUser).not.toHaveBeenCalledWith({ password: 'NewPass1!' });
+      expect(mockProvisionUser).not.toHaveBeenCalled();
+    });
+
+    it("ne provisionne pas si l'écriture du mot de passe est refusée", async () => {
+      const passwordError = new AuthError('Password rejected');
+      mockUpdateUser.mockResolvedValueOnce({ error: passwordError });
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let error: AuthError | null = null;
+      await act(async () => {
+        error = await getAuth().completePasswordReset('a@b.com', '123456', 'NewPass1!');
+      });
+
+      expect(error).toBe(passwordError);
+      expect(mockUpdateUser).toHaveBeenCalledWith({ password: 'NewPass1!' });
+      expect(mockProvisionUser).not.toHaveBeenCalled();
+    });
+
+    it("propage l'erreur de provisioning après le changement de mot de passe", async () => {
+      const permanentSession = {
+        access_token: 'permanent-token', user: { id: 'u1', is_anonymous: false },
+      };
+      const provisioningError = new AuthError('Provisioning failed');
+      mockGetSession.mockResolvedValue({ data: { session: permanentSession } });
+      mockProvisionUser.mockRejectedValueOnce(provisioningError);
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let error: AuthError | null = null;
+      await act(async () => {
+        error = await getAuth().completePasswordReset('a@b.com', '123456', 'NewPass1!');
+      });
+
+      expect(error).toBe(provisioningError);
+      expect(mockUpdateUser).toHaveBeenCalledWith({ password: 'NewPass1!' });
+      expect(mockProvisionUser).toHaveBeenCalledWith('permanent-token');
+    });
   });
 
   it("lie le jeton Apple natif à la session anonyme au lieu de remplacer l'utilisateur", async () => {
