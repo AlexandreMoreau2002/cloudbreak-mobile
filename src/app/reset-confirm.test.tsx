@@ -108,6 +108,23 @@ describe('ResetConfirmScreen', () => {
     expect(queryByText('reset.sent')).toBeNull();
   });
 
+  it('applique le cooldown initial après envoi puis autorise le renvoi à son expiration', async () => {
+    mockParams = { email: 'a@b.com', sent: '1' };
+    const { getByTestId, getByText } = render(<ResetConfirmScreen />);
+
+    expect(getByText('reset.resendWait:30')).toBeTruthy();
+    fireEvent.press(getByTestId('reset-confirm-resend'));
+    expect(mockRequestPasswordReset).not.toHaveBeenCalled();
+
+    for (let second = 0; second < 30; second += 1) {
+      act(() => jest.runOnlyPendingTimers());
+    }
+    expect(getByText('reset.resend')).toBeTruthy();
+
+    fireEvent.press(getByTestId('reset-confirm-resend'));
+    await waitFor(() => expect(mockRequestPasswordReset).toHaveBeenCalledWith('a@b.com', 'fr'));
+  });
+
   it.each([
     ['12345', 'NewPass1!'],
     ['1234567', 'NewPass1!'],

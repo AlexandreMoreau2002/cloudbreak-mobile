@@ -28,7 +28,7 @@ export default function ResetConfirmScreen() {
   const [codeError, setCodeError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [resend, setResend] = useState(0);
+  const [resend, setResend] = useState(sent === '1' ? RESEND_DELAY_SECONDS : 0);
   const [resending, setResending] = useState(false);
   const submitInFlight = useRef(false);
   const resendInFlight = useRef(false);
