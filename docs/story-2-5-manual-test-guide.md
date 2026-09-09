@@ -125,21 +125,28 @@ Attendu : `anonymous_users: true`, `email: true`, `mailer_autoconfirm: false`.
 
 > L'epic parle encore d'un lien, mais la spec validée utilise un OTP à six chiffres saisi dans
 > l'app. Le template Supabase **Reset Password** doit afficher `{{ .Token }}` avec ses variantes
-> FR/EN et son fallback français.
+> FR/EN et son fallback français. Régler aussi **Authentication → Rate Limits → Password reset
+> request** à 30 secondes maximum : Supabase utilise 60 secondes par défaut, alors que l'app
+> autorise le renvoi après 30 secondes.
 
 1. Écran connexion → **Mot de passe oublié ?** → `/reset`.
 2. Saisir l'e-mail d'un compte existant → **Envoyer le code** → message neutre puis
    `/reset-confirm`.
-3. Ouvrir l'e-mail « Reset Password » → saisir le code à six chiffres et un nouveau mot de passe
+3. Vérifier le cooldown initial de 30 secondes dès l'arrivée sur `/reset-confirm`.
+4. Ouvrir l'e-mail « Reset Password » → saisir le code à six chiffres et un nouveau mot de passe
    d'au moins huit caractères.
-4. **Réinitialiser** → connecté, arrivée Home ou action en attente rejouée.
-5. Se déconnecter : l'ANCIEN mot de passe doit échouer, le NOUVEAU doit réussir.
-6. Cas adresse inconnue : message neutre identique et aucun e-mail reçu (anti-énumération).
-7. Cas code faux ou expiré : message d'erreur, rester sur l'écran, aucun changement de mot de passe.
-8. Cas mot de passe inférieur à huit caractères : bouton de confirmation désactivé.
-9. Cas renvoi en erreur : message générique et **aucun cooldown** ; un nouvel essai est possible.
-10. Cas renvoi réussi : nouvel e-mail, cooldown 30 secondes et double tap sans deuxième requête.
-11. Cas action en attente (favori/quota) : l'action est rejouée ; si le replay échoue, retour Home
+5. **Réinitialiser** → connecté, arrivée Home ou action en attente rejouée.
+6. Se déconnecter : l'ANCIEN mot de passe doit échouer, le NOUVEAU doit réussir.
+7. Cas adresse inconnue : message neutre identique et aucun e-mail reçu (anti-énumération).
+8. Cas code faux ou expiré : message d'erreur, rester sur l'écran, aucun changement de mot de passe.
+9. Cas mot de passe inférieur à huit caractères : bouton de confirmation désactivé.
+10. Cas renvoi en erreur : message générique et **aucun nouveau cooldown local**.
+11. Cas renvoi réussi : nouvel e-mail, cooldown réarmé à 30 secondes et double tap sans deuxième
+    requête. Le premier renvoi à 30 secondes doit être accepté par la fenêtre Dashboard configurée.
+12. Cas langues : utiliser des comptes destinataires contrôlés avec `user_metadata.locale` fixé à
+    `fr`, `en`, puis absent/invalide pour le fallback FR. Changer seulement la langue courante de
+    l'app ne garantit pas la langue de l'e-mail de récupération.
+13. Cas action en attente (favori/quota) : l'action est rejouée ; si le replay échoue, retour Home
     sans formulaire bloqué.
 
 Le protocole complet, avec langues et cas limites, est dans

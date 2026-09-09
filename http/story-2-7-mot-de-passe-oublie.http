@@ -14,6 +14,9 @@
 # 1. Demander l'e-mail de récupération.
 # Correspond à supabase.auth.resetPasswordForEmail(email).
 # Le template Dashboard « Reset Password » doit afficher {{ .Token }}.
+# Supabase utilise par défaut une fenêtre de 60 s entre deux /recover pour un même utilisateur.
+# Décision Cloudbreak : Authentication > Rate Limits > Password reset request <= 30 s, afin de
+# correspondre au cooldown initial et aux cooldowns de renvoi de 30 s dans l'app.
 # @name requestRecovery
 POST {{supabaseUrl}}/auth/v1/recover
 Content-Type: application/json

@@ -57,8 +57,13 @@ ou de limitation est présentée de manière générique. Les handlers de confir
 possèdent chacun un verrou synchrone en plus de l'état visuel : deux taps immédiats ne créent
 qu'une requête.
 
-Le renvoi démarre un cooldown de 30 secondes **après un succès uniquement**. En cas d'échec, aucun
-cooldown n'est appliqué afin que l'utilisateur puisse réessayer immédiatement.
+L'arrivée sur `/reset-confirm` après le premier envoi démarre immédiatement un cooldown de
+30 secondes. Chaque renvoi réussi le réarme ; un échec de renvoi n'ajoute pas de cooldown local.
+Supabase documente toutefois une fenêtre `/recover` de 60 secondes par défaut, personnalisable.
+La décision Cloudbreak est donc de configurer **Authentication → Rate Limits → Password reset
+request** avec une fenêtre **inférieure ou égale à 30 secondes**, afin que le bouton redevienne
+utilisable au même moment que le serveur. Référence :
+[Rate limits — Supabase Auth](https://supabase.com/docs/guides/auth/rate-limits).
 
 ## Configuration opérateur requise
 
@@ -67,11 +72,17 @@ Dans le projet Supabase hébergé, configurer **Authentication → Email Templat
 - remplacer le parcours par lien par un code affichant `{{ .Token }}` ;
 - prévoir les variantes FR et EN à partir de `.Data.locale` ;
 - utiliser le français si la locale est absente, invalide ou non synchronisable ;
+- régler **Authentication → Rate Limits → Password reset request** à une fenêtre inférieure ou
+  égale à 30 secondes (la valeur Supabase par défaut est 60 secondes) ;
 - tester la réception réelle, la longueur de six chiffres et `verifyOtp` avec `type: 'recovery'`.
 
-La synchronisation de locale côté app est best-effort et ne doit jamais bloquer l'envoi. Le
-template français de fallback est donc obligatoire. La configuration Dashboard et la preuve de
-livraison FR/EN/fallback restent à valider manuellement.
+Le template lit la locale stockée dans `user_metadata.locale` du **compte destinataire**. Changer
+uniquement la langue courante de l'app avant une récupération ne garantit donc pas la langue du
+mail. Les tests FR et EN doivent employer deux comptes contrôlés dont les métadonnées sont
+préconfigurées respectivement à `fr` et `en`; une locale absente ou invalide doit produire le
+fallback français. La synchronisation côté app reste best-effort. Garantir exactement la locale
+pré-auth courante pour n'importe quel destinataire nécessiterait plus tard un mécanisme d'e-mail
+transactionnel dédié. La configuration Dashboard et la preuve de livraison restent manuelles.
 
 ## Écart avec les AC provisoires
 

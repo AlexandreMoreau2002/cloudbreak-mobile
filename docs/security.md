@@ -65,10 +65,11 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
 
 ### 🟡 RISQUES À TRAITER / VALIDER AVANT PRODUCTION
 
-- **[Rate-limit]** Le cooldown de 30 secondes est une protection UX, appliquée seulement après un
-  renvoi réussi. Il se contourne avec un client modifié ou un nouvel appareil. Configurer et tester
-  les limites serveur Supabase, surveiller les abus et évaluer un CAPTCHA ; ne jamais compter sur
-  le verrou mobile comme contrôle de sécurité.
+- **[Rate-limit]** Supabase documente pour `/recover` une fenêtre personnalisable de 60 secondes
+  par défaut. La décision Cloudbreak est de régler **Authentication → Rate Limits → Password reset
+  request** à 30 secondes maximum, en cohérence avec le cooldown initial et les cooldowns de renvoi
+  de l'app. Cette protection UX se contourne avec un client modifié ou un nouvel appareil : tester
+  la limite serveur, surveiller les abus et évaluer un CAPTCHA.
 - **[Anti-énumération côté fournisseur]** La copie mobile est neutre, mais il reste à mesurer les
   réponses et timings Supabase pour adresses connues/inconnues. Les journaux opérateur peuvent
   distinguer la livraison, mais ne doivent pas exposer d'OTP ni être accessibles au client.
@@ -78,9 +79,11 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
   redémarrage et retry ; confirmer les droits RLS/backend de cette session et décider si un échec
   terminal doit forcer une déconnexion avant la release.
 - **[Template et locale]** Configurer dans le Dashboard Supabase le template **Reset Password**
-  avec `{{ .Token }}`, variantes FR/EN via `.Data.locale` et branche française par défaut. La
-  synchronisation de locale est best-effort et peut être indisponible sans session ; les preuves
-  de livraison FR, EN et fallback FR sont donc obligatoires.
+  avec `{{ .Token }}`, variantes FR/EN via `.Data.locale` et branche française par défaut. Cette
+  valeur vient des `user_metadata` du compte destinataire : la locale courante du client pré-auth
+  ne garantit pas la langue du message. Les preuves exigent des comptes contrôlés préconfigurés
+  `fr`, `en`, puis absent/invalide pour le fallback FR. Une correspondance exacte avec la locale
+  pré-auth demanderait plus tard un mécanisme d'e-mail transactionnel dédié.
 - **[Politique mot de passe]** L'app bloque les valeurs sous huit caractères ; la politique
   Supabase reste autoritative. Vérifier que sa politique de complexité et les messages d'erreur
   correspondent à la copie produit, sans relâcher la règle côté fournisseur.

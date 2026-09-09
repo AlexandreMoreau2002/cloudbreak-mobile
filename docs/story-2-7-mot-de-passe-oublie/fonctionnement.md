@@ -46,6 +46,7 @@ Connexion
             └─ succès
                  └─ /reset-confirm?sent=1
                       ├─ message neutre anti-énumération
+                      ├─ cooldown initial : 30 s
                       ├─ code faux/expiré : rester sur place
                       ├─ mot de passe < 8 : bouton bloqué
                       ├─ renvoi réussi : cooldown 30 s
@@ -60,9 +61,16 @@ références `submitInFlight` et `resendInFlight` ferment donc la porte dès le 
 premier `await`. Cela empêche deux vérifications ou deux e-mails quand l'utilisateur tape deux fois
 très vite.
 
-Le cooldown de 30 secondes limite l'usage normal du renvoi, mais ce n'est pas une protection de
-sécurité serveur : les limites Supabase et, avant production, un CAPTCHA doivent protéger
-l'endpoint contre les scripts et les changements d'appareil.
+Le premier envoi déclenche un cooldown de 30 secondes dès l'arrivée sur la confirmation. Un renvoi
+réussi le redémarre ; un renvoi échoué ne crée pas de nouveau cooldown local. Supabase applique
+cependant sa propre fenêtre à `/auth/v1/recover` : elle vaut 60 secondes par défaut et est
+personnalisable dans **Authentication → Rate Limits → Password reset request**. Cloudbreak doit la
+régler à **30 secondes maximum** pour aligner le serveur sur l'interface. Référence :
+[Rate limits — Supabase Auth](https://supabase.com/docs/guides/auth/rate-limits).
+
+Ces 30 secondes limitent l'usage normal, mais ne remplacent pas la protection serveur. Les limites
+Supabase et, avant production, un CAPTCHA doivent protéger l'endpoint contre les scripts et les
+changements d'appareil.
 
 ## Anti-énumération
 
@@ -88,9 +96,16 @@ Le Dashboard Supabase doit appliquer le même contrat au template « Reset Passw
 <p><strong>{{ .Token }}</strong></p>
 ```
 
-Le `else` français couvre les locales absentes ou invalides et les cas où la synchronisation
-best-effort échoue. La configuration hébergée reste une action opérateur ; le dépôt ne contient ni
-credentials SMTP ni copie de secret.
+Le `else` français couvre les locales absentes ou invalides. Pour une récupération, `.Data.locale`
+est la métadonnée du compte qui reçoit l'e-mail : la langue actuellement sélectionnée dans un
+client non authentifié ne garantit pas la langue du message. La validation doit donc employer un
+compte contrôlé avec `user_metadata.locale = 'fr'`, un autre avec `user_metadata.locale = 'en'`,
+puis un compte avec valeur absente ou invalide pour le fallback FR.
+
+La synchronisation de locale par l'app est best-effort. Si le produit exige plus tard que chaque
+e-mail suive exactement la locale pré-auth courante, il faudra un mécanisme transactionnel dédié ;
+c'est un gap futur, pas une promesse de ce flow Supabase. La configuration hébergée reste une
+action opérateur et le dépôt ne contient ni credentials SMTP ni copie de secret.
 
 ## Écart documenté avec l'epic
 
