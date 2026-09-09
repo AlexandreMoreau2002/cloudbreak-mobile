@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-09-05_
+_Dernière mise à jour : 2026-09-09_
 
 ---
 
@@ -51,6 +51,7 @@ _Dernière mise à jour : 2026-09-05_
 | Création Apple iOS (story 2.6) | 🟡 Code présent, provider/build native non validés |
 | Mini-sondage post-création (story 2.8) | 🟡 Code présent, persistance réelle non validée |
 | Retrait/ré-octroi consentement newsletter — Profil → Compte → Newsletter, `PATCH /api/v1/user/preferences` (stories 2.5/2.8, RGPD) | 🟡 Code présent, persistance réelle non validée |
+| Mot de passe oublié — flow OTP in-app (`/reset` → `/reset-confirm`, `resetPasswordForEmail` + `verifyOtp type:'recovery'`) (story 2.7) | 🟡 Code présent, template Dashboard + test réel à valider |
 
 ## Ce qui n'existe pas encore
 

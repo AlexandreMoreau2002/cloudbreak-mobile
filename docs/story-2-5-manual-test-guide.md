@@ -121,6 +121,32 @@ Attendu : `anonymous_users: true`, `email: true`, `mailer_autoconfirm: false`.
 
 ---
 
+## 7. Mot de passe oublié
+
+> L'epic parle encore d'un lien, mais la spec validée utilise un OTP à six chiffres saisi dans
+> l'app. Le template Supabase **Reset Password** doit afficher `{{ .Token }}` avec ses variantes
+> FR/EN et son fallback français.
+
+1. Écran connexion → **Mot de passe oublié ?** → `/reset`.
+2. Saisir l'e-mail d'un compte existant → **Envoyer le code** → message neutre puis
+   `/reset-confirm`.
+3. Ouvrir l'e-mail « Reset Password » → saisir le code à six chiffres et un nouveau mot de passe
+   d'au moins huit caractères.
+4. **Réinitialiser** → connecté, arrivée Home ou action en attente rejouée.
+5. Se déconnecter : l'ANCIEN mot de passe doit échouer, le NOUVEAU doit réussir.
+6. Cas adresse inconnue : message neutre identique et aucun e-mail reçu (anti-énumération).
+7. Cas code faux ou expiré : message d'erreur, rester sur l'écran, aucun changement de mot de passe.
+8. Cas mot de passe inférieur à huit caractères : bouton de confirmation désactivé.
+9. Cas renvoi en erreur : message générique et **aucun cooldown** ; un nouvel essai est possible.
+10. Cas renvoi réussi : nouvel e-mail, cooldown 30 secondes et double tap sans deuxième requête.
+11. Cas action en attente (favori/quota) : l'action est rejouée ; si le replay échoue, retour Home
+    sans formulaire bloqué.
+
+Le protocole complet, avec langues et cas limites, est dans
+[`docs/story-2-7-mot-de-passe-oublie/guide-test.md`](story-2-7-mot-de-passe-oublie/guide-test.md).
+
+---
+
 ## 🔴 Bloqué par le compte Apple Developer payant (99 €/an)
 
 Ces points ne sont **pas testables** tant que le compte Apple Developer n'est pas pris — la

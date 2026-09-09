@@ -46,6 +46,54 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
 
 ---
 
+## 2026-09-09 Story 2.7 — Récupération du mot de passe par OTP
+
+### 🟢 PROTECTIONS EN PLACE
+
+- **[Anti-énumération]** Après une demande acceptée, `/reset-confirm` affiche uniquement « Si un
+  compte existe pour cette adresse… ». La route ne reçoit `sent=1` qu'après la réussite de
+  `resetPasswordForEmail`; les échecs réseau et rate-limit utilisent une copie générique.
+- **[Secrets et logs]** L'adresse complète, l'OTP, le nouveau mot de passe, l'access token et le
+  refresh token ne sont jamais loggés. Les traces DEBUG se limitent à `hasEmail`, `codeLength` et
+  aux étapes/résultats catégorisés. Aucun de ces secrets ne transite par le backend Cloudbreak.
+- **[Doubles taps]** `submitInFlight` et `resendInFlight` verrouillent synchroniquement les appels,
+  en complément des boutons désactivés. Deux taps immédiats ne lancent qu'une opération.
+- **[Transport et stockage]** Les appels recovery vont directement à Supabase Auth en HTTPS. La
+  session issue de `verifyOtp(type: 'recovery')` utilise l'adaptateur SecureStore/Keychain existant.
+- **[Pas de deep link recovery]** `detectSessionInUrl: false` reste actif. Le template doit exposer
+  `{{ .Token }}` ; aucune session n'est injectée depuis un lien entrant.
+
+### 🟡 RISQUES À TRAITER / VALIDER AVANT PRODUCTION
+
+- **[Rate-limit]** Le cooldown de 30 secondes est une protection UX, appliquée seulement après un
+  renvoi réussi. Il se contourne avec un client modifié ou un nouvel appareil. Configurer et tester
+  les limites serveur Supabase, surveiller les abus et évaluer un CAPTCHA ; ne jamais compter sur
+  le verrou mobile comme contrôle de sécurité.
+- **[Anti-énumération côté fournisseur]** La copie mobile est neutre, mais il reste à mesurer les
+  réponses et timings Supabase pour adresses connues/inconnues. Les journaux opérateur peuvent
+  distinguer la livraison, mais ne doivent pas exposer d'OTP ni être accessibles au client.
+- **[Session recovery]** `verifyOtp` établit et persiste une session authentifiée avant
+  `updateUser({ password })`. Si l'écriture du mot de passe ou le provisioning échoue, la session
+  peut déjà exister dans le Keychain tandis que l'écran reste ouvert. Tester interruption,
+  redémarrage et retry ; confirmer les droits RLS/backend de cette session et décider si un échec
+  terminal doit forcer une déconnexion avant la release.
+- **[Template et locale]** Configurer dans le Dashboard Supabase le template **Reset Password**
+  avec `{{ .Token }}`, variantes FR/EN via `.Data.locale` et branche française par défaut. La
+  synchronisation de locale est best-effort et peut être indisponible sans session ; les preuves
+  de livraison FR, EN et fallback FR sont donc obligatoires.
+- **[Politique mot de passe]** L'app bloque les valeurs sous huit caractères ; la politique
+  Supabase reste autoritative. Vérifier que sa politique de complexité et les messages d'erreur
+  correspondent à la copie produit, sans relâcher la règle côté fournisseur.
+
+### Verdict
+
+CODE MOBILE PRÊT POUR VALIDATION RÉELLE — aucun secret ajouté et aucune surface backend
+Cloudbreak créée. Le merge production reste conditionné par le template hébergé, les tests de
+livraison/anti-énumération, les limites Supabase et le comportement d'une session recovery
+interrompue.
+
+---
+
 ## 2026-07-17 Story 7-2 — Mode Offline-Light & Cache TTL
 
 ### 🔵 INFO
