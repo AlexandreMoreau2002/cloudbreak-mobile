@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
-import { useTheme } from '@/contexts/ThemeContext';
 import { LEGAL_URLS } from '@/constants/legalUrls';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { PasswordField } from '@/components/account/PasswordField';

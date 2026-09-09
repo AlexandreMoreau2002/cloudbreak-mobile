@@ -26,7 +26,7 @@ jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { backg
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ locale: mockLocale }) }));
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ beginEmailUpgrade: mockBegin, signIn: mockSignIn, signInWithApple: mockApple }) }));
 jest.mock('@/contexts/AccountGateContext', () => ({ useAccountGate: () => ({ pendingAction: mockPendingAction, cancelAccountFlow: mockCancel, finishAccountCreation: mockFinish, setEmailUpgradeCredentials: mockSetCredentials }) }));
-jest.mock('@/components/account', () => { const { TouchableOpacity: Button, Text: Label, View } = require('react-native'); return { AccountForm: ({ onSubmit, onApple, mode, error }: { onSubmit: (email: string, password: string) => void; onApple: () => void; mode: string; error?: string | null }) => <View><Button testID="form" onPress={() => onSubmit(mockSubmitArgs[0], mockSubmitArgs[1])}><Label>{mode}</Label></Button><Button testID="apple" onPress={onApple}><Label>Apple</Label></Button>{error ? <Label>{error}</Label> : null}</View> }; });
+jest.mock('@/components/account', () => { const { TouchableOpacity: Button, Text: Label, View } = require('react-native'); return { AccountForm: ({ onSubmit, onApple, onForgotPassword, mode, error }: { onSubmit: (email: string, password: string) => void; onApple: () => void; onForgotPassword: () => void; mode: string; error?: string | null }) => <View><Button testID="form" onPress={() => onSubmit(mockSubmitArgs[0], mockSubmitArgs[1])}><Label>{mode}</Label></Button><Button testID="apple" onPress={onApple}><Label>Apple</Label></Button><Button testID="forgot" onPress={onForgotPassword}><Label>Forgot</Label></Button>{error ? <Label>{error}</Label> : null}</View> }; });
 jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
 
 describe('AccountScreen route contracts', () => {
@@ -156,5 +156,12 @@ describe('AccountScreen route contracts', () => {
     await waitFor(() => expect(mockApple).toHaveBeenCalledWith('connexion'));
     expect(mockFinish).toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalledWith('/survey');
+  });
+
+  it('ouvre le parcours de réinitialisation depuis le mode connexion', () => {
+    mockParams = { mode: 'login' };
+    const { getByTestId } = render(<AccountScreen />);
+    fireEvent.press(getByTestId('forgot'));
+    expect(mockPush).toHaveBeenCalledWith('/reset');
   });
 });

@@ -124,6 +124,7 @@ export default function AccountScreen() {
               onSubmit={submit}
               onApple={apple}
               onModeChange={() => setMode(mode === 'creation' ? 'connexion' : 'creation')}
+              onForgotPassword={() => router.push('/reset')}
             />
           </View>
         </ScrollView>
