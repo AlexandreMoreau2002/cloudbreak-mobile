@@ -5,6 +5,7 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockRequestPasswordReset = jest.fn();
 let mockLocale: 'fr' | 'en' = 'fr';
+let mockDebug = true;
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack }),
@@ -29,6 +30,9 @@ jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ locale: m
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ requestPasswordReset: mockRequestPasswordReset }),
 }));
+jest.mock('@/constants/devConfig', () => ({
+  get DEBUG() { return mockDebug; },
+}));
 jest.mock('@/components/account', () => ({ AuthBackdrop: () => null }));
 jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
 
@@ -36,6 +40,7 @@ describe('ResetScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockLocale = 'fr';
+    mockDebug = true;
     mockRequestPasswordReset.mockResolvedValue(null);
   });
 
@@ -69,15 +74,18 @@ describe('ResetScreen', () => {
     expect(input).toHaveStyle({ backgroundColor: '#fff', borderColor: '#ddd' });
   });
 
-  it('au succès, affiche le message neutre et navigue vers la confirmation avec l\'email normalisé', async () => {
-    const { getByTestId, getByText } = render(<ResetScreen />);
+  it('au succès, délègue le message neutre à la confirmation avec l\'email normalisé', async () => {
+    const { getByTestId, queryByText } = render(<ResetScreen />);
 
     fireEvent.changeText(getByTestId('reset-email'), '  a@b.com  ');
     fireEvent.press(getByTestId('reset-submit'));
 
     await waitFor(() => expect(mockRequestPasswordReset).toHaveBeenCalledWith('a@b.com', 'fr'));
-    expect(getByText('reset.sent')).toBeTruthy();
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/reset-confirm', params: { email: 'a@b.com' } });
+    expect(queryByText('reset.sent')).toBeNull();
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/reset-confirm',
+      params: { email: 'a@b.com', sent: '1' },
+    });
   });
 
   it('transmet la locale anglaise active', async () => {
@@ -116,6 +124,38 @@ describe('ResetScreen', () => {
 
     resolveRequest(null);
     await waitFor(() => expect(mockPush).toHaveBeenCalled());
+  });
+
+  it.each([
+    ['ios', 'padding'],
+    ['android', undefined],
+  ])('adapte le clavier à la plateforme %s', (operatingSystem, expectedBehavior) => {
+    const { KeyboardAvoidingView, Platform } = require('react-native');
+    const originalOperatingSystem = Platform.OS;
+    Platform.OS = operatingSystem;
+
+    try {
+      const { UNSAFE_getByType } = render(<ResetScreen />);
+      expect(UNSAFE_getByType(KeyboardAvoidingView).props.behavior).toBe(expectedBehavior);
+    } finally {
+      Platform.OS = originalOperatingSystem;
+    }
+  });
+
+  it.each([
+    [true, 1],
+    [false, 0],
+  ])('journalise la soumission seulement quand DEBUG vaut %s', async (debugEnabled, expectedCalls) => {
+    mockDebug = debugEnabled;
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    const { getByTestId } = render(<ResetScreen />);
+
+    fireEvent.changeText(getByTestId('reset-email'), 'a@b.com');
+    fireEvent.press(getByTestId('reset-submit'));
+
+    await waitFor(() => expect(mockRequestPasswordReset).toHaveBeenCalled());
+    expect(debugSpy).toHaveBeenCalledTimes(expectedCalls);
+    debugSpy.mockRestore();
   });
 
   it('le chevron retour appelle router.back', () => {

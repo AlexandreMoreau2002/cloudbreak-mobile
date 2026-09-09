@@ -29,7 +29,6 @@ export default function ResetScreen() {
   const [focused, setFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
 
   async function submit() {
     if (DEBUG) console.debug('[reset] submit', { hasEmail: !!email });
@@ -53,8 +52,7 @@ export default function ResetScreen() {
       return;
     }
 
-    setSent(true);
-    router.push({ pathname: '/reset-confirm', params: { email: normalizedEmail } });
+    router.push({ pathname: '/reset-confirm', params: { email: normalizedEmail, sent: '1' } });
   }
 
   return (
@@ -115,7 +113,6 @@ export default function ResetScreen() {
               ]}
             />
 
-            {sent ? <Text style={[styles.sent, { color: colors.textSecondary }]}>{i18n.t('reset.sent')}</Text> : null}
             {error ? (
               <View accessibilityRole="alert" style={styles.error}>
                 <Text style={styles.errorText}>{error}</Text>
@@ -159,7 +156,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   field: { height: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, fontSize: 15 },
-  sent: { fontSize: 13, lineHeight: 19, textAlign: 'center' },
   error: {
     minHeight: 42,
     borderRadius: 12,
