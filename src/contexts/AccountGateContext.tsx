@@ -7,6 +7,8 @@ import { DEBUG } from '@/constants/devConfig';
 import { supabase } from '@/services/supabaseClient';
 
 const ACCOUNT_PROMPT_SEEN_KEY = 'hasSeenAccountPrompt';
+type AccountReturnRoute = '/(tabs)' | '/(tabs)/search' | '/(tabs)/favorites' | '/(tabs)/profile';
+type AccountEntryMode = 'creation' | 'login';
 export type PendingAction =
   | { kind: 'favorite'; peakId: string }
   | { kind: 'quota'; retry: () => void | Promise<void> }
@@ -18,6 +20,7 @@ export interface EmailUpgradeCredentials {
 interface AccountGateValue {
   pendingAction: PendingAction | null;
   requireAccount: (action: PendingAction) => void;
+  openAccount: (mode: AccountEntryMode) => void;
   finishAccountCreation: () => Promise<void>;
   cancelAccountFlow: () => Promise<void>;
   maybePromptFirstRun: () => Promise<void>;
@@ -33,9 +36,8 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [emailUpgradeCredentials, setEmailUpgradeCredentials] = useState<EmailUpgradeCredentials | null>(null);
   const firstRunPromptChecked = useRef(false);
-  const returnRoute = useRef('/(tabs)');
-  const restoreReturnRoute = useCallback(() => router.replace(returnRoute.current as '/(tabs)' | '/(tabs)/search' | '/(tabs)/favorites' | '/(tabs)/profile'), [router]);
-  const requireAccount = useCallback((action: PendingAction) => {
+  const returnRoute = useRef<AccountReturnRoute>('/(tabs)');
+  const captureReturnRoute = useCallback(() => {
     const currentSegment = (segments as readonly string[])[1];
     returnRoute.current = currentSegment === 'search'
       ? '/(tabs)/search'
@@ -44,20 +46,38 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
         : currentSegment === 'profile'
           ? '/(tabs)/profile'
           : '/(tabs)';
+  }, [segments]);
+  const restoreReturnRoute = useCallback(() => router.dismissTo(returnRoute.current as never), [router]);
+  const requireAccount = useCallback((action: PendingAction) => {
+    captureReturnRoute();
     if (DEBUG) console.debug('[AccountGate] requireAccount', { kind: action.kind, returnRoute: returnRoute.current });
     setPendingAction(action);
     router.push(action.kind === 'first_run' ? { pathname: '/account', params: { firstRun: '1' } } : '/account');
-  }, [router, segments]);
+  }, [captureReturnRoute, router]);
+  const openAccount = useCallback((mode: AccountEntryMode) => {
+    captureReturnRoute();
+    if (DEBUG) console.debug('[AccountGate] openAccount', { mode, returnRoute: returnRoute.current });
+    router.push({ pathname: '/account', params: { mode } });
+  }, [captureReturnRoute, router]);
   const markPromptSeen = useCallback(async () => {
-    await AsyncStorage.setItem(ACCOUNT_PROMPT_SEEN_KEY, 'true');
-    router.replace('/(tabs)');
-  }, [router]);
+    firstRunPromptChecked.current = true;
+    try {
+      await AsyncStorage.setItem(ACCOUNT_PROMPT_SEEN_KEY, 'true');
+    } catch {
+      // Persistence is best-effort. The in-memory gate state already avoids
+      // reopening the prompt during this app session.
+    }
+  }, []);
   const finishAccountCreation = useCallback(async () => {
     const action = pendingAction;
     setEmailUpgradeCredentials(null);
     if (!action) return;
     setPendingAction(null);
-    if (action.kind === 'first_run') { await markPromptSeen(); return; }
+    if (action.kind === 'first_run') {
+      await markPromptSeen();
+      router.replace('/(tabs)' as never);
+      return;
+    }
     // Auth state updates are asynchronous. Read Supabase's session here rather
     // than using the session captured by the render that opened the gate.
     const { data } = await supabase.auth.getSession();
@@ -74,14 +94,17 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
     }
     await action.retry();
     restoreReturnRoute();
-  }, [markPromptSeen, pendingAction, restoreReturnRoute]);
+  }, [markPromptSeen, pendingAction, restoreReturnRoute, router]);
   const cancelAccountFlow = useCallback(async () => {
     const action = pendingAction;
     setEmailUpgradeCredentials(null);
     setPendingAction(null);
-    if (action?.kind === 'first_run') { await markPromptSeen(); return; }
-    if (action) restoreReturnRoute();
-    else router.back();
+    await markPromptSeen();
+    if (action?.kind === 'first_run') {
+      router.replace('/(tabs)' as never);
+      return;
+    }
+    restoreReturnRoute();
   }, [markPromptSeen, pendingAction, restoreReturnRoute, router]);
   const maybePromptFirstRun = useCallback(async () => {
     if (firstRunPromptChecked.current || !session?.user.is_anonymous) return;
@@ -93,7 +116,7 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
       // Storage is best-effort: do not block the app or repeatedly prompt on failure.
     }
   }, [requireAccount, session]);
-  return <AccountGateContext.Provider value={{ pendingAction, requireAccount, finishAccountCreation, cancelAccountFlow, maybePromptFirstRun, emailUpgradeCredentials, setEmailUpgradeCredentials }}>{children}</AccountGateContext.Provider>;
+  return <AccountGateContext.Provider value={{ pendingAction, requireAccount, openAccount, finishAccountCreation, cancelAccountFlow, maybePromptFirstRun, emailUpgradeCredentials, setEmailUpgradeCredentials }}>{children}</AccountGateContext.Provider>;
 }
 export function useAccountGate(): AccountGateValue {
   const value = useContext(AccountGateContext);

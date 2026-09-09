@@ -3,12 +3,14 @@ import { CodeInput } from '@/components/account/CodeInput';
 jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { textPrimary: '#111', surface: '#fff', accent: '#b28c6e', border: '#ddd' }, typography: { fontFamily: { semiBold: 'System' } } }) }));
 
 describe('CodeInput', () => {
-  it('fills six digits and supports pasted codes', () => {
+  it('fills six digits and truncates pasted codes after the sixth slot', () => {
     const onChange = jest.fn();
     const { getByTestId } = render(<CodeInput value="" onChange={onChange} />);
-    fireEvent.changeText(getByTestId('code-input-0'), '123456');
+    fireEvent.changeText(getByTestId('code-input-0'), '1234567');
     expect(onChange).toHaveBeenLastCalledWith('123456');
+    expect(getByTestId('code-input-5').props.value).toBe('6');
     expect(getByTestId('code-input-0').props.maxLength).toBe(6);
+    expect(() => getByTestId('code-input-6')).toThrow();
   });
 
   it('keeps a hole when backspace clears a filled cell', () => {

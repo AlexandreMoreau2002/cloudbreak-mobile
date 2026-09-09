@@ -10,6 +10,7 @@ import {
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
+const mockDismissTo = jest.fn();
 let mockSegments: string[] = ['(tabs)', 'search'];
 const mockAddFavorite = jest.fn();
 const mockGetSession = jest.fn();
@@ -18,7 +19,7 @@ const mockAuthState = {
 };
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack, push: mockPush, replace: mockReplace }),
+  useRouter: () => ({ back: mockBack, push: mockPush, replace: mockReplace, dismissTo: mockDismissTo }),
   useSegments: () => mockSegments,
 }));
 
@@ -102,7 +103,7 @@ describe('AccountGateContext', () => {
 
     expect(mockAddFavorite).toHaveBeenCalledWith('permanent-token', 'peak-42');
     expect(result.current.pendingAction).toBeNull();
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/search');
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/search');
     expect(mockBack).not.toHaveBeenCalled();
   });
 
@@ -158,7 +159,7 @@ describe('AccountGateContext', () => {
     expect(retry).not.toHaveBeenCalled();
   });
 
-  it('annule le parcours sans rejouer l’action et conserve la session invitée', async () => {
+  it('annule un parcours non first-run en mémorisant la fermeture et en conservant la session invitée', async () => {
     const retry = jest.fn();
     const { result } = renderHook(() => useAccountGate(), { wrapper });
     act(() => result.current.requireAccount({ kind: 'quota', retry }));
@@ -167,9 +168,68 @@ describe('AccountGateContext', () => {
 
     expect(retry).not.toHaveBeenCalled();
     expect(result.current.pendingAction).toBeNull();
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/search');
+    expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('hasSeenAccountPrompt', 'true');
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/search');
     expect(mockBack).not.toHaveBeenCalled();
-    expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('restaure la route même si la mémorisation du prompt échoue', async () => {
+    const retry = jest.fn();
+    mockAsyncStorage.setItem.mockRejectedValueOnce(new Error('storage unavailable'));
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+    act(() => result.current.requireAccount({ kind: 'favorite', peakId: 'peak-42' }));
+
+    await act(async () => result.current.cancelAccountFlow());
+
+    expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('hasSeenAccountPrompt', 'true');
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/search');
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it('ne rouvre pas le parcours first-run après une annulation si la persistance échoue', async () => {
+    mockAsyncStorage.setItem.mockRejectedValueOnce(new Error('storage unavailable'));
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+    act(() => result.current.requireAccount({ kind: 'favorite', peakId: 'peak-42' }));
+
+    await act(async () => result.current.cancelAccountFlow());
+    await act(async () => result.current.maybePromptFirstRun());
+
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/search');
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenNthCalledWith(1, '/account');
+  });
+
+  it('restaure aussi la route favorites lors d’une annulation', async () => {
+    const retry = jest.fn();
+    mockSegments = ['(tabs)', 'favorites'];
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+    act(() => result.current.requireAccount({ kind: 'favorite', peakId: 'peak-42' }));
+
+    await act(async () => result.current.cancelAccountFlow());
+
+    expect(retry).not.toHaveBeenCalled();
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/favorites');
+  });
+
+  it('restaure le profil après une ouverture explicite du compte depuis le profil', async () => {
+    mockSegments = ['(tabs)', 'profile'];
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+
+    act(() => result.current.openAccount('creation'));
+    await act(async () => result.current.cancelAccountFlow());
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/account', params: { mode: 'creation' } });
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/profile');
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('quitte toujours vers l’accueil sans action en attente, sans revenir dans la boucle', async () => {
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+
+    await act(async () => result.current.cancelAccountFlow());
+
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)');
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it('ouvre la variante first-run et enregistre Explorer d’abord avant la Home', async () => {

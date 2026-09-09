@@ -13,6 +13,14 @@
  */
 import { DEBUG, SIMULATE_DELAY_MS } from '@/constants/devConfig';
 
+const HTTP_TIMEOUT_MS = 10_000;
+
+function timeoutError(): Error & { code: string } {
+  const error = new Error('Impossible de joindre le serveur') as Error & { code: string };
+  error.code = 'NETWORK_TIMEOUT';
+  return error;
+}
+
 // ── Config API ────────────────────────────────────────────────────────────────
 
 export const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.cloudbreak-app.com';
@@ -43,19 +51,29 @@ export async function apiFetch<T>(
   }
 
   let response: Response;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
-    response = await fetch(url.toString(), {
+    const request = fetch(url.toString(), {
       method,
       headers,
       signal: options?.signal,
       body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timeoutId = setTimeout(() => reject(timeoutError()), HTTP_TIMEOUT_MS);
+    });
+    response = await Promise.race([request, timeout]);
   } catch (cause) {
+    if (typeof cause === 'object' && cause !== null && (cause as { code?: string }).code === 'NETWORK_TIMEOUT') {
+      throw cause;
+    }
     if (cause instanceof Error && cause.name === 'AbortError') throw cause;
     if (DEBUG) console.debug('[fetchService] network unreachable', { url: url.toString(), cause });
     const err = new Error('Impossible de joindre le serveur') as Error & { code: string };
     err.code = 'NETWORK_UNREACHABLE';
     throw err;
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
 
   if (!response.ok) {

@@ -13,15 +13,19 @@ import {
 import i18n from '@/utils/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
 import { AuthBackdrop } from '@/components/account/AuthBackdrop';
 import { AccountForm, type AccountMode } from '@/components/account';
+
+const DUPLICATE_ACCOUNT_MESSAGES = new Set(['user already registered']);
 
 export default function AccountScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ firstRun?: string; mode?: string }>();
   const insets = useSafeAreaInsets();
   const { colors, typography } = useTheme();
+  const { locale } = useLanguage();
   const auth = useAuth();
   const gate = useAccountGate();
   const [mode, setMode] = useState<AccountMode>(params.mode === 'login' ? 'connexion' : 'creation');
@@ -34,12 +38,12 @@ export default function AccountScreen() {
   }
 
   function errorCopy(message: string) {
-    const lower = message.toLowerCase();
-    if (message === 'EMAIL_UPGRADE_UNAVAILABLE') return i18n.t('account.emailUpgradeUnavailable');
-    if (lower.includes('already') || lower.includes('exist') || lower.includes('déjà')) {
+    const normalized = message.trim().toLowerCase();
+    if (normalized === 'email_upgrade_unavailable') return i18n.t('account.emailUpgradeUnavailable');
+    if (DUPLICATE_ACCOUNT_MESSAGES.has(normalized)) {
       return i18n.t('account.errorTaken');
     }
-    if (lower.includes('invalid') || lower.includes('password') || lower.includes('mot de passe')) {
+    if (normalized.includes('invalid') || normalized.includes('password') || normalized.includes('mot de passe')) {
       return i18n.t('account.errorWrongPassword');
     }
     return i18n.t('account.errorNetwork');
@@ -53,7 +57,7 @@ export default function AccountScreen() {
     setLoading(true);
     setError(null);
     const err = mode === 'creation'
-      ? await auth.beginEmailUpgrade(email.trim())
+      ? await auth.beginEmailUpgrade(email.trim(), locale)
       : await auth.signIn(email.trim(), password);
     setLoading(false);
     if (err) {
@@ -98,7 +102,11 @@ export default function AccountScreen() {
       </TouchableOpacity>
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
           <View style={styles.center}>
             <Text style={[styles.eyebrow, { color: colors.accent, fontFamily: typography.fontFamily.semiBold }]}>
               {i18n.t('account.eyebrow')}
@@ -138,8 +146,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 26 },
   flex: { flex: 1, zIndex: 2 },
   back: { width: 44, height: 44, justifyContent: 'center', marginLeft: -6, zIndex: 2 },
-  scroll: { flexGrow: 1, zIndex: 2 },
-  center: { flex: 1, justifyContent: 'center', gap: 12, paddingVertical: 20, zIndex: 2 },
+  scroll: { flexGrow: 1, paddingBottom: 32, zIndex: 2 },
+  center: { gap: 12, paddingVertical: 20, zIndex: 2 },
   eyebrow: { fontSize: 11, letterSpacing: 3.4, textAlign: 'center' },
   title: { fontSize: 34, lineHeight: 36, letterSpacing: -1, textAlign: 'center' },
   subtitle: {

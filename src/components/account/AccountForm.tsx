@@ -73,10 +73,11 @@ export function AccountForm({ mode, loading, error, onSubmit, onApple, onModeCha
         autoCapitalize="none"
         autoComplete="email"
         style={[
+          styles.field,
           styles.input,
           {
-            color: colors.textPrimary,
-            backgroundColor: colors.surface,
+            color: '#1a1a1a',
+            backgroundColor: '#fff',
             borderColor: focused === 'email' ? colors.accent : colors.border,
             fontFamily: typography.fontFamily.regular,
           },
@@ -86,12 +87,14 @@ export function AccountForm({ mode, loading, error, onSubmit, onApple, onModeCha
       <View>
         <View
           style={[
+            styles.field,
             styles.password,
             {
-              backgroundColor: colors.surface,
+              backgroundColor: '#fff',
               borderColor: focused === 'password' ? colors.accent : colors.border,
             },
           ]}
+          testID="account-password-container"
         >
           <TextInput
             accessibilityLabel={i18n.t('auth.password')}
@@ -104,10 +107,11 @@ export function AccountForm({ mode, loading, error, onSubmit, onApple, onModeCha
             placeholderTextColor={colors.textDisabled}
             secureTextEntry={!visible}
             autoComplete={mode === 'creation' ? 'new-password' : 'current-password'}
-            style={[styles.passwordInput, { color: colors.textPrimary, fontFamily: typography.fontFamily.regular }]}
+            style={[styles.passwordInput, { color: '#1a1a1a', fontFamily: typography.fontFamily.regular }]}
           />
           <TouchableOpacity
             accessibilityRole="button"
+            testID="account-password-toggle"
             accessibilityLabel={visible ? i18n.t('account.hide') : i18n.t('account.show')}
             onPress={() => setVisible(!visible)}
           >
@@ -164,7 +168,7 @@ export function AccountForm({ mode, loading, error, onSubmit, onApple, onModeCha
         style={[styles.submit, { backgroundColor: colors.accent, borderRadius: radius.sm }]}
       >
         {loading ? (
-          <LoadingSpinner size="small" style={{ flex: 0 }} />
+          <LoadingSpinner size="small" color="#fff" style={{ flex: 0 }} />
         ) : (
           <Text style={styles.submitText}>
             {i18n.t(mode === 'creation' ? 'account.create' : 'account.login')}
@@ -197,7 +201,8 @@ const styles = StyleSheet.create({
   appleText: { color: '#fff', fontSize: 15 },
   or: { flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'center' },
   line: { flex: 1, height: 1 },
-  input: { height: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, fontSize: 15 },
+  field: { height: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, backgroundColor: '#fff' },
+  input: { fontSize: 15 },
   password: {
     height: 48,
     borderWidth: 1,

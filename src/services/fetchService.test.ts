@@ -210,6 +210,31 @@ describe('fetchService', () => {
     await expect(apiFetch('/api/v1/peaks/search', null)).rejects.toBe(error);
   });
 
+  it('interrompt une requête qui ne répond pas après le délai commun', async () => {
+    jest.useFakeTimers();
+    (global.fetch as jest.Mock).mockImplementation(() => new Promise(() => {}));
+
+    const request = apiFetch('/api/v1/slow', 'token-123');
+    const expectation = expect(request).rejects.toMatchObject({ code: 'NETWORK_TIMEOUT' });
+    await jest.advanceTimersByTimeAsync(10_000);
+    await expectation;
+    jest.useRealTimers();
+  });
+
+  it('nettoie le timeout quand la requête se termine avant le délai', async () => {
+    jest.useFakeTimers();
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ ok: true }),
+    });
+
+    await expect(apiFetch('/api/v1/fast', 'token-123')).resolves.toEqual({ ok: true });
+    await jest.advanceTimersByTimeAsync(10_000);
+    expect(jest.getTimerCount()).toBe(0);
+    jest.useRealTimers();
+  });
+
   it('attache httpStatus sur l erreur HTTP', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: false,

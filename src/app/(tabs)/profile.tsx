@@ -7,6 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { usePaywall } from '@/contexts/PaywallContext';
+import { useAccountGate } from '@/contexts/AccountGateContext';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -21,6 +22,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showPaywall } = usePaywall();
+  const { openAccount } = useAccountGate();
   const { session, signOutToAnonymous, deleteAccount, locationPermission, refreshLocationPermission } = useAuth();
   const { setSelectedPeak } = useSelectedPeak();
   const { resetOnboarding } = useOnboarding();
@@ -97,8 +99,8 @@ export default function ProfileScreen() {
 
       {isAnonymous ? (
         <GuestAccountCard
-          onCreateAccount={() => router.push({ pathname: '/account', params: { mode: 'creation' } })}
-          onLogin={() => router.push({ pathname: '/account', params: { mode: 'login' } })}
+          onCreateAccount={() => openAccount('creation')}
+          onLogin={() => openAccount('login')}
         />
       ) : (
         <UserCard email={email} />

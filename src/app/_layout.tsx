@@ -13,7 +13,7 @@ import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
-import { AccountGateProvider, useAccountGate } from '@/contexts/AccountGateContext';
+import { AccountGateProvider } from '@/contexts/AccountGateContext';
 import i18n from '@/utils/i18n';
 import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 
@@ -26,7 +26,6 @@ function AuthGuard() {
   const router = useRouter();
   const segments = useSegments();
   const { session, loading, ensureAnonymousSession } = useAuth();
-  const { maybePromptFirstRun } = useAccountGate();
   useLanguage();
   const { completed, hydrated } = useOnboarding();
   const anonymousAttempted = useRef(false);
@@ -38,7 +37,6 @@ function AuthGuard() {
       if (!inOnboarding) router.replace(ONBOARDING_ROUTE);
       return;
     }
-    if (session?.user?.is_anonymous) void maybePromptFirstRun();
     if (inOnboarding) {
       if (session) router.replace(TABS_ROUTE);
       else if (!anonymousAttempted.current) {
@@ -55,7 +53,7 @@ function AuthGuard() {
         else router.replace(TABS_ROUTE);
       });
     }
-  }, [session, loading, completed, hydrated, segments, router, ensureAnonymousSession, maybePromptFirstRun]);
+  }, [session, loading, completed, hydrated, segments, router, ensureAnonymousSession]);
 
   return null;
 }

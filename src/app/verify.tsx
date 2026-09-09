@@ -6,17 +6,22 @@ import i18n from '@/utils/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { CodeInput } from '@/components/account';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
+
+const CODE_LENGTH = 6;
 
 export default function VerifyScreen() {
   const insets = useSafeAreaInsets();
   const { colors, typography } = useTheme();
+  const { locale } = useLanguage();
   const auth = useAuth();
   const gate = useAccountGate();
   const router = useRouter();
   const { email = '', password = '' } = gate.emailUpgradeCredentials ?? {};
   const [code, setCode] = useState('');
-  const [error, setError] = useState(false);
+  const [codeError, setCodeError] = useState(false);
+  const [provisioningError, setProvisioningError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resend, setResend] = useState(0);
   const [resendError, setResendError] = useState<string | null>(null);
@@ -28,29 +33,41 @@ export default function VerifyScreen() {
   }, [resend]);
 
   async function confirm() {
-    if (code.length !== 6 || !email || !password || loading) return;
+    if (code.length !== CODE_LENGTH || !email || !password || loading) return;
     setLoading(true);
-    setError(false);
+    setCodeError(false);
+    setProvisioningError(false);
     const err = await auth.completeEmailUpgrade(email, password, code);
     setLoading(false);
     if (err) {
-      setError(true);
+      if (err.message === 'EMAIL_UPGRADE_PROVISIONING_FAILED') setProvisioningError(true);
+      else setCodeError(true);
       return;
     }
-    router.push('/survey');
+    router.push('/survey' as never);
   }
 
   async function resendCode() {
     if (resend || loading) return;
     setResendError(null);
-    const err = await auth.resendEmailUpgrade(String(email));
+    const err = await auth.resendEmailUpgrade(String(email), locale);
     if (err) {
       setResendError(i18n.t('verify.resendError'));
       return;
     }
     setCode('');
-    setError(false);
+    setCodeError(false);
+    setProvisioningError(false);
     setResend(30);
+  }
+
+  async function retryProvisioning() {
+    if (loading || !provisioningError) return;
+    setLoading(true);
+    const err = await auth.retryEmailUpgradeProvisioning();
+    setLoading(false);
+    if (err) return;
+    router.push('/survey' as never);
   }
 
   return (
@@ -78,11 +95,28 @@ export default function VerifyScreen() {
           {i18n.t('verify.subtitle')}{' '}
           <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{email}</Text>
         </Text>
-        <CodeInput value={code} onChange={setCode} error={error} />
-        {error ? (
+        <CodeInput value={code} onChange={setCode} error={codeError} />
+        {codeError ? (
           <Text accessibilityRole="alert" style={{ color: '#C25C4A', textAlign: 'center' }}>
             {i18n.t('verify.error')}
           </Text>
+        ) : null}
+        {provisioningError ? (
+          <>
+            <Text accessibilityRole="alert" style={{ color: '#C25C4A', textAlign: 'center' }}>
+              {i18n.t('verify.provisioningError')}
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              testID="verify-retry-provisioning"
+              disabled={loading}
+              onPress={() => void retryProvisioning()}
+            >
+              <Text style={{ color: colors.accent, textAlign: 'center' }}>
+                {i18n.t('verify.retryProvisioning')}
+              </Text>
+            </TouchableOpacity>
+          </>
         ) : null}
         {resendError ? (
           <Text accessibilityRole="alert" style={{ color: '#C25C4A', textAlign: 'center' }}>
@@ -95,11 +129,11 @@ export default function VerifyScreen() {
         <TouchableOpacity
           accessibilityRole="button"
           testID="verify-submit"
-          disabled={code.length !== 6 || loading}
+          disabled={code.length !== CODE_LENGTH || loading}
           onPress={() => void confirm()}
           style={[
             styles.submit,
-            { backgroundColor: colors.accent, opacity: code.length === 6 && !loading ? 1 : 0.4 },
+            { backgroundColor: colors.accent, opacity: code.length === CODE_LENGTH && !loading ? 1 : 0.4 },
           ]}
         >
           <Text style={{ color: '#fff' }}>

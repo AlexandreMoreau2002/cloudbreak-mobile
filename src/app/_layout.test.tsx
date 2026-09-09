@@ -23,6 +23,7 @@ const mockUseSegments = jest.fn();
 const mockUseAuth = jest.fn();
 const mockUseOnboarding = jest.fn();
 const mockEnsureAnonymousSession = jest.fn();
+const mockMaybePromptFirstRun = jest.fn().mockResolvedValue(undefined);
 const mockAlert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
 jest.mock('expo-router', () => ({
@@ -51,6 +52,11 @@ jest.mock('@/contexts/AuthContext', () => ({
 jest.mock('@/contexts/OnboardingContext', () => ({
   OnboardingProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useOnboarding: () => mockUseOnboarding(),
+}));
+
+jest.mock('@/contexts/AccountGateContext', () => ({
+  AccountGateProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useAccountGate: () => ({ maybePromptFirstRun: mockMaybePromptFirstRun }),
 }));
 
 jest.mock('@/contexts/SelectedPeakContext', () => ({
@@ -92,14 +98,34 @@ describe('RootLayout', () => {
     expect(mockHideAsync).not.toHaveBeenCalled();
   });
 
-  it('crée une session anonyme puis affiche les tabs sans imposer login', async () => {
+  it('laisse un invité sur les tabs sans ouvrir le parcours de création de compte', async () => {
+    mockUseAuth.mockReturnValue({
+      session: { access_token: 'guest-token', user: { is_anonymous: true } },
+      loading: false,
+      ensureAnonymousSession: mockEnsureAnonymousSession,
+    });
+
     render(<RootLayout />);
 
     await waitFor(() => {
       expect(mockHideAsync).toHaveBeenCalledTimes(1);
-      expect(mockEnsureAnonymousSession).toHaveBeenCalledTimes(1);
-      expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+      expect(mockEnsureAnonymousSession).not.toHaveBeenCalled();
+      expect(mockMaybePromptFirstRun).not.toHaveBeenCalled();
     });
+  });
+
+  it('n ouvre pas le prompt first-run hors des tabs', async () => {
+    mockUseSegments.mockReturnValue(['verify']);
+    mockUseAuth.mockReturnValue({
+      session: { access_token: 'guest-token', user: { is_anonymous: true } },
+      loading: false,
+      ensureAnonymousSession: mockEnsureAnonymousSession,
+    });
+
+    render(<RootLayout />);
+
+    await waitFor(() => expect(mockHideAsync).toHaveBeenCalledTimes(1));
+    expect(mockMaybePromptFirstRun).not.toHaveBeenCalled();
   });
 
   it('ne redirige pas une session existante depuis un écran public', async () => {

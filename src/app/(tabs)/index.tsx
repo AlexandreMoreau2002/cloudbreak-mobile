@@ -3,8 +3,8 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
@@ -64,6 +64,7 @@ export async function shareForecast(
 export default function HomeScreen() {
   useLanguage();
   const router = useRouter();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { session, isAnonymous, locationPermission } = useAuth();
   const { colors, typography, spacing } = useTheme();
@@ -72,11 +73,12 @@ export default function HomeScreen() {
   const { selectedPeak, setSelectedPeak, selectedDate, selectedHour, setSelectedDate, setSelectedHour } = useSelectedPeak();
 
   const token = session?.access_token ?? null;
-  const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded, fromCache, cachedAt, refresh } = useWeekData(selectedPeak?.id ?? null, token);
+  const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded, fromCache, isOffline, cachedAt, refresh } = useWeekData(selectedPeak?.id ?? null, token);
 
   const { showPaywall } = usePaywall();
   const { requireAccount } = useAccountGate();
   const userClickedHourRef = useRef(false);
+  const quotaEpisodeHandledRef = useRef(false);
 
   // Sommet différent sélectionné → la carte quota doit pouvoir se réafficher pour lui aussi
   useEffect(() => {
@@ -84,11 +86,18 @@ export default function HomeScreen() {
   }, [selectedPeak?.id]);
 
   useEffect(() => {
-    if (quotaExceeded) {
-      if (isAnonymous || session?.user?.is_anonymous) requireAccount({ kind: 'quota', retry: refresh });
-      else showPaywall('quota');
+    if (!quotaExceeded) {
+      quotaEpisodeHandledRef.current = false;
+      return;
     }
-  }, [quotaExceeded, refresh, requireAccount, isAnonymous, session?.user?.is_anonymous, showPaywall]);
+    if (!isFocused || quotaEpisodeHandledRef.current) return;
+
+    // Consommer l'épisode avant la navigation : le changement de segments modifie
+    // les callbacks AccountGate, mais ne doit pas rouvrir le parcours compte.
+    quotaEpisodeHandledRef.current = true;
+    if (isAnonymous || session?.user?.is_anonymous) requireAccount({ kind: 'quota', retry: refresh });
+    else showPaywall('quota');
+  }, [quotaExceeded, refresh, requireAccount, isAnonymous, isFocused, session?.user?.is_anonymous, showPaywall]);
 
   useEffect(() => {
     if (quotaExceeded && selectedPeak) {
@@ -269,7 +278,7 @@ export default function HomeScreen() {
     if (displayScore) {
       return (
         <View style={[styles.forecastStack, isRefreshing && { opacity: 0.7 }]}>
-          {fromCache && cachedAt ? <OfflineBanner cachedAt={cachedAt} /> : null}
+          {isOffline && cachedAt ? <OfflineBanner cachedAt={cachedAt} /> : null}
           <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
           <ScoreCard
             score={displayScore}

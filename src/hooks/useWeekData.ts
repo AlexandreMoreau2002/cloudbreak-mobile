@@ -68,6 +68,7 @@ export function useWeekData(
   error: string | null;
   quotaExceeded: boolean;
   fromCache: boolean;
+  isOffline: boolean;
   cachedAt: number | null;
   refresh: () => Promise<void>;
 } {
@@ -76,14 +77,24 @@ export function useWeekData(
   const [error, setError] = useState<string | null>(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [fromCache, setFromCache] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   const loadedPeakRef = useRef<string | null>(null);
+  const offlineRef = useRef(false);
 
   const load = useCallback(async (force = false) => {
+    const updateOffline = (nextIsOffline: boolean) => {
+      if (offlineRef.current !== nextIsOffline) {
+        offlineRef.current = nextIsOffline;
+        setIsOffline(nextIsOffline);
+      }
+    };
+
     if (!peakId || !token) {
       setData(null);
       setLoading(false);
       setError(null);
+      updateOffline(false);
       return;
     }
 
@@ -92,11 +103,16 @@ export function useWeekData(
       setData(null);
       setError(null);
       setQuotaExceeded(false);
+      setFromCache(false);
+      setCachedAt(null);
+      updateOffline(false);
     }
     setLoading(true);
 
     const today = getTodayISO();
     const cacheK = weekCacheKey(peakId, today);
+
+    let hasValidCache = false;
 
     if (!MOCK_API && !force) {
       try {
@@ -118,7 +134,7 @@ export function useWeekData(
             setFromCache(true);
             setCachedAt(cachedAt);
             setLoading(false);
-            return;
+            hasValidCache = true;
           }
         }
       } catch {
@@ -126,16 +142,29 @@ export function useWeekData(
       }
     }
 
-    if (DEBUG) console.debug('[useWeekData] cache', { key: cacheK, hit: false });
+    if (DEBUG && !hasValidCache) console.debug('[useWeekData] cache', { key: cacheK, hit: false });
 
     const netState = await NetInfo.fetch();
-    if (!netState.isConnected) {
+    if (netState.isConnected === false) {
+      updateOffline(true);
+      if (hasValidCache) {
+        setError(null);
+        setLoading(false);
+        return;
+      }
       if (force) {
         // Refresh manuel hors-ligne : on garde les données déjà affichées, pas d'erreur bloquante
         setLoading(false);
         return;
       }
       setError('OFFLINE_NO_CACHE');
+      setLoading(false);
+      return;
+    }
+
+    updateOffline(false);
+    if (hasValidCache) {
+      setError(null);
       setLoading(false);
       return;
     }
@@ -225,5 +254,5 @@ export function useWeekData(
     load();
   }, [load]);
 
-  return { data, loading, error, quotaExceeded, fromCache, cachedAt, refresh };
+  return { data, loading, error, quotaExceeded, fromCache, isOffline, cachedAt, refresh };
 }

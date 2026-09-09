@@ -3,6 +3,7 @@ import ProfileScreen from '@/app/(tabs)/profile';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 const mockPush = jest.fn();
+const mockOpenAccount = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
   useFocusEffect: (callback: () => void) => callback(),
@@ -47,6 +48,10 @@ jest.mock('@/contexts/AuthContext', () => ({
 const mockShowPaywall = jest.fn();
 jest.mock('@/contexts/PaywallContext', () => ({
   usePaywall: () => ({ showPaywall: mockShowPaywall }),
+}));
+
+jest.mock('@/contexts/AccountGateContext', () => ({
+  useAccountGate: () => ({ openAccount: mockOpenAccount }),
 }));
 
 const mockSetSelectedPeak = jest.fn();
@@ -163,7 +168,7 @@ describe('ProfileScreen', () => {
 
     fireEvent.press(getByText('profile.guest.createAccount'));
 
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/account', params: { mode: 'creation' } });
+    expect(mockOpenAccount).toHaveBeenCalledWith('creation');
   });
 
   it('ouvre la connexion depuis la carte invitée', () => {
@@ -172,7 +177,7 @@ describe('ProfileScreen', () => {
 
     fireEvent.press(getByText('profile.guest.login'));
 
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/account', params: { mode: 'login' } });
+    expect(mockOpenAccount).toHaveBeenCalledWith('login');
   });
 
   it('affiche le banner pro', () => {

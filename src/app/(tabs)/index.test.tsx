@@ -187,8 +187,9 @@ jest.mock('@/contexts/AuthContext', () => ({
 }));
 
 const mockRequireAccount = jest.fn();
+let mockAccountGateRequireAccount = mockRequireAccount;
 jest.mock('@/contexts/AccountGateContext', () => ({
-  useAccountGate: () => ({ requireAccount: mockRequireAccount }),
+  useAccountGate: () => ({ requireAccount: mockAccountGateRequireAccount }),
 }));
 
 const mockUseSelectedPeak = jest.fn();
@@ -206,7 +207,9 @@ jest.mock('@/hooks/useFavorites', () => ({
   useFavorites: () => mockUseFavorites(),
 }));
 
+let mockIsFocused = true;
 jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => mockIsFocused,
   useFocusEffect: (cb: () => void) => cb(),
 }));
 
@@ -299,6 +302,7 @@ function setupSuccess(
     error: null,
     quotaExceeded,
     fromCache: false,
+    isOffline: false,
     cachedAt: null,
     refresh: jest.fn(),
   });
@@ -311,6 +315,7 @@ function setupLoading(existingData: WeekData | null = null) {
     error: null,
     quotaExceeded: false,
     fromCache: false,
+    isOffline: false,
     cachedAt: null,
     refresh: jest.fn(),
   });
@@ -323,6 +328,7 @@ function setupError(message = 'Erreur de chargement', quotaExceeded = false) {
     error: message,
     quotaExceeded,
     fromCache: false,
+    isOffline: false,
     cachedAt: null,
     refresh: jest.fn(),
   });
@@ -335,6 +341,7 @@ function setupIdle() {
     error: null,
     quotaExceeded: false,
     fromCache: false,
+    isOffline: false,
     cachedAt: null,
     refresh: jest.fn(),
   });
@@ -347,6 +354,8 @@ describe('HomeScreen', () => {
     jest.clearAllMocks();
     jest.useFakeTimers().setSystemTime(new Date('2026-03-24T08:00:00Z'));
     mockPush.mockReset();
+    mockIsFocused = true;
+    mockAccountGateRequireAccount = mockRequireAccount;
     mockSetSelectedDate.mockReset();
     mockSetSelectedHour.mockReset();
     mockUseAuth.mockReturnValue({ session: { access_token: 'mock-token' }, loading: false, isAnonymous: false, locationPermission: 'granted' });
@@ -1231,6 +1240,119 @@ describe('HomeScreen', () => {
     expect(mockShowPaywall).not.toHaveBeenCalled();
   });
 
+  it('consomme un épisode de quota avant la navigation malgré un nouveau callback account', () => {
+    mockUseAuth.mockReturnValue({
+      session: { access_token: 'guest-token', user: { is_anonymous: true } },
+      loading: false,
+      isAnonymous: true,
+      locationPermission: 'granted',
+    });
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess(MOCK_SCORE_DATA, '2026-03-24', 6, true);
+
+    const { rerender } = render(<HomeScreen />);
+    expect(mockRequireAccount).toHaveBeenCalledTimes(1);
+
+    const replacementRequireAccount = jest.fn();
+    mockAccountGateRequireAccount = replacementRequireAccount;
+    rerender(<HomeScreen />);
+
+    expect(mockRequireAccount).toHaveBeenCalledTimes(1);
+    expect(replacementRequireAccount).not.toHaveBeenCalled();
+  });
+
+  it('autorise une seule nouvelle ouverture après la fin puis le retour du quota', () => {
+    mockUseAuth.mockReturnValue({
+      session: { access_token: 'guest-token', user: { is_anonymous: true } },
+      loading: false,
+      isAnonymous: true,
+      locationPermission: 'granted',
+    });
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    let quotaExceeded = true;
+    mockUseWeekData.mockImplementation(() => ({
+      data: makeWeekData(MOCK_SCORE_DATA), loading: false, error: null,
+      quotaExceeded, fromCache: false, isOffline: false, cachedAt: null, refresh: jest.fn(),
+    }));
+
+    const { rerender } = render(<HomeScreen />);
+    quotaExceeded = false;
+    rerender(<HomeScreen />);
+    quotaExceeded = true;
+    rerender(<HomeScreen />);
+
+    expect(mockRequireAccount).toHaveBeenCalledTimes(2);
+  });
+
+  it('ne transforme pas le même épisode quota en paywall pendant la conversion du compte', () => {
+    let authState = {
+      session: { access_token: 'guest-token', user: { is_anonymous: true } },
+      loading: false,
+      isAnonymous: true,
+      locationPermission: 'granted',
+    };
+    mockUseAuth.mockImplementation(() => authState);
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess(MOCK_SCORE_DATA, '2026-03-24', 6, true);
+
+    const { rerender } = render(<HomeScreen />);
+    authState = {
+      session: { access_token: 'permanent-token', user: { is_anonymous: false } },
+      loading: false,
+      isAnonymous: false,
+      locationPermission: 'granted',
+    };
+    rerender(<HomeScreen />);
+
+    expect(mockRequireAccount).toHaveBeenCalledTimes(1);
+    expect(mockShowPaywall).not.toHaveBeenCalled();
+  });
+
+  it('ne laisse pas une Home en arrière-plan voler la navigation au quota', () => {
+    mockIsFocused = false;
+    mockUseAuth.mockReturnValue({
+      session: { access_token: 'guest-token', user: { is_anonymous: true } },
+      loading: false,
+      isAnonymous: true,
+      locationPermission: 'granted',
+    });
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess(MOCK_SCORE_DATA, '2026-03-24', 6, true);
+
+    render(<HomeScreen />);
+
+    expect(mockRequireAccount).not.toHaveBeenCalled();
+    expect(mockShowPaywall).not.toHaveBeenCalled();
+  });
+
   it('ne re-track pas quota_badge_viewed sur un rerender sans changement de quota ni de sommet', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
@@ -1405,7 +1527,7 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Quota atteint')).toBeTruthy();
   });
 
-  it('affiche le bandeau offline quand fromCache est vrai', () => {
+  it('affiche le bandeau offline seulement quand le hook confirme une absence de connexion', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,
       selectedDate: '2026-03-24',
@@ -1420,6 +1542,7 @@ describe('HomeScreen', () => {
       error: null,
       quotaExceeded: false,
       fromCache: true,
+      isOffline: true,
       cachedAt: new Date('2026-03-24T08:38:00Z').getTime(),
       refresh: jest.fn(),
     });
@@ -1427,6 +1550,31 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
 
     expect(screen.getByText(/connexion requise pour actualiser/)).toBeTruthy();
+  });
+
+  it('ne confond pas des données en cache avec une absence de connexion', () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockUseWeekData.mockReturnValue({
+      data: makeWeekData(MOCK_SCORE_DATA),
+      loading: false,
+      error: null,
+      quotaExceeded: false,
+      fromCache: true,
+      isOffline: false,
+      cachedAt: new Date('2026-03-24T08:38:00Z').getTime(),
+      refresh: jest.fn(),
+    });
+
+    render(<HomeScreen />);
+
+    expect(screen.queryByText(/connexion requise pour actualiser/)).toBeNull();
   });
 
   it("affiche l'état OFFLINE_NO_CACHE sans bouton", () => {

@@ -61,6 +61,19 @@ Attendu : `anonymous_users: true`, `email: true`, `mailer_autoconfirm: false`.
 5. Sur n'importe quel sommet, « Ajouter aux favoris » en invité → l'écran compte s'affiche.
 6. Onglet **Profil** en invité → carte « invité », **pas** de bouton Se déconnecter / Supprimer.
 
+### Régression retour après quota (2026-09-08)
+
+- [ ] Atteindre le quota invité : création de compte ouverte une fois. Appuyer sur ‹,
+  attendre cinq secondes : rester sur Home, sans réouverture ni empilement d'écrans.
+- [ ] Depuis la carte quota, rouvrir volontairement le parcours puis revenir trois fois.
+  Chaque retour reste utilisable ; les onglets Recherche, Favoris et Profil restent accessibles.
+- [ ] Depuis Profil puis depuis un favori, ouvrir la création puis revenir : retrouver
+  l'onglet d'origine, même si Home possède encore un état quota.
+- [ ] Utiliser « Pas maintenant » : retrouver les données disponibles ou l'état neutre
+  existant ; aucune remise à zéro du quota et aucun effacement de cache.
+- [ ] Compte permanent : fermer le paywall après quota ; il ne doit pas se rouvrir sur
+  un simple rendu. Le bouton explicite permet toujours de le rouvrir.
+
 ---
 
 ## 3. Création de compte par e-mail → mini-sondage

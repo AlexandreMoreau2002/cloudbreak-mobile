@@ -23,8 +23,28 @@ Keychain) se teste sans compte Apple.
 Après l'onboarding, `AuthContext.ensureAnonymousSession()` appelle
 `supabase.auth.signInAnonymously()`. La session anonyme porte déjà un UUID et le backend peut
 appliquer la clé de quota `quota:{user_id}:{date}`. Les recherches et le premier score restent
-accessibles sans compte. `AccountGateContext` ouvre `/account` au premier lancement (invite
-dismissible) ou au point d'usage : second check, favori, ou alerte future.
+accessibles sans compte. `AccountGateContext` ouvre `/account` au point d'usage : second
+check, favori, ou alerte future. Le lancement invité reste sur Home sans invitation automatique.
+
+### Retour après quota — correctif du 2026-09-08
+
+L'état `quotaExceeded` peut rester vrai pendant que Home est montée derrière `/account`.
+Il ne représente donc pas une nouvelle demande à chaque rendu ou changement de route.
+L'ouverture automatique doit être consommée une seule fois par épisode de quota, avant
+la navigation, et seulement lorsque Home est active. Un retour ou un changement de callback
+ne doit pas rouvrir le mur ; une nouvelle transition sans quota → quota peut le proposer.
+Le CTA quota permet toujours de rouvrir volontairement le parcours. La fermeture retrouve
+l'onglet d'origine existant ; Home sert de repli si aucune origine valide n'est disponible.
+Cette logique ne modifie ni le TTL du cache, ni le quota imposé côté serveur.
+
+Au démarrage, une session persistée est validée à distance avec `supabase.auth.getUser()` avant
+d'être considérée comme authentifiée. Seules les erreurs d'identité explicites (utilisateur
+supprimé, jeton/session invalide) effacent le stockage local : l'`AuthGuard` recrée alors une
+session invitée. Une panne réseau, un rate limit ou une erreur serveur Supabase conservent la
+session et activent l'état de service indisponible ; une indisponibilité temporaire ne doit jamais
+déconnecter l'utilisateur. L'événement Supabase `INITIAL_SESSION` est ignoré pendant cette
+validation, afin qu'il n'annule pas le contrôle distant ; un véritable événement ultérieur gagne
+sur le résultat de bootstrap.
 
 Une création e-mail appelle `updateUser({ email })`, conserve l'UUID anonyme, puis `/verify`
 utilise `verifyOtp` avec `type: email_change`; après le mot de passe, le compte

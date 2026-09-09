@@ -1,12 +1,13 @@
+import React from 'react';
 import { AuthError } from '@supabase/supabase-js';
 import { Text, TouchableOpacity, Platform } from 'react-native';
 import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import React from 'react';
 import { deleteAccount, provisionUser, updateUserSurvey } from '@/services/api/user';
 
 const mockUnsubscribe = jest.fn();
 const mockGetSession = jest.fn().mockResolvedValue({ data: { session: null } });
+const mockGetUser = jest.fn().mockResolvedValue({ data: { user: { id: 'validated-user' } }, error: null });
 const mockOnAuthStateChange = jest.fn().mockReturnValue({
   data: { subscription: { unsubscribe: mockUnsubscribe } },
 });
@@ -23,6 +24,16 @@ const mockAppleSignInAsync = jest.fn().mockResolvedValue({ identityToken: 'apple
 const mockGetRandomBytesAsync = jest.fn().mockResolvedValue(Uint8Array.from([0, 1, 2, 255]));
 const mockDigestStringAsync = jest.fn().mockResolvedValue('hashed-apple-nonce');
 const mockAsyncStorageClear = jest.fn().mockResolvedValue(undefined);
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
 
 jest.mock('expo-crypto', () => ({
   getRandomBytesAsync: (...args: unknown[]) => mockGetRandomBytesAsync(...args),
@@ -64,6 +75,7 @@ jest.mock('@/services/supabaseClient', () => ({
       get updateUser() { return mockUpdateUser; },
       get verifyOtp() { return mockVerifyOtp; },
       get getSession() { return mockGetSession; },
+      get getUser() { return mockGetUser; },
       get linkIdentity() { return mockLinkIdentity; },
       get signInAnonymously() { return mockSignInAnonymously; },
       get signInWithPassword() { return mockSignIn; },
@@ -108,10 +120,12 @@ describe('AuthContext', () => {
     currentAuth = null;
     jest.clearAllMocks();
     mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'validated-user' } }, error: null });
     mockSignOut.mockResolvedValue(undefined);
     mockSignIn.mockResolvedValue({ error: null });
     mockSignUp.mockResolvedValue({ error: null });
     mockResend.mockResolvedValue({ error: null });
+    mockUpdateUser.mockReset();
     mockUpdateUser.mockResolvedValue({ error: null });
     mockVerifyOtp.mockResolvedValue({ error: null });
     mockLinkIdentity.mockResolvedValue({ error: null });
@@ -150,6 +164,245 @@ describe('AuthContext', () => {
       expect(getByTestId('loading').props.children).toBe('false');
       expect(getByTestId('session').props.children).toBe('disconnected');
     });
+  });
+
+  it('conserve une session persistée après validation distante réussie', async () => {
+    const storedSession = {
+      access_token: 'stored-permanent-token',
+      user: { id: 'permanent-user', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: storedSession } });
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: { id: 'permanent-user', is_anonymous: false } },
+      error: null,
+    });
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(getByTestId('loading').props.children).toBe('false');
+      expect(getByTestId('session').props.children).toBe('connected');
+    });
+    expect(mockGetUser).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('efface localement une session persistée invalidée par Supabase', async () => {
+    const storedSession = {
+      access_token: 'stored-permanent-token',
+      user: { id: 'deleted-user', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: storedSession } });
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new AuthError('User not found'),
+    });
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(getByTestId('loading').props.children).toBe('false');
+      expect(getByTestId('session').props.children).toBe('disconnected');
+    });
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+
+  it('valide le snapshot persisté malgré INITIAL_SESSION avant de le déconnecter localement', async () => {
+    const storedSession = {
+      access_token: 'stored-permanent-token',
+      user: { id: 'deleted-user', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: storedSession } });
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new AuthError('User not found'),
+    });
+    mockOnAuthStateChange.mockImplementationOnce((callback: Function) => {
+      callback('INITIAL_SESSION', storedSession);
+      return { data: { subscription: { unsubscribe: mockUnsubscribe } } };
+    });
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(getByTestId('loading').props.children).toBe('false');
+      expect(getByTestId('session').props.children).toBe('disconnected');
+    });
+    expect(mockGetUser).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+
+  it('conserve une session persistée quand sa validation distante échoue par réseau', async () => {
+    const storedSession = {
+      access_token: 'stored-permanent-token',
+      user: { id: 'offline-user', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: storedSession } });
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new AuthError('Network request failed'),
+    });
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(getByTestId('loading').props.children).toBe('false');
+      expect(getByTestId('session').props.children).toBe('connected');
+      expect(getAuth().authServiceUnavailable).toBe(true);
+    });
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('conserve la session persistée quand getUser rejette par une erreur réseau', async () => {
+    const storedSession = {
+      access_token: 'stored-permanent-token',
+      user: { id: 'offline-user', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: storedSession } });
+    mockGetUser.mockRejectedValueOnce(new Error('failed to fetch'));
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(getByTestId('loading').props.children).toBe('false');
+      expect(getByTestId('session').props.children).toBe('connected');
+      expect(getAuth().authServiceUnavailable).toBe(true);
+    });
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('conserve la session persistée quand getUser rejette par une erreur SDK ambiguë', async () => {
+    const storedSession = {
+      access_token: 'stored-permanent-token',
+      user: { id: 'temporarily-unavailable-user', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: storedSession } });
+    mockGetUser.mockRejectedValueOnce(new Error('Unexpected SDK failure'));
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(getByTestId('loading').props.children).toBe('false');
+      expect(getByTestId('session').props.children).toBe('connected');
+      expect(getAuth().authServiceUnavailable).toBe(true);
+    });
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['rate limit Supabase', new AuthError('Too many requests', 429)],
+    ['erreur serveur Supabase', new AuthError('Internal server error', 500)],
+  ])('conserve une session persistée lors d’une %s', async (_label, error) => {
+    const storedSession = {
+      access_token: 'stored-permanent-token',
+      user: { id: 'temporarily-unavailable-user', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: storedSession } });
+    mockGetUser.mockResolvedValueOnce({ data: { user: null }, error });
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(getByTestId('loading').props.children).toBe('false');
+      expect(getByTestId('session').props.children).toBe('connected');
+      expect(getAuth().authServiceUnavailable).toBe(true);
+    });
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('laisse un événement de session fraîche gagner sur une validation bootstrap réussie', async () => {
+    const getUserDeferred = deferred<{ data: { user: { id: string } }; error: null }>();
+    const storedSession = {
+      access_token: 'stored-permanent-token',
+      user: { id: 'stored-user', is_anonymous: false },
+    };
+    const freshSession = {
+      access_token: 'fresh-permanent-token',
+      user: { id: 'fresh-user', is_anonymous: false },
+    };
+    let onAuthStateChange: ((event: string, nextSession: typeof freshSession) => void) | null = null;
+    mockGetSession.mockResolvedValueOnce({ data: { session: storedSession } });
+    mockGetUser.mockImplementationOnce(() => getUserDeferred.promise);
+    mockOnAuthStateChange.mockImplementationOnce((callback: typeof onAuthStateChange) => {
+      onAuthStateChange = callback;
+      return { data: { subscription: { unsubscribe: mockUnsubscribe } } };
+    });
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      onAuthStateChange?.('TOKEN_REFRESHED', freshSession);
+    });
+    await act(async () => {
+      getUserDeferred.resolve({ data: { user: { id: 'stored-user' } }, error: null });
+      await getUserDeferred.promise;
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('loading').props.children).toBe('false');
+      expect(getAuth().session?.user.id).toBe('fresh-user');
+    });
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('laisse un événement de session fraîche gagner sur une validation bootstrap invalide', async () => {
+    const getUserDeferred = deferred<{ data: { user: null }; error: AuthError }>();
+    const storedSession = {
+      access_token: 'stored-permanent-token',
+      user: { id: 'stored-user', is_anonymous: false },
+    };
+    const freshSession = {
+      access_token: 'fresh-permanent-token',
+      user: { id: 'fresh-user', is_anonymous: false },
+    };
+    let onAuthStateChange: ((event: string, nextSession: typeof freshSession) => void) | null = null;
+    mockGetSession.mockResolvedValueOnce({ data: { session: storedSession } });
+    mockGetUser.mockImplementationOnce(() => getUserDeferred.promise);
+    mockOnAuthStateChange.mockImplementationOnce((callback: typeof onAuthStateChange) => {
+      onAuthStateChange = callback;
+      return { data: { subscription: { unsubscribe: mockUnsubscribe } } };
+    });
+
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      onAuthStateChange?.('SIGNED_IN', freshSession);
+    });
+    await act(async () => {
+      getUserDeferred.resolve({ data: { user: null }, error: new AuthError('User not found') });
+      await getUserDeferred.promise;
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('loading').props.children).toBe('false');
+      expect(getAuth().session?.user.id).toBe('fresh-user');
+    });
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('n’écrit plus dans l’état ni ne déconnecte après un unmount pendant getUser', async () => {
+    const getUserDeferred = deferred<{ data: { user: null }; error: AuthError }>();
+    const storedSession = {
+      access_token: 'stored-permanent-token',
+      user: { id: 'stored-user', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValueOnce({ data: { session: storedSession } });
+    mockGetUser.mockImplementationOnce(() => getUserDeferred.promise);
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { unmount } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1));
+    unmount();
+
+    await act(async () => {
+      getUserDeferred.resolve({ data: { user: null }, error: new AuthError('User not found') });
+      await getUserDeferred.promise;
+    });
+
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
   });
 
   it('onAuthStateChange met à jour la session', async () => {
@@ -513,6 +766,69 @@ describe('AuthContext', () => {
     expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
   });
 
+  it('partage la création de session anonyme entre appels concurrents', async () => {
+    let resolveSignIn: ((value: { error: null }) => void) | undefined;
+    mockSignInAnonymously.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveSignIn = resolve; }),
+    );
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let first: Promise<AuthError | null>;
+    let second: Promise<AuthError | null>;
+    await act(async () => {
+      first = getAuth().ensureAnonymousSession();
+      second = getAuth().ensureAnonymousSession();
+      expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+      resolveSignIn?.({ error: null });
+      await expect(Promise.all([first, second])).resolves.toEqual([null, null]);
+    });
+
+    expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await expect(getAuth().ensureAnonymousSession()).resolves.toBeNull();
+    });
+    expect(mockSignInAnonymously).toHaveBeenCalledTimes(2);
+  });
+
+  it('partage la création anonyme entre ensure et signOutToAnonymous concurrents', async () => {
+    let resolveSignIn: ((value: { error: null }) => void) | undefined;
+    let resolveSignOut: (() => void) | undefined;
+    const permanentSession = {
+      access_token: 'permanent-token', user: { id: 'user', is_anonymous: false },
+    };
+    const guestSession = { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } };
+    mockSignInAnonymously.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveSignIn = resolve; }),
+    );
+    mockSignOut.mockImplementationOnce(() => new Promise<void>((resolve) => { resolveSignOut = resolve; }));
+    mockGetSession.mockResolvedValueOnce({ data: { session: permanentSession } });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+    mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+
+    let signOutPromise: Promise<AuthError | null>;
+    await act(async () => {
+      signOutPromise = getAuth().signOutToAnonymous();
+      resolveSignOut?.();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockSignInAnonymously).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('false'));
+    expect(getAuth().session).toBeNull();
+    let ensurePromise: Promise<AuthError | null>;
+    await act(async () => {
+      ensurePromise = getAuth().ensureAnonymousSession();
+      expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+      resolveSignIn?.({ error: null });
+      await expect(Promise.all([ensurePromise, signOutPromise])).resolves.toEqual([null, null]);
+    });
+
+    expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+  });
+
   it('ne recrée pas de session anonyme quand une session existe déjà', async () => {
     mockGetSession.mockResolvedValueOnce({
       data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
@@ -542,20 +858,74 @@ describe('AuthContext', () => {
     expect(error).toBeInstanceOf(AuthError);
     expect(getByTestId('isAnonymous').props.children).toBe('false');
     expect(getAuth().authServiceUnavailable).toBe(true);
+
+    mockSignInAnonymously.mockResolvedValueOnce({ error: null });
+    await act(async () => {
+      await expect(getAuth().ensureAnonymousSession()).resolves.toBeNull();
+    });
+    expect(mockSignInAnonymously).toHaveBeenCalledTimes(2);
   });
 
-  it("démarre l'upgrade e-mail sur le compte anonyme courant", async () => {
+  it('stores the requested locale before sending the email-upgrade OTP', async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
+    });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     await act(async () => {
-      await getAuth().beginEmailUpgrade('a@b.com');
+      await getAuth().beginEmailUpgrade('a@b.com', 'en');
     });
 
-    expect(mockUpdateUser).toHaveBeenCalledWith({ email: 'a@b.com' });
+    expect(mockUpdateUser).toHaveBeenNthCalledWith(1, { data: { locale: 'en' } });
+    expect(mockUpdateUser).toHaveBeenNthCalledWith(2, { email: 'a@b.com' });
+  });
+
+  it('still sends the email-upgrade OTP when locale synchronization fails', async () => {
+    mockUpdateUser
+      .mockResolvedValueOnce({ error: new AuthError('Network request failed') })
+      .mockResolvedValueOnce({ error: null });
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
+    });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => {
+      error = await getAuth().beginEmailUpgrade('a@b.com', 'en');
+    });
+
+    expect(error).toBeNull();
+    expect(mockUpdateUser).toHaveBeenLastCalledWith({ email: 'a@b.com' });
+    expect(getAuth().authServiceUnavailable).toBe(false);
+  });
+
+  it('still sends the email-upgrade OTP when locale synchronization rejects', async () => {
+    mockUpdateUser
+      .mockRejectedValueOnce(new Error('Network request failed'))
+      .mockResolvedValueOnce({ error: null });
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
+    });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => {
+      error = await getAuth().beginEmailUpgrade('a@b.com', 'en');
+    });
+
+    expect(error).toBeNull();
+    expect(mockUpdateUser).toHaveBeenLastCalledWith({ email: 'a@b.com' });
+    expect(getAuth().authServiceUnavailable).toBe(false);
   });
 
   it('lie e-mail, vérifie le code puis ajoute le mot de passe au même compte', async () => {
+    const guestSession = { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } };
+    const permanentSession = { access_token: 'permanent-token', user: { id: 'guest', is_anonymous: false } };
+    mockGetSession.mockResolvedValueOnce({ data: { session: guestSession } })
+      .mockResolvedValueOnce({ data: { session: permanentSession } });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
@@ -574,6 +944,9 @@ describe('AuthContext', () => {
   it("n'ajoute pas le mot de passe quand Supabase refuse le code", async () => {
     const otpError = new AuthError('Token has expired');
     mockVerifyOtp.mockResolvedValueOnce({ error: otpError });
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
+    });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
@@ -586,26 +959,70 @@ describe('AuthContext', () => {
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 
-  it("renvoie l'OTP de changement d'e-mail à la nouvelle adresse", async () => {
+  it('stores the requested locale before resending the email-upgrade OTP', async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
+    });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     await act(async () => {
-      await getAuth().resendEmailUpgrade('a@b.com');
+      await getAuth().resendEmailUpgrade('a@b.com', 'en');
     });
 
+    expect(mockUpdateUser).toHaveBeenCalledWith({ data: { locale: 'en' } });
     expect(mockResend).toHaveBeenCalledWith({ email: 'a@b.com', type: 'email_change' });
+    expect(mockUpdateUser.mock.invocationCallOrder[0]).toBeLessThan(mockResend.mock.invocationCallOrder[0]);
   });
 
-  it("propage une erreur d'auth levée pendant le renvoi du code", async () => {
-    const resendError = new AuthError('rate limit');
-    mockResend.mockRejectedValueOnce(resendError);
+  it('still resends the email-upgrade OTP when locale synchronization fails', async () => {
+    mockUpdateUser.mockResolvedValueOnce({ error: new AuthError('Network request failed') });
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
+    });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     let error: AuthError | null = null;
     await act(async () => {
-      error = await getAuth().resendEmailUpgrade('a@b.com');
+      error = await getAuth().resendEmailUpgrade('a@b.com', 'en');
+    });
+
+    expect(error).toBeNull();
+    expect(mockResend).toHaveBeenCalledWith({ email: 'a@b.com', type: 'email_change' });
+    expect(getAuth().authServiceUnavailable).toBe(false);
+  });
+
+  it('still resends the email-upgrade OTP when locale synchronization rejects', async () => {
+    mockUpdateUser.mockRejectedValueOnce(new Error('Network request failed'));
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
+    });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => {
+      error = await getAuth().resendEmailUpgrade('a@b.com', 'en');
+    });
+
+    expect(error).toBeNull();
+    expect(mockResend).toHaveBeenCalledWith({ email: 'a@b.com', type: 'email_change' });
+    expect(getAuth().authServiceUnavailable).toBe(false);
+  });
+
+  it("propage une erreur d'auth levée pendant le renvoi du code", async () => {
+    const resendError = new AuthError('rate limit');
+    mockResend.mockRejectedValueOnce(resendError);
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
+    });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => {
+      error = await getAuth().resendEmailUpgrade('a@b.com', 'fr');
     });
 
     expect(error).toBe(resendError);
@@ -613,17 +1030,111 @@ describe('AuthContext', () => {
 
   it("signale une erreur réseau retournée pendant l'upgrade e-mail", async () => {
     const networkError = new AuthError('failed to fetch');
-    mockUpdateUser.mockResolvedValueOnce({ error: networkError });
+    mockUpdateUser
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: networkError });
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } } },
+    });
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     let error: AuthError | null = null;
     await act(async () => {
-      error = await getAuth().beginEmailUpgrade('a@b.com');
+      error = await getAuth().beginEmailUpgrade('a@b.com', 'fr');
     });
 
     expect(error).toBe(networkError);
     expect(getAuth().authServiceUnavailable).toBe(true);
+  });
+
+  it.each(['beginEmailUpgrade', 'completeEmailUpgrade', 'resendEmailUpgrade'] as const)(
+    'refuse %s sans session invitée',
+    async (operation) => {
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let error: AuthError | null = null;
+      await act(async () => {
+        if (operation === 'beginEmailUpgrade') error = await getAuth()[operation]('a@b.com', 'fr');
+        if (operation === 'completeEmailUpgrade') error = await getAuth()[operation]('a@b.com', 'Aa!123456', '123456');
+        if (operation === 'resendEmailUpgrade') error = await getAuth()[operation]('a@b.com', 'fr');
+      });
+
+      expect((error as AuthError | null)?.message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+      expect(mockVerifyOtp).not.toHaveBeenCalled();
+      expect(mockResend).not.toHaveBeenCalled();
+    },
+  );
+
+  it('refuse la conversion e-mail depuis un compte permanent', async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'permanent-token', user: { id: 'user', is_anonymous: false } } },
+    });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => { error = await getAuth().beginEmailUpgrade('a@b.com', 'fr'); });
+
+    expect((error as AuthError | null)?.message).toBe('EMAIL_UPGRADE_UNAVAILABLE');
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it('catégorise un échec de provisioning après un OTP valide sans invalider le compte', async () => {
+    const guestSession = { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } };
+    const permanentSession = { access_token: 'permanent-token', user: { id: 'guest', is_anonymous: false } };
+    mockGetSession.mockResolvedValueOnce({ data: { session: guestSession } })
+      .mockResolvedValueOnce({ data: { session: permanentSession } });
+    mockProvisionUser.mockRejectedValueOnce(new Error('network request failed'));
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+    let error: AuthError | null = null;
+    await act(async () => { error = await getAuth().completeEmailUpgrade('a@b.com', 'Aa!123456', '123456'); });
+
+    expect((error as AuthError | null)?.message).toBe('EMAIL_UPGRADE_PROVISIONING_FAILED');
+    expect(mockUpdateUser).toHaveBeenCalledWith({ password: 'Aa!123456' });
+    expect(getAuth().isAnonymous).toBe(false);
+  });
+
+  it('refuse la réussite de l’upgrade si la session permanente disparaît après l’OTP', async () => {
+    const guestSession = { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } };
+    mockGetSession.mockResolvedValueOnce({ data: { session: guestSession } })
+      .mockResolvedValueOnce({ data: { session: null } });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+    let error: AuthError | null = null;
+    await act(async () => { error = await getAuth().completeEmailUpgrade('a@b.com', 'Aa!123456', '123456'); });
+
+    expect((error as AuthError | null)?.message).toBe('EMAIL_UPGRADE_PROVISIONING_FAILED');
+    expect(mockProvisionUser).not.toHaveBeenCalled();
+  });
+
+  it('réessaie le provisioning avec la session permanente après un OTP déjà validé', async () => {
+    const permanentSession = { access_token: 'permanent-token', user: { id: 'guest', is_anonymous: false } };
+    mockGetSession.mockResolvedValue({ data: { session: permanentSession } });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    await act(async () => { expect(await getAuth().retryEmailUpgradeProvisioning()).toBeNull(); });
+
+    expect(mockProvisionUser).toHaveBeenCalledWith('permanent-token');
+  });
+
+  it('refuse le retry de provisioning sans session permanente fraîche', async () => {
+    const guestSession = { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } };
+    mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => { error = await getAuth().retryEmailUpgradeProvisioning(); });
+
+    expect((error as AuthError | null)?.message).toBe('EMAIL_UPGRADE_PROVISIONING_UNAVAILABLE');
+    expect(mockProvisionUser).not.toHaveBeenCalled();
   });
 
   it("lie le jeton Apple natif à la session anonyme au lieu de remplacer l'utilisateur", async () => {
@@ -681,9 +1192,13 @@ describe('AuthContext', () => {
       access_token: 'guest-token',
       user: { id: 'guest', is_anonymous: true },
     };
+    const linkedSession = {
+      access_token: 'linked-token',
+      user: { id: 'guest', is_anonymous: false },
+    };
     mockGetSession
       .mockResolvedValueOnce({ data: { session: null } })
-      .mockResolvedValueOnce({ data: { session: guestSession } });
+      .mockResolvedValueOnce({ data: { session: linkedSession } });
     mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
     const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);

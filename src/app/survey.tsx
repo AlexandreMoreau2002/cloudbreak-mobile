@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { SurveyForm } from '@/components/account';
@@ -17,6 +17,25 @@ export default function SurveyScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCreatedBadge, setShowCreatedBadge] = useState(true);
+  const badgeOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Animated.timing(badgeOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setShowCreatedBadge(false);
+      });
+    }, 4_000);
+
+    return () => {
+      clearTimeout(timer);
+      badgeOpacity.stopAnimation();
+    };
+  }, [badgeOpacity]);
 
   async function finish(answer: Parameters<typeof auth.saveSurvey>[0]) {
     if (loading) return;
@@ -50,10 +69,12 @@ export default function SurveyScreen() {
       </TouchableOpacity>
 
       <View style={styles.content}>
-        <View style={styles.badge}>
-          <Text style={{ color: '#fff' }}>✓</Text>
-          <Text style={{ color: '#5C9E6E' }}>{i18n.t('survey.created')}</Text>
-        </View>
+        {showCreatedBadge ? (
+          <Animated.View testID="survey-account-created-badge" style={[styles.badge, { opacity: badgeOpacity }]}>
+            <Text style={{ color: '#fff' }}>✓</Text>
+            <Text style={{ color: '#5C9E6E' }}>{i18n.t('survey.created')}</Text>
+          </Animated.View>
+        ) : null}
         {error ? (
           <Text accessibilityRole="alert" style={[styles.error, { color: '#C25C4A' }]}>
             {error}
