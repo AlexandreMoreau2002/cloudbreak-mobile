@@ -7,7 +7,7 @@ jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string)
 describe('AccountForm', () => {
   it('switches mode and submits the selected mode', () => {
     const onSubmit = jest.fn();
-    const { getByTestId } = render(<AccountForm mode="creation" loading={false} onSubmit={onSubmit} onApple={jest.fn()} onModeChange={jest.fn()} />);
+    const { getByTestId } = render(<AccountForm mode="creation" loading={false} onSubmit={onSubmit} onApple={jest.fn()} onModeChange={jest.fn()} onForgotPassword={jest.fn()} />);
     fireEvent.changeText(getByTestId('account-email'), 'a@b.com');
     fireEvent.changeText(getByTestId('account-password'), 'Password1!');
     fireEvent.press(getByTestId('account-submit'));
@@ -22,6 +22,7 @@ describe('AccountForm', () => {
         onSubmit={jest.fn()}
         onApple={jest.fn()}
         onModeChange={jest.fn()}
+        onForgotPassword={jest.fn()}
       />,
     );
     const emailStyle = StyleSheet.flatten(getByTestId('account-email').props.style);
@@ -49,6 +50,7 @@ describe('AccountForm', () => {
         onSubmit={jest.fn()}
         onApple={jest.fn()}
         onModeChange={jest.fn()}
+        onForgotPassword={jest.fn()}
       />,
     );
 
@@ -63,6 +65,7 @@ describe('AccountForm', () => {
         onSubmit={jest.fn()}
         onApple={jest.fn()}
         onModeChange={jest.fn()}
+        onForgotPassword={jest.fn()}
       />,
     );
 
@@ -72,5 +75,35 @@ describe('AccountForm', () => {
     expect(getByTestId('account-password').props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ color: '#1a1a1a' })]),
     );
+  });
+
+  it('appelle onForgotPassword au tap sur le bouton mot de passe oublié (mode connexion)', () => {
+    const onForgotPassword = jest.fn();
+    const { getByTestId } = render(
+      <AccountForm
+        mode="connexion"
+        loading={false}
+        onSubmit={jest.fn()}
+        onApple={jest.fn()}
+        onModeChange={jest.fn()}
+        onForgotPassword={onForgotPassword}
+      />,
+    );
+    fireEvent.press(getByTestId('account-forgot'));
+    expect(onForgotPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it("n'affiche pas le bouton mot de passe oublié en mode création", () => {
+    const { queryByTestId } = render(
+      <AccountForm
+        mode="creation"
+        loading={false}
+        onSubmit={jest.fn()}
+        onApple={jest.fn()}
+        onModeChange={jest.fn()}
+        onForgotPassword={jest.fn()}
+      />,
+    );
+    expect(queryByTestId('account-forgot')).toBeNull();
   });
 });

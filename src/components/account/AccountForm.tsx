@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { LoadingSpinner } from '@/components/loading-spinner';
+import { PasswordField } from '@/components/account/PasswordField';
 
 export type AccountMode = 'creation' | 'connexion';
 
@@ -15,28 +16,16 @@ interface Props {
   onSubmit: (email: string, password: string) => void;
   onApple: () => void;
   onModeChange: () => void;
+  onForgotPassword: () => void;
 }
 
-function passwordStrength(password: string): number {
-  if (!password) return 0;
-  return Math.min(
-    4,
-    Number(password.length >= 8) +
-      Number(password.length >= 12) +
-      Number(/[a-z]/.test(password) && /[A-Z]/.test(password)) +
-      Number(/\d/.test(password) && /[^A-Za-z0-9]/.test(password)),
-  );
-}
-
-export function AccountForm({ mode, loading, error, onSubmit, onApple, onModeChange }: Props) {
+export function AccountForm({ mode, loading, error, onSubmit, onApple, onModeChange, onForgotPassword }: Props) {
   const { colors, typography, radius, spacing } = useTheme();
   const { openLegalLink } = useLegalLinks();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [visible, setVisible] = useState(false);
   const [focused, setFocused] = useState<'email' | 'password' | null>(null);
 
-  const strength = passwordStrength(password);
   const appleAvailable = Platform.OS === 'ios';
 
   return (
@@ -84,57 +73,18 @@ export function AccountForm({ mode, loading, error, onSubmit, onApple, onModeCha
         ]}
       />
 
-      <View>
-        <View
-          style={[
-            styles.field,
-            styles.password,
-            {
-              backgroundColor: '#fff',
-              borderColor: focused === 'password' ? colors.accent : colors.border,
-            },
-          ]}
-          testID="account-password-container"
-        >
-          <TextInput
-            accessibilityLabel={i18n.t('auth.password')}
-            testID="account-password"
-            value={password}
-            onChangeText={setPassword}
-            onFocus={() => setFocused('password')}
-            onBlur={() => setFocused(null)}
-            placeholder={i18n.t('auth.password')}
-            placeholderTextColor={colors.textDisabled}
-            secureTextEntry={!visible}
-            autoComplete={mode === 'creation' ? 'new-password' : 'current-password'}
-            style={[styles.passwordInput, { color: '#1a1a1a', fontFamily: typography.fontFamily.regular }]}
-          />
-          <TouchableOpacity
-            accessibilityRole="button"
-            testID="account-password-toggle"
-            accessibilityLabel={visible ? i18n.t('account.hide') : i18n.t('account.show')}
-            onPress={() => setVisible(!visible)}
-          >
-            <Text style={{ color: colors.textSecondary, fontSize: 10, letterSpacing: 1.3 }}>
-              {visible ? i18n.t('account.hide') : i18n.t('account.show')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {mode === 'creation' && strength > 0 ? (
-          <View accessibilityLabel={i18n.t(`account.strength${strength}`)} style={styles.strength}>
-            {[0, 1, 2, 3].map((n) => (
-              <View
-                key={n}
-                style={[styles.segment, { backgroundColor: n < strength ? colors.accent : colors.border }]}
-              />
-            ))}
-          </View>
-        ) : null}
-      </View>
+      <PasswordField
+        value={password}
+        onChangeText={setPassword}
+        autoComplete={mode === 'creation' ? 'new-password' : 'current-password'}
+        showStrength={mode === 'creation'}
+        focused={focused === 'password'}
+        onFocus={() => setFocused('password')}
+        onBlur={() => setFocused(null)}
+      />
 
       {mode === 'connexion' ? (
-        <TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" testID="account-forgot" onPress={onForgotPassword}>
           <Text style={{ color: colors.accent, textAlign: 'right' }}>{i18n.t('account.forgot')}</Text>
         </TouchableOpacity>
       ) : (
@@ -203,17 +153,6 @@ const styles = StyleSheet.create({
   line: { flex: 1, height: 1 },
   field: { height: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, backgroundColor: '#fff' },
   input: { fontSize: 15 },
-  password: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  passwordInput: { flex: 1, fontSize: 15 },
-  strength: { flexDirection: 'row', gap: 4, marginTop: 6 },
-  segment: { flex: 1, height: 3 },
   error: { minHeight: 42, borderRadius: 12, justifyContent: 'center', paddingHorizontal: 12 },
   submit: { height: 50, justifyContent: 'center', alignItems: 'center' },
   submitText: { color: '#fff', fontSize: 15, fontWeight: '600' },
