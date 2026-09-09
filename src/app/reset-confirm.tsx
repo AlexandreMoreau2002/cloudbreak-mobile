@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -29,6 +29,9 @@ export default function ResetConfirmScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resend, setResend] = useState(0);
+  const [resending, setResending] = useState(false);
+  const submitInFlight = useRef(false);
+  const resendInFlight = useRef(false);
   const canSubmit = code.length === CODE_LENGTH && newPassword.length >= MIN_PASSWORD_LENGTH && !loading;
 
   useEffect(() => {
@@ -42,34 +45,52 @@ export default function ResetConfirmScreen() {
   }, [resend]);
 
   async function submit() {
-    if (!canSubmit) return;
+    if (!canSubmit || submitInFlight.current) return;
+    submitInFlight.current = true;
     if (DEBUG) console.debug('[reset-confirm] submit', { codeLength: code.length });
 
     setLoading(true);
     setCodeError(false);
     setError(null);
     const authError = await auth.completePasswordReset(email, code, newPassword);
-    setLoading(false);
 
     if (authError) {
       const message = authError.message.toLowerCase();
       if (message.includes('weak') || message.includes('password') || message.includes('at least')) {
         setError(i18n.t('reset.errorPassword'));
-      } else {
+      } else if (
+        message.includes('token') ||
+        message.includes('otp') ||
+        message.includes('expired') ||
+        message.includes('invalid')
+      ) {
         setCodeError(true);
         setError(i18n.t('reset.errorCode'));
+      } else {
+        setError(i18n.t('reset.errorNetwork'));
       }
+      setLoading(false);
+      submitInFlight.current = false;
       return;
     }
 
     if (gate.pendingAction) await gate.finishAccountCreation();
     else router.replace('/(tabs)');
+    setLoading(false);
+    submitInFlight.current = false;
   }
 
   async function resendCode() {
-    if (resend || loading || !email) return;
-    await auth.requestPasswordReset(email, locale);
-    setResend(RESEND_DELAY_SECONDS);
+    if (resend || loading || !email || resendInFlight.current) return;
+    resendInFlight.current = true;
+    setResending(true);
+    setCodeError(false);
+    setError(null);
+    const authError = await auth.requestPasswordReset(email, locale);
+    if (authError) setError(i18n.t('reset.errorNetwork'));
+    else setResend(RESEND_DELAY_SECONDS);
+    setResending(false);
+    resendInFlight.current = false;
   }
 
   return (
@@ -137,7 +158,7 @@ export default function ResetConfirmScreen() {
         <TouchableOpacity
           accessibilityRole="button"
           testID="reset-confirm-resend"
-          disabled={resend > 0 || loading}
+          disabled={resend > 0 || loading || resending}
           onPress={() => void resendCode()}
           style={styles.resend}
         >

@@ -150,7 +150,12 @@ describe('ResetConfirmScreen', () => {
     expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)');
   });
 
-  it.each(['Weak password', 'Password should contain a symbol', 'Must be at least 8 characters'])(
+  it.each([
+    'Weak credential',
+    'Password should contain a symbol',
+    'Must be at least 8 characters',
+    'Invalid password',
+  ])(
     'classe « %s » comme erreur de mot de passe',
     async (message) => {
       mockCompletePasswordReset.mockResolvedValueOnce({ message });
@@ -166,8 +171,13 @@ describe('ResetConfirmScreen', () => {
     },
   );
 
-  it('classe toute autre erreur comme code incorrect ou expiré', async () => {
-    mockCompletePasswordReset.mockResolvedValueOnce({ message: 'Token has expired' });
+  it.each([
+    'Token rejected',
+    'OTP verification failed',
+    'Code has expired',
+    'Invalid recovery code',
+  ])('classe « %s » comme erreur de code', async (message) => {
+    mockCompletePasswordReset.mockResolvedValueOnce({ message });
     const { getByTestId, getByText, getByLabelText } = render(<ResetConfirmScreen />);
 
     fireEvent.changeText(getByTestId('code'), '000000');
@@ -176,6 +186,23 @@ describe('ResetConfirmScreen', () => {
 
     await waitFor(() => expect(getByText('reset.errorCode')).toBeTruthy());
     expect(getByLabelText('code-error')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'Network request failed',
+    'EMAIL_UPGRADE_PROVISIONING_FAILED',
+    'Unexpected server failure',
+  ])('classe « %s » comme erreur réseau générique', async (message) => {
+    mockCompletePasswordReset.mockResolvedValueOnce({ message });
+    const { getByTestId, getByText, queryByLabelText } = render(<ResetConfirmScreen />);
+
+    fireEvent.changeText(getByTestId('code'), '123456');
+    fireEvent.changeText(getByTestId('new-password'), 'NewPass1!');
+    fireEvent.press(getByTestId('reset-confirm-submit'));
+
+    await waitFor(() => expect(getByText('reset.errorNetwork')).toBeTruthy());
+    expect(queryByLabelText('code-error')).toBeNull();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
@@ -202,23 +229,64 @@ describe('ResetConfirmScreen', () => {
     expect(getByText('reset.resendWait:29')).toBeTruthy();
   });
 
-  it('affiche le spinner unifié et interdit une seconde confirmation pendant le chargement', async () => {
+  it('affiche une erreur réseau sans cooldown puis autorise un nouveau renvoi', async () => {
+    mockRequestPasswordReset.mockResolvedValueOnce({ message: 'network' });
+    const { getByTestId, getByText, queryByText } = render(<ResetConfirmScreen />);
+
+    fireEvent.press(getByTestId('reset-confirm-resend'));
+
+    await waitFor(() => expect(getByText('reset.errorNetwork')).toBeTruthy());
+    expect(queryByText('reset.resendWait:30')).toBeNull();
+
+    fireEvent.press(getByTestId('reset-confirm-resend'));
+    await waitFor(() => expect(mockRequestPasswordReset).toHaveBeenCalledTimes(2));
+    expect(getByText('reset.resendWait:30')).toBeTruthy();
+  });
+
+  it('verrouille atomiquement deux confirmations immédiates pendant le chargement', async () => {
     let resolveRequest: (value: null) => void = () => undefined;
-    mockCompletePasswordReset.mockImplementationOnce(
-      () => new Promise<null>((resolve) => { resolveRequest = resolve; }),
-    );
-    const { getByTestId } = render(<ResetConfirmScreen />);
+    const deferredRequest = new Promise<null>((resolve) => { resolveRequest = resolve; });
+    mockCompletePasswordReset.mockReturnValue(deferredRequest);
+    const { getByTestId, UNSAFE_getAllByType } = render(<ResetConfirmScreen />);
 
     fireEvent.changeText(getByTestId('code'), '123456');
     fireEvent.changeText(getByTestId('new-password'), 'NewPass1!');
-    fireEvent.press(getByTestId('reset-confirm-submit'));
+    const submit = UNSAFE_getAllByType(TouchableOpacity)
+      .find((element) => element.props.testID === 'reset-confirm-submit');
+    expect(submit).toBeTruthy();
+
+    act(() => {
+      submit!.props.onPress();
+      submit!.props.onPress();
+    });
 
     await waitFor(() => expect(getByTestId('loading-spinner')).toBeTruthy());
-    fireEvent.press(getByTestId('reset-confirm-submit'));
     expect(mockCompletePasswordReset).toHaveBeenCalledTimes(1);
 
     resolveRequest(null);
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)'));
+  });
+
+  it('verrouille atomiquement deux renvois immédiats et désactive le bouton pendant l’appel', async () => {
+    let resolveRequest: (value: null) => void = () => undefined;
+    const deferredRequest = new Promise<null>((resolve) => { resolveRequest = resolve; });
+    mockRequestPasswordReset.mockReturnValue(deferredRequest);
+    const { getByTestId, getByText, UNSAFE_getAllByType } = render(<ResetConfirmScreen />);
+    const resend = UNSAFE_getAllByType(TouchableOpacity)
+      .find((element) => element.props.testID === 'reset-confirm-resend');
+    expect(resend).toBeTruthy();
+
+    act(() => {
+      resend!.props.onPress();
+      resend!.props.onPress();
+    });
+
+    expect(mockRequestPasswordReset).toHaveBeenCalledTimes(1);
+    expect(getByTestId('reset-confirm-resend').props.accessibilityState).toEqual({ disabled: true });
+    expect(getByText('reset.resend')).toBeTruthy();
+
+    resolveRequest(null);
+    await waitFor(() => expect(getByText('reset.resendWait:30')).toBeTruthy());
   });
 
   it.each([
