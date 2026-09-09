@@ -150,6 +150,23 @@ describe('ResetConfirmScreen', () => {
     expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)');
   });
 
+  it('sort vers les tabs et libère le formulaire si le replay post-reset rejette', async () => {
+    mockPendingAction = { kind: 'favorite', peakId: 'p1' };
+    mockFinishAccountCreation.mockRejectedValueOnce(new Error('replay failed'));
+    const { getByTestId, queryByTestId } = render(<ResetConfirmScreen />);
+
+    fireEvent.changeText(getByTestId('code'), '123456');
+    fireEvent.changeText(getByTestId('new-password'), 'NewPass1!');
+    fireEvent.press(getByTestId('reset-confirm-submit'));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)'));
+    expect(queryByTestId('loading-spinner')).toBeNull();
+    expect(getByTestId('reset-confirm-submit').props.accessibilityState).toEqual({ disabled: false });
+
+    fireEvent.press(getByTestId('reset-confirm-submit'));
+    await waitFor(() => expect(mockCompletePasswordReset).toHaveBeenCalledTimes(2));
+  });
+
   it.each([
     'Weak credential',
     'Password should contain a symbol',

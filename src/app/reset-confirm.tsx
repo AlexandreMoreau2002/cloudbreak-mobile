@@ -74,10 +74,15 @@ export default function ResetConfirmScreen() {
       return;
     }
 
-    if (gate.pendingAction) await gate.finishAccountCreation();
-    else router.replace('/(tabs)');
-    setLoading(false);
-    submitInFlight.current = false;
+    try {
+      if (gate.pendingAction) await gate.finishAccountCreation();
+      else router.replace('/(tabs)');
+    } catch {
+      router.replace('/(tabs)');
+    } finally {
+      setLoading(false);
+      submitInFlight.current = false;
+    }
   }
 
   async function resendCode() {
