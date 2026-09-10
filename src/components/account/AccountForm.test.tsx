@@ -1,4 +1,4 @@
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 import { AccountForm } from '@/components/account/AccountForm';
 jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { textPrimary: '#f7f3ed', textSecondary: '#555', surface: '#fff', border: '#ddd', accent: '#b28c6e', textDisabled: '#aaa' }, typography: { fontFamily: { regular: 'System', semiBold: 'System' } }, radius: { sm: 8 }, spacing: { sm: 8 } }) }));
@@ -12,6 +12,30 @@ describe('AccountForm', () => {
     fireEvent.changeText(getByTestId('account-password'), 'Password1!');
     fireEvent.press(getByTestId('account-submit'));
     expect(onSubmit).toHaveBeenCalledWith('a@b.com', 'Password1!');
+  });
+
+  it('ne soumet pas un mot de passe de création qui ne satisfait pas la politique partagée', () => {
+    const onSubmit = jest.fn();
+    const { getByTestId, UNSAFE_getAllByType } = render(
+      <AccountForm
+        mode="creation"
+        loading={false}
+        onSubmit={onSubmit}
+        onApple={jest.fn()}
+        onModeChange={jest.fn()}
+        onForgotPassword={jest.fn()}
+      />,
+    );
+
+    fireEvent.changeText(getByTestId('account-email'), 'a@b.com');
+    fireEvent.changeText(getByTestId('account-password'), 'abcdefgh');
+    expect(getByTestId('account-submit').props.accessibilityState).toEqual({ disabled: true });
+    const submit = UNSAFE_getAllByType(TouchableOpacity)
+      .find((element) => element.props.testID === 'account-submit');
+    expect(submit).toBeTruthy();
+    submit!.props.onPress();
+
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('uses the same surfaced field treatment and keeps the translated password toggle', () => {

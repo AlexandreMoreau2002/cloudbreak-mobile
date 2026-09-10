@@ -16,7 +16,7 @@ describe('locale en', () => {
     expect(en.reset.requestTitle).toBe('Reset your password');
     expect(en.reset.send).toBe('Send code');
     expect(en.reset.resendWait).toBe('Resend in {{count}}s');
-    expect(en.reset.errorPassword).toBe('Password too weak (8 characters minimum).');
+    expect(en.reset.errorPassword).toBe('Use at least 8 characters, including uppercase, lowercase, a number, and a symbol.');
     expect(en.reset.errorRateLimit).toBe('Too many requests. Try again in a few minutes.');
   });
 });

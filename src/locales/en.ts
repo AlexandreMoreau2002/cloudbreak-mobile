@@ -254,7 +254,7 @@ export default {
     resendWait: 'Resend in {{count}}s',
     errorEmail: 'Invalid email.',
     errorCode: 'Incorrect or expired code.',
-    errorPassword: 'Password too weak (8 characters minimum).',
+    errorPassword: 'Use at least 8 characters, including uppercase, lowercase, a number, and a symbol.',
     errorRateLimit: 'Too many requests. Try again in a few minutes.',
     errorNetwork: 'No network or too many attempts. Try again in a moment.',
   },

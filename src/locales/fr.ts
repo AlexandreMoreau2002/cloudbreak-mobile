@@ -254,7 +254,7 @@ export default {
     resendWait: 'Renvoyer dans {{count}} s',
     errorEmail: 'E-mail invalide.',
     errorCode: 'Code incorrect ou expiré.',
-    errorPassword: 'Mot de passe trop faible (8 caractères minimum).',
+    errorPassword: 'Utilise au moins 8 caractères, avec une majuscule, une minuscule, un chiffre et un symbole.',
     errorRateLimit: 'Trop de demandes. Réessaie dans quelques minutes.',
     errorNetwork: "Pas de réseau ou trop de tentatives. Réessaie dans un instant.",
   },

@@ -133,6 +133,7 @@ describe('ResetConfirmScreen', () => {
     ['12345', 'NewPass1!'],
     ['1234567', 'NewPass1!'],
     ['123456', '1234567'],
+    ['123456', 'abcdefgh'],
   ])('bloque les valeurs invalides code=%s et mot de passe=%s', (code, password) => {
     const { getByTestId, UNSAFE_getAllByType } = render(<ResetConfirmScreen />);
 

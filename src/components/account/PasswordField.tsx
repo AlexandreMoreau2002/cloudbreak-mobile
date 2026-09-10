@@ -8,10 +8,14 @@ export function passwordStrength(password: string): number {
   return Math.min(
     4,
     Number(password.length >= 8) +
-      Number(password.length >= 12) +
       Number(/[a-z]/.test(password) && /[A-Z]/.test(password)) +
-      Number(/\d/.test(password) && /[^A-Za-z0-9]/.test(password)),
+      Number(/\d/.test(password)) +
+      Number(/[^A-Za-z0-9]/.test(password)),
   );
+}
+
+export function isPasswordEligible(password: string): boolean {
+  return passwordStrength(password) >= 4;
 }
 
 interface Props {

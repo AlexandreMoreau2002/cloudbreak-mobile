@@ -10,11 +10,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useAccountGate } from '@/contexts/AccountGateContext';
 import { AuthBackdrop, CodeInput, PasswordField } from '@/components/account';
+import { isPasswordEligible } from '@/components/account/PasswordField';
 
 const CODE_LENGTH = 6;
 const RESEND_DELAY_SECONDS = 30;
-const MIN_PASSWORD_LENGTH = 8;
-
 export default function ResetConfirmScreen() {
   const router = useRouter();
   const { email = '', sent } = useLocalSearchParams<{ email?: string; sent?: string }>();
@@ -32,7 +31,7 @@ export default function ResetConfirmScreen() {
   const [resending, setResending] = useState(false);
   const submitInFlight = useRef(false);
   const resendInFlight = useRef(false);
-  const canSubmit = code.length === CODE_LENGTH && newPassword.length >= MIN_PASSWORD_LENGTH && !loading;
+  const canSubmit = code.length === CODE_LENGTH && isPasswordEligible(newPassword) && !loading;
 
   useEffect(() => {
     if (!email) router.replace('/reset');

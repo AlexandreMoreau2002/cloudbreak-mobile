@@ -17,7 +17,7 @@ describe('locale fr', () => {
     expect(fr.reset.requestTitle).toBe('Réinitialise ton mot de passe');
     expect(fr.reset.send).toBe('Envoyer le code');
     expect(fr.reset.resendWait).toBe('Renvoyer dans {{count}} s');
-    expect(fr.reset.errorPassword).toBe('Mot de passe trop faible (8 caractères minimum).');
+    expect(fr.reset.errorPassword).toBe('Utilise au moins 8 caractères, avec une majuscule, une minuscule, un chiffre et un symbole.');
     expect(fr.reset.errorRateLimit).toBe('Trop de demandes. Réessaie dans quelques minutes.');
   });
 
