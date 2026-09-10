@@ -346,11 +346,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function requestPasswordReset(
     email: string,
-    _locale: AuthEmailLocale,
+    locale: AuthEmailLocale,
   ): Promise<AuthError | null> {
     if (DEBUG) console.debug('[AuthContext] requestPasswordReset');
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const resetOptions = { data: { locale } } as unknown as Parameters<
+        typeof supabase.auth.resetPasswordForEmail
+      >[1];
+      const { error } = await supabase.auth.resetPasswordForEmail(email, resetOptions);
       logPasswordResetResult(error);
       if (error) {
         const outcome = isNetworkError(error) ? 'network_error' : 'auth_error';

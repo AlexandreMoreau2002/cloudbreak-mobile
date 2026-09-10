@@ -1180,7 +1180,9 @@ describe('AuthContext', () => {
 
       expect(error).toBeNull();
       expect(mockUpdateUser).not.toHaveBeenCalled();
-      expect(mockResetPasswordForEmail).toHaveBeenCalledWith('a@b.com');
+      expect(mockResetPasswordForEmail).toHaveBeenCalledWith('a@b.com', {
+        data: { locale: 'fr' },
+      });
       expect(mockResetPasswordForEmail).toHaveBeenCalledTimes(1);
     });
 
