@@ -5,14 +5,14 @@ import { AuthError, Session } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { DEBUG } from '@/constants/devConfig';
+import { supabase } from '@/services/supabaseClient';
 import {
   deleteAccount as deleteAccountService,
   provisionUser,
   updateUserSurvey,
   type UserSurvey,
 } from '@/services/api/user';
-import { DEBUG } from '@/constants/devConfig';
-import { supabase } from '@/services/supabaseClient';
 
 function isNetworkError(e: unknown): boolean {
   if (!(e instanceof Error)) return false;

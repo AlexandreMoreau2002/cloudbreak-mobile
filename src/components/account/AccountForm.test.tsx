@@ -1,5 +1,5 @@
-import { render, fireEvent } from '@testing-library/react-native';
 import { ActivityIndicator, StyleSheet } from 'react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { AccountForm } from '@/components/account/AccountForm';
 jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { textPrimary: '#f7f3ed', textSecondary: '#555', surface: '#fff', border: '#ddd', accent: '#b28c6e', textDisabled: '#aaa' }, typography: { fontFamily: { regular: 'System', semiBold: 'System' } }, radius: { sm: 8 }, spacing: { sm: 8 } }) }));
 jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
