@@ -24,8 +24,8 @@ e-mail avec OTP --------> session recovery ------> nouveau mot de passe -> app /
 
 Chaque porte ne s'ouvre que si la précédente a réussi :
 
-1. `requestPasswordReset(email, locale)` tente de synchroniser la locale, puis appelle
-   `supabase.auth.resetPasswordForEmail(email)`.
+1. `requestPasswordReset(email, locale)` appelle directement
+   `supabase.auth.resetPasswordForEmail(email)`. Le flux OTP n'a pas besoin de `redirectTo`.
 2. Le template Supabase « Reset Password » montre `{{ .Token }}`, un OTP de six chiffres.
 3. `completePasswordReset(email, code, newPassword)` appelle
    `verifyOtp({ email, token: code, type: 'recovery' })`.
@@ -76,7 +76,8 @@ changements d'appareil.
 
 Après une demande acceptée, l'app affiche toujours : « Si un compte existe pour cette adresse, un
 code vient d'être envoyé. » Elle ne confirme jamais qu'une adresse est inscrite. Les erreurs réseau
-et rate-limit partagent aussi une copie générique.
+restent génériques ; un `429`, `over_email_send_rate_limit` ou message de rate limit reçoit une
+copie dédiée qui invite à attendre.
 
 Cette neutralité d'interface ne suffit pas à elle seule. L'opérateur doit vérifier que Supabase
 répond de manière indifférenciable pour une adresse connue et inconnue et surveiller les écarts de
@@ -106,6 +107,18 @@ La synchronisation de locale par l'app est best-effort. Si le produit exige plus
 e-mail suive exactement la locale pré-auth courante, il faudra un mécanisme transactionnel dédié ;
 c'est un gap futur, pas une promesse de ce flow Supabase. La configuration hébergée reste une
 action opérateur et le dépôt ne contient ni credentials SMTP ni copie de secret.
+
+## Livraison et diagnostic opérateur
+
+Le Dashboard Supabase doit utiliser le template **Authentication → Email Templates → Reset
+Password** avec `{{ .Token }}`. Le parcours ne consomme pas `{{ .ConfirmationURL }}` et n'envoie
+pas de `redirectTo` : le code est vérifié dans l'app avec `verifyOtp({ type: 'recovery' })`.
+
+Tester avec un compte confirmé quand **Confirm email** est activé. Les limites e-mail et le
+cooldown de récupération peuvent bloquer un essai après des envois signup/récupération récents
+(souvent environ 2 à 4 e-mails par heure, selon la configuration). En cas de non-réception,
+contrôler **Authentication → Logs**, filtrer `recovery` et le compte de test dans le Dashboard ; le
+log DEBUG mobile se limite à `{ hasError, code, status }`, sans adresse, OTP, mot de passe ni jeton.
 
 ## Écart documenté avec l'epic
 

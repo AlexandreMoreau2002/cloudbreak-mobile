@@ -9,6 +9,9 @@
   fallback français et `{{ .Token }}` visible ; ne pas laisser un template limité à
   `{{ .ConfirmationURL }}`.
 - Vérifier que l'OTP Supabase est à six chiffres et que les limites d'envoi permettent le test.
+- Employer un compte dont l'e-mail est confirmé si **Confirm email** est activé.
+- Le flux OTP n'a besoin ni de `redirectTo` ni de `{{ .ConfirmationURL }}` : le template doit
+  montrer `{{ .Token }}` et l'app emploie `verifyOtp({ type: 'recovery' })`.
 - Dans **Authentication → Rate Limits → Password reset request**, remplacer la fenêtre Supabase
   par défaut de 60 secondes par une valeur inférieure ou égale à 30 secondes, décision Cloudbreak
   nécessaire pour l'aligner avec le cooldown de l'app.
@@ -17,6 +20,8 @@
   ne suffit pas à piloter de façon fiable le template de récupération.
 - Ne jamais coller l'OTP, le mot de passe, l'access token ou une adresse personnelle dans les logs,
   captures, tickets ou commits.
+- Pour diagnostiquer une non-réception, consulter **Authentication → Logs**, filtrer `recovery` et
+  le compte de test. Le log DEBUG mobile est volontairement borné à `hasError`, `code` et `status`.
 
 ## Scénario 1 — parcours nominal français
 
@@ -66,7 +71,8 @@ Résultat attendu : même erreur produit, mot de passe non modifié et écran to
 
 Résultat attendu : cooldown initial et après chaque succès, un seul envoi par action, et acceptation
 du premier renvoi à l'expiration de la fenêtre de 30 secondes configurée. Un échec n'ajoute pas de
-cooldown local.
+cooldown local. Une erreur `429`, `over_email_send_rate_limit` ou rate limit affiche le message
+dédié ; vérifier le statut dans le log DEBUG borné puis dans les logs Dashboard.
 
 ## Scénario 5 — mot de passe trop court
 

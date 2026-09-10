@@ -28,6 +28,10 @@ jest.mock('@/contexts/ThemeContext', () => ({
 }));
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ locale: mockLocale }) }));
 jest.mock('@/contexts/AuthContext', () => ({
+  isRateLimitError: (error: { code?: string; message?: string; status?: number }) =>
+    error.status === 429
+    || error.code === 'over_email_send_rate_limit'
+    || error.message?.toLowerCase().includes('rate limit'),
   useAuth: () => ({ requestPasswordReset: mockRequestPasswordReset }),
 }));
 jest.mock('@/constants/devConfig', () => ({
@@ -106,6 +110,21 @@ describe('ResetScreen', () => {
     fireEvent.press(getByTestId('reset-submit'));
 
     await waitFor(() => expect(getByText('reset.errorNetwork')).toBeTruthy());
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { code: 'over_email_send_rate_limit' },
+    { status: 429 },
+    { message: 'Recovery rate limit exceeded' },
+  ])('affiche une erreur dédiée quand Supabase limite l\'envoi: %o', async (authError) => {
+    mockRequestPasswordReset.mockResolvedValueOnce(authError);
+    const { getByTestId, getByText } = render(<ResetScreen />);
+
+    fireEvent.changeText(getByTestId('reset-email'), 'a@b.com');
+    fireEvent.press(getByTestId('reset-submit'));
+
+    await waitFor(() => expect(getByText('reset.errorRateLimit')).toBeTruthy());
     expect(mockPush).not.toHaveBeenCalled();
   });
 

@@ -255,6 +255,7 @@ export default {
     errorEmail: 'Invalid email.',
     errorCode: 'Incorrect or expired code.',
     errorPassword: 'Password too weak (8 characters minimum).',
+    errorRateLimit: 'Too many requests. Try again in a few minutes.',
     errorNetwork: 'No network or too many attempts. Try again in a moment.',
   },
   verify: { title: 'Enter the code', subtitle: 'We sent a 6-digit code to', confirm: 'Confirm', resend: 'Resend code', resendWait: 'New code in %{count}s', modify: 'Change email', error: 'Code incorrect or expired.', provisioningError: 'Your account was created, but the service is temporarily unavailable. Please try again shortly.', retryProvisioning: 'Try again' },

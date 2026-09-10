@@ -17,5 +17,6 @@ describe('locale en', () => {
     expect(en.reset.send).toBe('Send code');
     expect(en.reset.resendWait).toBe('Resend in {{count}}s');
     expect(en.reset.errorPassword).toBe('Password too weak (8 characters minimum).');
+    expect(en.reset.errorRateLimit).toBe('Too many requests. Try again in a few minutes.');
   });
 });

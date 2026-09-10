@@ -18,6 +18,7 @@ describe('locale fr', () => {
     expect(fr.reset.send).toBe('Envoyer le code');
     expect(fr.reset.resendWait).toBe('Renvoyer dans {{count}} s');
     expect(fr.reset.errorPassword).toBe('Mot de passe trop faible (8 caractères minimum).');
+    expect(fr.reset.errorRateLimit).toBe('Trop de demandes. Réessaie dans quelques minutes.');
   });
 
   it('garde la parité des clés reset avec la locale anglaise', () => {

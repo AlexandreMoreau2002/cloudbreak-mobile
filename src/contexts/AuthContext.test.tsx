@@ -2,7 +2,7 @@ import React from 'react';
 import { AuthError } from '@supabase/supabase-js';
 import { Text, TouchableOpacity, Platform } from 'react-native';
 import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { AuthProvider, isRateLimitError, useAuth } from '@/contexts/AuthContext';
 import { deleteAccount, provisionUser, updateUserSurvey } from '@/services/api/user';
 
 const mockUnsubscribe = jest.fn();
@@ -1141,6 +1141,34 @@ describe('AuthContext', () => {
   });
 
   describe('password reset', () => {
+    it.each([
+      { code: 'over_email_send_rate_limit' },
+      { status: 429 },
+      { message: 'Recovery rate limit exceeded' },
+    ])('identifie une limite d’envoi Supabase: %o', (error) => {
+      expect(isRateLimitError(error)).toBe(true);
+    });
+
+    it('journalise uniquement le diagnostic borné de la réponse de récupération', async () => {
+      const resetError = Object.assign(new AuthError('Email send rate limit exceeded', 429), {
+        code: 'over_email_send_rate_limit',
+      });
+      mockResetPasswordForEmail.mockResolvedValueOnce({ error: resetError });
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      await act(async () => {
+        await getAuth().requestPasswordReset('a@b.com', 'fr');
+      });
+
+      expect(debugSpy).toHaveBeenCalledWith('[AuthContext] password reset result', {
+        hasError: true,
+        code: 'over_email_send_rate_limit',
+        status: 429,
+      });
+    });
+
     it('synchronise la locale avant de demander le code de réinitialisation', async () => {
       const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
       await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));

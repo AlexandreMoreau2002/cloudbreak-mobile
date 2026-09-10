@@ -22,6 +22,31 @@ function isNetworkError(e: unknown): boolean {
   return msg.includes('network request failed') || msg.includes('failed to fetch');
 }
 
+export function isRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const { code, message, status } = error as {
+    code?: unknown;
+    message?: unknown;
+    status?: unknown;
+  };
+  return status === 429
+    || (typeof code === 'string' && code.toLowerCase() === 'over_email_send_rate_limit')
+    || (typeof message === 'string' && message.toLowerCase().includes('rate limit'));
+}
+
+function logPasswordResetResult(error: unknown): void {
+  if (!DEBUG) return;
+  const { code, status } = (error && typeof error === 'object' ? error : {}) as {
+    code?: unknown;
+    status?: unknown;
+  };
+  console.debug('[AuthContext] password reset result', {
+    hasError: Boolean(error),
+    code: typeof code === 'string' ? code : null,
+    status: typeof status === 'number' ? status : null,
+  });
+}
+
 const TERMINAL_SESSION_ERROR_CODES = new Set([
   'bad_jwt',
   'invalid_jwt',
@@ -325,9 +350,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<AuthError | null> {
     if (DEBUG) console.debug('[AuthContext] requestPasswordReset');
     await syncEmailLocale(locale);
-    return runAuthOperation('password_reset_request', () =>
-      supabase.auth.resetPasswordForEmail(email),
-    );
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      logPasswordResetResult(error);
+      if (error) {
+        const outcome = isNetworkError(error) ? 'network_error' : 'auth_error';
+        if (outcome === 'network_error') setAuthServiceUnavailable(true);
+        logAuthOperation('password_reset_request', outcome);
+      } else {
+        logAuthOperation('password_reset_request', 'success');
+      }
+      return error;
+    } catch (error) {
+      logPasswordResetResult(error);
+      const outcome = isNetworkError(error) ? 'network_error' : 'unexpected_error';
+      if (outcome === 'network_error') setAuthServiceUnavailable(true);
+      logAuthOperation('password_reset_request', outcome);
+      return error instanceof AuthError
+        ? error
+        : new AuthError('Service d\'authentification indisponible');
+    }
   }
 
   async function completePasswordReset(

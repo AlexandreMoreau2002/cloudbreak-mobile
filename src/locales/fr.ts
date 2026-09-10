@@ -255,6 +255,7 @@ export default {
     errorEmail: 'E-mail invalide.',
     errorCode: 'Code incorrect ou expiré.',
     errorPassword: 'Mot de passe trop faible (8 caractères minimum).',
+    errorRateLimit: 'Trop de demandes. Réessaie dans quelques minutes.',
     errorNetwork: "Pas de réseau ou trop de tentatives. Réessaie dans un instant.",
   },
   verify: { title: 'Entre le code reçu', subtitle: "On vient d'envoyer un code à 6 chiffres à", confirm: 'Confirmer', resend: 'Renvoyer le code', resendWait: 'Nouveau code dans %{count} s', modify: "Modifier l'adresse", error: 'Code incorrect ou expiré.', provisioningError: 'Ton compte est créé, mais le service est momentanément indisponible. Réessaie dans un instant.', retryProvisioning: 'Réessayer' },

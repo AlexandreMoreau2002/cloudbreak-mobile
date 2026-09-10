@@ -35,6 +35,10 @@ jest.mock('@/contexts/ThemeContext', () => ({
 }));
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ locale: mockLocale }) }));
 jest.mock('@/contexts/AuthContext', () => ({
+  isRateLimitError: (error: { code?: string; message?: string; status?: number }) =>
+    error.status === 429
+    || error.code === 'over_email_send_rate_limit'
+    || error.message?.toLowerCase().includes('rate limit'),
   useAuth: () => ({
     completePasswordReset: mockCompletePasswordReset,
     requestPasswordReset: mockRequestPasswordReset,
@@ -275,6 +279,20 @@ describe('ResetConfirmScreen', () => {
     fireEvent.press(getByTestId('reset-confirm-resend'));
     await waitFor(() => expect(mockRequestPasswordReset).toHaveBeenCalledTimes(2));
     expect(getByText('reset.resendWait:30')).toBeTruthy();
+  });
+
+  it.each([
+    { code: 'over_email_send_rate_limit' },
+    { status: 429 },
+    { message: 'Recovery rate limit exceeded' },
+  ])('affiche une erreur dédiée si le renvoi est limité: %o', async (authError) => {
+    mockRequestPasswordReset.mockResolvedValueOnce(authError);
+    const { getByTestId, getByText, queryByText } = render(<ResetConfirmScreen />);
+
+    fireEvent.press(getByTestId('reset-confirm-resend'));
+
+    await waitFor(() => expect(getByText('reset.errorRateLimit')).toBeTruthy());
+    expect(queryByText('reset.resendWait:30')).toBeNull();
   });
 
   it('verrouille atomiquement deux confirmations immédiates pendant le chargement', async () => {

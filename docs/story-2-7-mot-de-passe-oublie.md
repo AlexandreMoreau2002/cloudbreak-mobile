@@ -70,11 +70,22 @@ utilisable au même moment que le serveur. Référence :
 Dans le projet Supabase hébergé, configurer **Authentication → Email Templates → Reset Password** :
 
 - remplacer le parcours par lien par un code affichant `{{ .Token }}` ;
+- ne pas dépendre de `{{ .ConfirmationURL }}` : le flux Cloudbreak vérifie directement l'OTP avec
+  `verifyOtp({ type: 'recovery' })`, donc aucun `redirectTo` n'est requis ;
 - prévoir les variantes FR et EN à partir de `.Data.locale` ;
 - utiliser le français si la locale est absente, invalide ou non synchronisable ;
 - régler **Authentication → Rate Limits → Password reset request** à une fenêtre inférieure ou
   égale à 30 secondes (la valeur Supabase par défaut est 60 secondes) ;
-- tester la réception réelle, la longueur de six chiffres et `verifyOtp` avec `type: 'recovery'`.
+- tester la réception réelle avec un compte dont l'e-mail est confirmé, la longueur de six chiffres
+  et `verifyOtp` avec `type: 'recovery'` ;
+- en cas de non-réception, consulter **Authentication → Logs** et filtrer la demande `recovery`
+  du compte de test. Le log debug mobile se limite à `hasError`, `code` et `status` : il ne contient
+  jamais l'adresse, l'OTP, le mot de passe ni un jeton.
+
+Le fournisseur peut renvoyer `429`, `over_email_send_rate_limit` ou un message de rate limit.
+L'app affiche alors une copie dédiée et ne navigue pas. Les limites e-mail Supabase (souvent de
+l'ordre de 2 à 4 messages par heure selon la configuration) et le cooldown recovery peuvent faire
+échouer un essai après des tests de signup récents ; les logs Dashboard sont la source de preuve.
 
 Le template lit la locale stockée dans `user_metadata.locale` du **compte destinataire**. Changer
 uniquement la langue courante de l'app avant une récupération ne garantit donc pas la langue du

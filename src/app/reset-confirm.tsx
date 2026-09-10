@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { DEBUG } from '@/constants/devConfig';
-import { useAuth } from '@/contexts/AuthContext';
+import { isRateLimitError, useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LoadingSpinner } from '@/components/loading-spinner';
@@ -92,7 +92,7 @@ export default function ResetConfirmScreen() {
     setCodeError(false);
     setError(null);
     const authError = await auth.requestPasswordReset(email, locale);
-    if (authError) setError(i18n.t('reset.errorNetwork'));
+    if (authError) setError(i18n.t(isRateLimitError(authError) ? 'reset.errorRateLimit' : 'reset.errorNetwork'));
     else setResend(RESEND_DELAY_SECONDS);
     setResending(false);
     resendInFlight.current = false;

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import i18n from '@/utils/i18n';
 import { DEBUG } from '@/constants/devConfig';
-import { useAuth } from '@/contexts/AuthContext';
+import { isRateLimitError, useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { AuthBackdrop } from '@/components/account';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -48,7 +48,7 @@ export default function ResetScreen() {
     const err = await auth.requestPasswordReset(normalizedEmail, locale);
     setLoading(false);
     if (err) {
-      setError(i18n.t('reset.errorNetwork'));
+      setError(i18n.t(isRateLimitError(err) ? 'reset.errorRateLimit' : 'reset.errorNetwork'));
       return;
     }
 
