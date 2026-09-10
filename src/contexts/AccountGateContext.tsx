@@ -17,11 +17,14 @@ export interface EmailUpgradeCredentials {
   email: string;
   password: string;
 }
+export interface FinishAccountCreationResult {
+  replayFailed: boolean;
+}
 interface AccountGateValue {
   pendingAction: PendingAction | null;
   requireAccount: (action: PendingAction) => void;
   openAccount: (mode: AccountEntryMode) => void;
-  finishAccountCreation: () => Promise<void>;
+  finishAccountCreation: () => Promise<FinishAccountCreationResult>;
   cancelAccountFlow: () => Promise<void>;
   maybePromptFirstRun: () => Promise<void>;
   emailUpgradeCredentials: EmailUpgradeCredentials | null;
@@ -71,29 +74,35 @@ export function AccountGateProvider({ children }: { children: React.ReactNode })
   const finishAccountCreation = useCallback(async () => {
     const action = pendingAction;
     setEmailUpgradeCredentials(null);
-    if (!action) return;
+    if (!action) return { replayFailed: false };
     setPendingAction(null);
     if (action.kind === 'first_run') {
       await markPromptSeen();
       router.replace('/(tabs)' as never);
-      return;
+      return { replayFailed: false };
     }
-    // Auth state updates are asynchronous. Read Supabase's session here rather
-    // than using the session captured by the render that opened the gate.
-    const { data } = await supabase.auth.getSession();
-    const freshSession = data.session;
-    if (DEBUG) console.debug('[AccountGate] finishAccountCreation', { kind: action.kind, isAnonymous: freshSession?.user.is_anonymous ?? null });
-    if (!freshSession || freshSession.user.is_anonymous) {
+    try {
+      // Auth state updates are asynchronous. Read Supabase's session here rather
+      // than using the session captured by the render that opened the gate.
+      const { data } = await supabase.auth.getSession();
+      const freshSession = data.session;
+      if (DEBUG) console.debug('[AccountGate] finishAccountCreation', { kind: action.kind, isAnonymous: freshSession?.user.is_anonymous ?? null });
+      if (!freshSession || freshSession.user.is_anonymous) {
+        restoreReturnRoute();
+        return { replayFailed: false };
+      }
+      if (action.kind === 'favorite') {
+        await addFavorite(freshSession.access_token, action.peakId);
+        restoreReturnRoute();
+        return { replayFailed: false };
+      }
+      await action.retry();
       restoreReturnRoute();
-      return;
+      return { replayFailed: false };
+    } catch {
+      if (DEBUG) console.debug('[AccountGate] finishAccountCreation replay failed', { kind: action.kind });
+      return { replayFailed: true };
     }
-    if (action.kind === 'favorite') {
-      await addFavorite(freshSession.access_token, action.peakId);
-      restoreReturnRoute();
-      return;
-    }
-    await action.retry();
-    restoreReturnRoute();
   }, [markPromptSeen, pendingAction, restoreReturnRoute, router]);
   const cancelAccountFlow = useCallback(async () => {
     const action = pendingAction;

@@ -91,8 +91,8 @@ valide. Si Supabase refuse un mot de passe de huit caractères pour une règle p
 3. Terminer la récupération avec succès.
 
 Résultat attendu : `finishAccountCreation()` rejoue l'action en attente et restitue la route
-prévue. Si le replay échoue, l'app revient sur Home et libère le formulaire au lieu de rester en
-chargement.
+prévue. Si le replay échoue, le gate renvoie un fallback contrôlé ; l'app revient sur Home et
+libère le formulaire au lieu de rester en chargement.
 
 ## Scénario 7 — ancien et nouveau mot de passe
 

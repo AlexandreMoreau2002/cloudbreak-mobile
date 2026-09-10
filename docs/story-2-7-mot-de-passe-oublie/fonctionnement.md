@@ -33,7 +33,9 @@ Chaque porte ne s'ouvre que si la précédente a réussi :
    `updateUser({ password: newPassword })`.
 5. L'app relit la session permanente et appelle le provisioning Cloudbreak existant. Si le
    parcours avait commencé pour ajouter un favori ou dépasser un quota, l'action est rejouée ;
-   sinon l'utilisateur revient aux onglets.
+   sinon l'utilisateur revient aux onglets. Le gate renvoie un résultat contrôlé si ce replay
+   échoue : `/reset-confirm` retourne alors sur Home et libère le formulaire, sans capturer
+   l'exception métier dans l'écran.
 
 La demande de récupération ne synchronise pas la locale de l'app avec Supabase : elle cible un
 compte par son e-mail, tandis que `updateUser({ data: { locale } })` ne peut modifier que la

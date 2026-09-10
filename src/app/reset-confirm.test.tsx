@@ -88,7 +88,7 @@ describe('ResetConfirmScreen', () => {
     mockPendingAction = null;
     mockCompletePasswordReset.mockResolvedValue(null);
     mockRequestPasswordReset.mockResolvedValue(null);
-    mockFinishAccountCreation.mockResolvedValue(undefined);
+    mockFinishAccountCreation.mockResolvedValue({ replayFailed: false });
   });
 
   afterEach(() => jest.useRealTimers());
@@ -171,9 +171,9 @@ describe('ResetConfirmScreen', () => {
     expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)');
   });
 
-  it('sort vers les tabs et libère le formulaire si le replay post-reset rejette', async () => {
+  it('route vers les tabs et libère le formulaire quand le gate retourne son fallback de replay', async () => {
     mockPendingAction = { kind: 'favorite', peakId: 'p1' };
-    mockFinishAccountCreation.mockRejectedValueOnce(new Error('replay failed'));
+    mockFinishAccountCreation.mockResolvedValueOnce({ replayFailed: true });
     const { getByTestId, queryByTestId } = render(<ResetConfirmScreen />);
 
     fireEvent.changeText(getByTestId('code'), '123456');

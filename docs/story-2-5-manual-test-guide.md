@@ -146,8 +146,8 @@ Attendu : `anonymous_users: true`, `email: true`, `mailer_autoconfirm: false`.
 12. Cas langues : utiliser des comptes destinataires contrôlés avec `user_metadata.locale` fixé à
     `fr`, `en`, puis absent/invalide pour le fallback FR. Changer seulement la langue courante de
     l'app ne garantit pas la langue de l'e-mail de récupération.
-13. Cas action en attente (favori/quota) : l'action est rejouée ; si le replay échoue, retour Home
-    sans formulaire bloqué.
+13. Cas action en attente (favori/quota) : l'action est rejouée ; si le replay échoue, le gate
+    retourne un fallback contrôlé vers Home sans formulaire bloqué.
 
 Le protocole complet, avec langues et cas limites, est dans
 [`docs/story-2-7-mot-de-passe-oublie/guide-test.md`](story-2-7-mot-de-passe-oublie/guide-test.md).

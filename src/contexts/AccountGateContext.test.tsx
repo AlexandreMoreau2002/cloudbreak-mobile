@@ -107,6 +107,24 @@ describe('AccountGateContext', () => {
     expect(mockBack).not.toHaveBeenCalled();
   });
 
+  it('résout un résultat de fallback quand le replay du favori échoue', async () => {
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+    act(() => result.current.requireAccount({ kind: 'favorite', peakId: 'peak-failing' }));
+    mockAuthState.session = {
+      access_token: 'permanent-token',
+      user: { id: 'account', is_anonymous: false },
+    };
+    mockGetSession.mockResolvedValue({ data: { session: mockAuthState.session } });
+    mockAddFavorite.mockRejectedValueOnce(new Error('replay failed'));
+
+    let completion: unknown;
+    await act(async () => { completion = await result.current.finishAccountCreation(); });
+
+    expect(completion).toEqual({ replayFailed: true });
+    expect(result.current.pendingAction).toBeNull();
+    expect(mockDismissTo).not.toHaveBeenCalled();
+  });
+
   it('relit la session Supabase fraîche avant de rejouer un favori après conversion', async () => {
     const { result } = renderHook(() => useAccountGate(), { wrapper });
     act(() => result.current.requireAccount({ kind: 'favorite', peakId: 'peak-fresh' }));
