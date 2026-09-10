@@ -9,8 +9,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useAccountGate } from '@/contexts/AccountGateContext';
-import { AuthBackdrop, CodeInput, PasswordField } from '@/components/account';
-import { isPasswordEligible } from '@/components/account/PasswordField';
+import { AuthBackdrop, CodeInput, isPasswordEligible, PasswordField } from '@/components/account';
 
 const CODE_LENGTH = 6;
 const RESEND_DELAY_SECONDS = 30;

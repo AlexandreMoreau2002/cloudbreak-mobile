@@ -38,6 +38,26 @@ describe('AccountForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('laisse la connexion soumettre un mot de passe existant hors politique client', () => {
+    const onSubmit = jest.fn();
+    const { getByTestId } = render(
+      <AccountForm
+        mode="connexion"
+        loading={false}
+        onSubmit={onSubmit}
+        onApple={jest.fn()}
+        onModeChange={jest.fn()}
+        onForgotPassword={jest.fn()}
+      />,
+    );
+
+    fireEvent.changeText(getByTestId('account-email'), 'a@b.com');
+    fireEvent.changeText(getByTestId('account-password'), 'abcdefgh');
+    fireEvent.press(getByTestId('account-submit'));
+
+    expect(onSubmit).toHaveBeenCalledWith('a@b.com', 'abcdefgh');
+  });
+
   it('uses the same surfaced field treatment and keeps the translated password toggle', () => {
     const { getByTestId } = render(
       <AccountForm

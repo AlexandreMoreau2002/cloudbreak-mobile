@@ -1,5 +1,5 @@
 import { fireEvent, render } from '@testing-library/react-native';
-import { isPasswordEligible, PasswordField, passwordStrength } from '@/components/account/PasswordField';
+import { isPasswordEligible, PasswordField, passwordStrength } from '@/components/account';
 
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
@@ -17,6 +17,7 @@ describe('passwordStrength', () => {
 
   it('n’accepte que les mots de passe qui remplissent toutes les règles client', () => {
     expect(isPasswordEligible('')).toBe(false);
+    expect(isPasswordEligible('NewPa1!')).toBe(false);
     expect(isPasswordEligible('abcdefgh')).toBe(false);
     expect(isPasswordEligible('NewPass1!')).toBe(true);
   });

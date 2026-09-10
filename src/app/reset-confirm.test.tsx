@@ -57,6 +57,11 @@ jest.mock('@/components/account', () => {
   const { TextInput, View } = require('react-native');
   return {
     AuthBackdrop: () => <View testID="auth-backdrop" />,
+    isPasswordEligible: (password: string) => password.length >= 8
+      && /[a-z]/.test(password)
+      && /[A-Z]/.test(password)
+      && /\d/.test(password)
+      && /[^A-Za-z0-9]/.test(password),
     CodeInput: ({ value, onChange, error }: { value: string; onChange: (input: string) => void; error: boolean }) => (
       <TextInput
         accessibilityLabel={error ? 'code-error' : 'code-valid'}
