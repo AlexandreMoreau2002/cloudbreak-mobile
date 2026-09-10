@@ -35,6 +35,14 @@ Chaque porte ne s'ouvre que si la précédente a réussi :
    parcours avait commencé pour ajouter un favori ou dépasser un quota, l'action est rejouée ;
    sinon l'utilisateur revient aux onglets.
 
+La demande de récupération ne synchronise pas la locale de l'app avec Supabase : elle cible un
+compte par son e-mail, tandis que `updateUser({ data: { locale } })` ne peut modifier que la
+session active. Lors d'une session invitée, cette écriture inutile peut émettre `USER_UPDATED`, puis
+faire réagir le listener d'authentification et donner l'impression d'un rechargement. La locale
+passée à `requestPasswordReset` est temporairement conservée pour compatibilité avec l'écran
+existant mais ignorée intentionnellement. La synchronisation de locale demeure réservée à la
+conversion e-mail du compte connecté.
+
 ## Ce que voit l'utilisateur
 
 ```text

@@ -1169,7 +1169,7 @@ describe('AuthContext', () => {
       });
     });
 
-    it('synchronise la locale avant de demander le code de réinitialisation', async () => {
+    it('demande exactement un code de réinitialisation sans modifier la session courante', async () => {
       const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
       await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
@@ -1179,10 +1179,9 @@ describe('AuthContext', () => {
       });
 
       expect(error).toBeNull();
-      expect(mockUpdateUser).toHaveBeenCalledWith({ data: { locale: 'fr' } });
+      expect(mockUpdateUser).not.toHaveBeenCalled();
       expect(mockResetPasswordForEmail).toHaveBeenCalledWith('a@b.com');
-      expect(mockUpdateUser.mock.invocationCallOrder[0])
-        .toBeLessThan(mockResetPasswordForEmail.mock.invocationCallOrder[0]);
+      expect(mockResetPasswordForEmail).toHaveBeenCalledTimes(1);
     });
 
     it('vérifie le code recovery, fixe le mot de passe, puis provisionne', async () => {

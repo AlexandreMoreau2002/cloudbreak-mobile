@@ -346,10 +346,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function requestPasswordReset(
     email: string,
-    locale: AuthEmailLocale,
+    _locale: AuthEmailLocale,
   ): Promise<AuthError | null> {
     if (DEBUG) console.debug('[AuthContext] requestPasswordReset');
-    await syncEmailLocale(locale);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       logPasswordResetResult(error);

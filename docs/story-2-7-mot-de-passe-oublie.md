@@ -95,6 +95,19 @@ fallback français. La synchronisation côté app reste best-effort. Garantir ex
 pré-auth courante pour n'importe quel destinataire nécessiterait plus tard un mécanisme d'e-mail
 transactionnel dédié. La configuration Dashboard et la preuve de livraison restent manuelles.
 
+## Stabilité du parcours de récupération
+
+La demande de récupération ne met plus à jour `user_metadata.locale`. Cette écriture visait la
+session **courante** (souvent anonyme), pas le compte destinataire, puis pouvait déclencher un
+événement Supabase `USER_UPDATED` que `AuthContext` répercute en nouvelle session. Elle était donc
+à la fois incapable de choisir la langue du bon e-mail et une source réelle de rafraîchissement
+perçu. Le paramètre `locale` est conservé temporairement dans la signature publique de
+`requestPasswordReset` afin de ne pas casser l'appelant existant ; il est volontairement ignoré.
+La synchronisation best-effort reste limitée au parcours de conversion e-mail du compte déjà
+connecté (`beginEmailUpgrade` et `resendEmailUpgrade`). L'inspection du provider ne révèle pas
+d'effet de récupération avec des dépendances instables : aucun correctif spéculatif de dépendances
+n'a été ajouté.
+
 ## Écart avec les AC provisoires
 
 `_bmad-output/planning-artifacts/epics.md` décrit encore un e-mail contenant un **lien**. La spec
