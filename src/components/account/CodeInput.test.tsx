@@ -13,6 +13,13 @@ describe('CodeInput', () => {
     expect(() => getByTestId('code-input-6')).toThrow();
   });
 
+  it('fills the shared content width while keeping six separate input controls', () => {
+    const { getByTestId } = render(<CodeInput value="" onChange={jest.fn()} />);
+
+    expect(getByTestId('code-input-row')).toHaveStyle({ width: '100%', justifyContent: 'space-between' });
+    expect(getByTestId('code-input-row').props.children).toHaveLength(6);
+  });
+
   it('keeps a hole when backspace clears a filled cell', () => {
     const onChange = jest.fn();
     const { getByTestId, rerender } = render(<CodeInput value="123456" onChange={onChange} />);

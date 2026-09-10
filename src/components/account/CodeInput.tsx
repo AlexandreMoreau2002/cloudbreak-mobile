@@ -36,7 +36,7 @@ export function CodeInput({ value, onChange, error = false }: CodeInputProps) {
     onChange(nextValue);
     if (clean && index < CODE_LENGTH - 1) refs.current[index + 1]?.focus();
   }
-  return <View style={styles.row}>{digits.map((digit, index) => <TextInput
+  return <View testID="code-input-row" style={styles.row}>{digits.map((digit, index) => <TextInput
     key={index} ref={(ref) => { refs.current[index] = ref; }} testID={`code-input-${index}`}
     value={digit} onChangeText={(text) => change(index, text)} maxLength={CODE_LENGTH} keyboardType="number-pad"
     autoComplete="one-time-code" textContentType="oneTimeCode" selectTextOnFocus
@@ -48,4 +48,4 @@ export function CodeInput({ value, onChange, error = false }: CodeInputProps) {
     style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.surface, borderColor: error ? '#C25C4A' : digit ? colors.accent : colors.border, fontFamily: typography.fontFamily.semiBold }]}
   />)}</View>;
 }
-const styles = StyleSheet.create({ row: { flexDirection: 'row', gap: 8, justifyContent: 'center' }, input: { width: 46, height: 58, borderWidth: 1.5, borderRadius: 14, textAlign: 'center', fontSize: 24 } });
+const styles = StyleSheet.create({ row: { width: '100%', flexDirection: 'row', justifyContent: 'space-between' }, input: { width: 46, height: 58, borderWidth: 1.5, borderRadius: 14, textAlign: 'center', fontSize: 24 } });

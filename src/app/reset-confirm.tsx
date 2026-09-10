@@ -129,15 +129,17 @@ export default function ResetConfirmScreen() {
           <Text style={[styles.sent, { color: colors.textSecondary }]}>{i18n.t('reset.sent')}</Text>
         ) : null}
 
-        <CodeInput value={code} onChange={setCode} error={codeError} />
-        <PasswordField
-          value={newPassword}
-          onChangeText={setNewPassword}
-          showStrength
-          autoComplete="new-password"
-          placeholder={i18n.t('reset.newPasswordPlaceholder')}
-          testID="new-password"
-        />
+        <View testID="reset-confirm-credentials" style={styles.credentials}>
+          <CodeInput value={code} onChange={setCode} error={codeError} />
+          <PasswordField
+            value={newPassword}
+            onChangeText={setNewPassword}
+            showStrength
+            autoComplete="new-password"
+            placeholder={i18n.t('reset.newPasswordPlaceholder')}
+            testID="new-password"
+          />
+        </View>
 
         {error ? (
           <Text accessibilityRole="alert" style={styles.error}>
@@ -180,6 +182,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 26 },
   back: { width: 44, height: 44, justifyContent: 'center', marginLeft: -6, zIndex: 2 },
   center: { flex: 1, justifyContent: 'center', gap: 16, zIndex: 2 },
+  credentials: { gap: 24 },
   title: { fontSize: 30, textAlign: 'center' },
   subtitle: { textAlign: 'center', lineHeight: 22 },
   sent: { textAlign: 'center', lineHeight: 20 },

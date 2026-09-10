@@ -366,6 +366,7 @@ describe('ResetConfirmScreen', () => {
 
     expect(getByTestId('auth-backdrop')).toBeTruthy();
     expect(getByTestId('reset-confirm-screen')).toHaveStyle({ paddingTop: 8, paddingBottom: 54 });
+    expect(getByTestId('reset-confirm-credentials')).toHaveStyle({ gap: 24 });
 
     fireEvent.press(getByTestId('reset-confirm-back'));
     expect(mockBack).toHaveBeenCalledTimes(1);
