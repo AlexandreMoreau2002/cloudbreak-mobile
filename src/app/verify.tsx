@@ -21,6 +21,7 @@ export default function VerifyScreen() {
   const { email = '', password = '' } = gate.emailUpgradeCredentials ?? {};
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState(false);
+  const [passwordError, setPasswordError] = useState(false);
   const [provisioningError, setProvisioningError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resend, setResend] = useState(0);
@@ -36,12 +37,16 @@ export default function VerifyScreen() {
     if (code.length !== CODE_LENGTH || !email || !password || loading) return;
     setLoading(true);
     setCodeError(false);
+    setPasswordError(false);
     setProvisioningError(false);
     const err = await auth.completeEmailUpgrade(email, password, code);
     setLoading(false);
     if (err) {
+      const message = err.message.toLowerCase();
       if (err.message === 'EMAIL_UPGRADE_PROVISIONING_FAILED') setProvisioningError(true);
-      else setCodeError(true);
+      else if (message.includes('weak') || message.includes('password') || message.includes('at least')) {
+        setPasswordError(true);
+      } else setCodeError(true);
       return;
     }
     router.push('/survey' as never);
@@ -57,6 +62,7 @@ export default function VerifyScreen() {
     }
     setCode('');
     setCodeError(false);
+    setPasswordError(false);
     setProvisioningError(false);
     setResend(30);
   }
@@ -99,6 +105,11 @@ export default function VerifyScreen() {
         {codeError ? (
           <Text accessibilityRole="alert" style={{ color: '#C25C4A', textAlign: 'center' }}>
             {i18n.t('verify.error')}
+          </Text>
+        ) : null}
+        {passwordError ? (
+          <Text accessibilityRole="alert" style={{ color: '#C25C4A', textAlign: 'center' }}>
+            {i18n.t('verify.errorWeakPassword')}
           </Text>
         ) : null}
         {provisioningError ? (

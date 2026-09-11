@@ -258,7 +258,7 @@ export default {
     errorRateLimit: 'Too many requests. Try again in a few minutes.',
     errorNetwork: 'No network or too many attempts. Try again in a moment.',
   },
-  verify: { title: 'Enter the code', subtitle: 'We sent a 6-digit code to', confirm: 'Confirm', resend: 'Resend code', resendWait: 'New code in %{count}s', modify: 'Change email', error: 'Code incorrect or expired.', provisioningError: 'Your account was created, but the service is temporarily unavailable. Please try again shortly.', retryProvisioning: 'Try again' },
+  verify: { title: 'Enter the code', subtitle: 'We sent a 6-digit code to', confirm: 'Confirm', resend: 'Resend code', resendWait: 'New code in %{count}s', modify: 'Change email', error: 'Code incorrect or expired.', errorWeakPassword: 'Password rejected. Change it, then restart account creation.', provisioningError: 'Your account was created, but the service is temporarily unavailable. Please try again shortly.', retryProvisioning: 'Try again' },
   survey: { skip: 'Skip', created: 'Account created', title: 'Two questions, that’s all.', subtitle: 'It helps us know who we’re building for. You can leave everything blank.', discovery: 'How did you discover Cloudbreak?', practice: 'What are you?', appStore: 'App Store', google: 'Google search', instagram: 'Instagram', tiktok: 'TikTok', wordOfMouth: 'Word of mouth', other: 'Other', hiker: 'Hiker', trail: 'Trail runner', paraglider: 'Paraglider', photographer: 'Photographer', alpinist: 'Alpinist', newsletter: 'Receive Cloudbreak updates', continue: 'Continue', finish: 'Finish', error: 'Unable to save your answers. Try again.' },
   onboarding: {
     tagline: 'Sea-of-clouds forecast by summit',
