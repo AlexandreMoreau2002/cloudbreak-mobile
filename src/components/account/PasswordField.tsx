@@ -50,7 +50,10 @@ export function PasswordField({
   return (
     <View>
       <View
-        style={[styles.password, { borderColor: focused ? colors.accent : colors.border }]}
+        style={[
+          styles.password,
+          { backgroundColor: colors.surface, borderColor: focused ? colors.accent : colors.border },
+        ]}
         testID={`${testID}-container`}
       >
         <TextInput
@@ -64,7 +67,7 @@ export function PasswordField({
           placeholderTextColor={colors.textDisabled}
           secureTextEntry={!visible}
           autoComplete={autoComplete}
-          style={[styles.passwordInput, { color: '#1a1a1a', fontFamily: typography.fontFamily.regular }]}
+          style={[styles.passwordInput, { color: colors.textPrimary, fontFamily: typography.fontFamily.regular }]}
         />
         <TouchableOpacity
           accessibilityRole="button"
@@ -99,7 +102,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
   },
   passwordInput: { flex: 1, fontSize: 15 },
   strength: { flexDirection: 'row', gap: 4, marginTop: 6 },

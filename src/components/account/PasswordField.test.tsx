@@ -3,7 +3,14 @@ import { isPasswordLongEnough, MIN_PASSWORD_LENGTH, PasswordField, passwordStren
 
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
-    colors: { textSecondary: '#555', textDisabled: '#aaa', accent: '#b28c6e', border: '#ddd' },
+    colors: {
+      textSecondary: '#555',
+      textDisabled: '#aaa',
+      accent: '#b28c6e',
+      border: '#ddd',
+      surface: '#2A2A2A',
+      textPrimary: '#F7F5F1',
+    },
     typography: { fontFamily: { regular: 'System' } },
   }),
 }));
@@ -38,6 +45,15 @@ describe('PasswordField', () => {
     expect(getByTestId('pf').props.secureTextEntry).toBe(true);
     fireEvent.press(getByLabelText('account.show'));
     expect(getByTestId('pf').props.secureTextEntry).toBe(false);
+  });
+
+  it('applique le fond et le texte du thème au lieu de valeurs figées', () => {
+    const { getByTestId } = render(
+      <PasswordField value="" onChangeText={jest.fn()} testID="pf" />,
+    );
+
+    expect(getByTestId('pf-container')).toHaveStyle({ backgroundColor: '#2A2A2A' });
+    expect(getByTestId('pf')).toHaveStyle({ color: '#F7F5F1' });
   });
 
   it("n'affiche la jauge de force que si showStrength et value non vide", () => {
