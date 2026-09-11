@@ -3,6 +3,10 @@ import { render, fireEvent } from '@testing-library/react-native';
 import { AccountForm } from '@/components/account/AccountForm';
 jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { textPrimary: '#f7f3ed', textSecondary: '#555', surface: '#2a2a2a', border: '#ddd', accent: '#b28c6e', textDisabled: '#aaa' }, typography: { fontFamily: { regular: 'System', semiBold: 'System' } }, radius: { sm: 8 }, spacing: { sm: 8 } }) }));
 jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
+jest.mock('@expo/vector-icons', () => {
+  const { Text } = require('react-native');
+  return { Ionicons: ({ name }: { name: string }) => <Text testID="apple-icon">{name}</Text> };
+});
 
 describe('AccountForm', () => {
   it('switches mode and submits the selected mode', () => {
@@ -12,6 +16,14 @@ describe('AccountForm', () => {
     fireEvent.changeText(getByTestId('account-password'), 'Password1!');
     fireEvent.press(getByTestId('account-submit'));
     expect(onSubmit).toHaveBeenCalledWith('a@b.com', 'Password1!');
+  });
+
+  it("affiche l'icône Apple dans le bouton de connexion Apple", () => {
+    const { getByTestId } = render(
+      <AccountForm mode="creation" loading={false} onSubmit={jest.fn()} onApple={jest.fn()} onModeChange={jest.fn()} onForgotPassword={jest.fn()} />,
+    );
+
+    expect(getByTestId('apple-icon')).toHaveTextContent('logo-apple');
   });
 
   it('ne soumet pas un mot de passe de création en dessous du plancher de longueur', () => {

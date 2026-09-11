@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { LEGAL_URLS } from '@/constants/legalUrls';
@@ -46,7 +47,8 @@ export function AccountForm({ mode, loading, error, onSubmit, onApple, onModeCha
             disabled={loading}
             style={styles.apple}
           >
-            <Text style={styles.appleText}>  {i18n.t('account.apple')}</Text>
+            <Ionicons name="logo-apple" size={17} color="#fff" />
+            <Text style={styles.appleText}>{i18n.t('account.apple')}</Text>
           </TouchableOpacity>
           <View accessibilityRole="none" style={styles.or}>
             <View style={[styles.line, { backgroundColor: colors.border }]} />
