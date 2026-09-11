@@ -9,7 +9,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useAccountGate } from '@/contexts/AccountGateContext';
-import { AuthBackdrop, CodeInput, isPasswordEligible, PasswordField } from '@/components/account';
+import { AuthBackdrop, CodeInput, isPasswordLongEnough, PasswordField } from '@/components/account';
 
 const CODE_LENGTH = 6;
 const RESEND_DELAY_SECONDS = 30;
@@ -30,7 +30,7 @@ export default function ResetConfirmScreen() {
   const [resending, setResending] = useState(false);
   const submitInFlight = useRef(false);
   const resendInFlight = useRef(false);
-  const canSubmit = code.length === CODE_LENGTH && isPasswordEligible(newPassword) && !loading;
+  const canSubmit = code.length === CODE_LENGTH && isPasswordLongEnough(newPassword) && !loading;
 
   useEffect(() => {
     if (!email) router.replace('/reset');

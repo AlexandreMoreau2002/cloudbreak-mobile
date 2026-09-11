@@ -57,11 +57,7 @@ jest.mock('@/components/account', () => {
   const { TextInput, View } = require('react-native');
   return {
     AuthBackdrop: () => <View testID="auth-backdrop" />,
-    isPasswordEligible: (password: string) => password.length >= 8
-      && /[a-z]/.test(password)
-      && /[A-Z]/.test(password)
-      && /\d/.test(password)
-      && /[^A-Za-z0-9]/.test(password),
+    isPasswordLongEnough: (password: string) => password.length >= 6,
     CodeInput: ({ value, onChange, error }: { value: string; onChange: (input: string) => void; error: boolean }) => (
       <TextInput
         accessibilityLabel={error ? 'code-error' : 'code-valid'}
@@ -137,8 +133,7 @@ describe('ResetConfirmScreen', () => {
   it.each([
     ['12345', 'NewPass1!'],
     ['1234567', 'NewPass1!'],
-    ['123456', '1234567'],
-    ['123456', 'abcdefgh'],
+    ['123456', '12345'],
   ])('bloque les valeurs invalides code=%s et mot de passe=%s', (code, password) => {
     const { getByTestId, UNSAFE_getAllByType } = render(<ResetConfirmScreen />);
 
@@ -150,6 +145,19 @@ describe('ResetConfirmScreen', () => {
     submit!.props.onPress();
 
     expect(mockCompletePasswordReset).not.toHaveBeenCalled();
+  });
+
+  it('confirme avec un mot de passe faible dès six caractères', async () => {
+    const { getByTestId } = render(<ResetConfirmScreen />);
+
+    fireEvent.changeText(getByTestId('code'), '123456');
+    fireEvent.changeText(getByTestId('new-password'), 'abcdef');
+    fireEvent.press(getByTestId('reset-confirm-submit'));
+
+    await waitFor(() =>
+      expect(mockCompletePasswordReset).toHaveBeenCalledWith('a@b.com', '123456', 'abcdef'),
+    );
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
   });
 
   it('confirme avec un code exact et remplace par les tabs sans action en attente', async () => {
