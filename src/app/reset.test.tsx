@@ -22,6 +22,7 @@ jest.mock('@/contexts/ThemeContext', () => ({
       textDisabled: '#aaa',
       accent: '#b28c6e',
       border: '#ddd',
+      surface: '#2A2A2A',
     },
     typography: { fontFamily: { bold: 'System', semiBold: 'System', regular: 'System' } },
   }),
@@ -67,15 +68,15 @@ describe('ResetScreen', () => {
     expect(mockRequestPasswordReset).not.toHaveBeenCalled();
   });
 
-  it('accentue la bordure blanche du champ uniquement pendant le focus', () => {
+  it('applique le fond du thème et accentue la bordure uniquement pendant le focus', () => {
     const { getByTestId } = render(<ResetScreen />);
     const input = getByTestId('reset-email');
 
-    expect(input).toHaveStyle({ backgroundColor: '#fff', borderColor: '#ddd' });
+    expect(input).toHaveStyle({ backgroundColor: '#2A2A2A', color: '#111', borderColor: '#ddd' });
     fireEvent(input, 'focus');
-    expect(input).toHaveStyle({ backgroundColor: '#fff', borderColor: '#b28c6e' });
+    expect(input).toHaveStyle({ backgroundColor: '#2A2A2A', color: '#111', borderColor: '#b28c6e' });
     fireEvent(input, 'blur');
-    expect(input).toHaveStyle({ backgroundColor: '#fff', borderColor: '#ddd' });
+    expect(input).toHaveStyle({ backgroundColor: '#2A2A2A', color: '#111', borderColor: '#ddd' });
   });
 
   it('au succès, délègue le message neutre à la confirmation avec l\'email normalisé', async () => {

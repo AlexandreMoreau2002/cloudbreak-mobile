@@ -105,8 +105,8 @@ export default function ResetScreen() {
               style={[
                 styles.field,
                 {
-                  color: '#1a1a1a',
-                  backgroundColor: '#fff',
+                  color: colors.textPrimary,
+                  backgroundColor: colors.surface,
                   borderColor: focused ? colors.accent : colors.border,
                   fontFamily: typography.fontFamily.regular,
                 },
