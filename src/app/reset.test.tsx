@@ -1,3 +1,4 @@
+import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ResetScreen from '@/app/reset';
 
@@ -184,5 +185,16 @@ describe('ResetScreen', () => {
     fireEvent.press(getByTestId('reset-back'));
 
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('utilise un spacer flexible pour le centrage plutôt que justifyContent sur le contenu', () => {
+    const { UNSAFE_getByType } = render(<ResetScreen />);
+    const { ScrollView } = require('react-native');
+    const scroll = UNSAFE_getByType(ScrollView);
+    const children = React.Children.toArray(scroll.props.children) as React.ReactElement<{ style?: object }>[];
+    const [spacer, center] = children;
+
+    expect(spacer.props.style).toEqual(expect.objectContaining({ flex: 1 }));
+    expect(center.props.style).not.toEqual(expect.objectContaining({ justifyContent: 'center' }));
   });
 });
