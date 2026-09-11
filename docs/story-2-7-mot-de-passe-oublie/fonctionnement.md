@@ -95,34 +95,36 @@ temps, les quotas et les journaux de livraison sans y copier d'OTP.
 
 ## Langue des e-mails
 
-L'app contient les copies d'écran FR et EN. `i18n.defaultLocale = 'fr'` et le fallback est actif.
-Le Dashboard Supabase doit appliquer le même contrat au template « Reset Password » :
+L'app contient les copies d'écran FR et EN, mais le reset hébergé est actuellement français fixe.
+`i18n.defaultLocale = 'fr'` et le fallback de l'app restent actifs pour l'interface. Le template
+Dashboard Supabase **Reset Password** doit avoir exactement ce sujet et ce corps :
+
+Sujet : `Réinitialise ton mot de passe, Cloudbreak Mer de nuage`
 
 ```html
-{{ if eq .Data.locale "en" }}
-<p>Enter this 6-digit code in Cloudbreak:</p>
-{{ else }}
+<h2>Réinitialise ton mot de passe</h2>
 <p>Entre ce code à 6 chiffres dans Cloudbreak :</p>
-{{ end }}
 <p><strong>{{ .Token }}</strong></p>
+<p>Si tu n’as pas demandé cette réinitialisation, ignore cet e-mail.</p>
 ```
 
-Le `else` français couvre les locales absentes ou invalides. Pour une récupération, `.Data.locale`
-est la métadonnée du compte qui reçoit l'e-mail : la langue actuellement sélectionnée dans un
-client non authentifié ne garantit pas la langue du message. La validation doit donc employer un
-compte contrôlé avec `user_metadata.locale = 'fr'`, un autre avec `user_metadata.locale = 'en'`,
-puis un compte avec valeur absente ou invalide pour le fallback FR.
-
-La synchronisation de locale par l'app est best-effort. Si le produit exige plus tard que chaque
-e-mail suive exactement la locale pré-auth courante, il faudra un mécanisme transactionnel dédié ;
-c'est un gap futur, pas une promesse de ce flow Supabase. La configuration hébergée reste une
-action opérateur et le dépôt ne contient ni credentials SMTP ni copie de secret.
+Il ne doit contenir qu'un seul `{{ .Token }}` et aucun `{{ .ConfirmationURL }}`, `.Data.locale`,
+`Reset Password`, ou `Follow this link`. Supabase rend cette source sauvegardée, puis Brevo la
+transporte. Le changement de langue de l'app ou des métadonnées du compte ne modifie pas ce mail.
+Une i18n de reset nécessitera plus tard un mailer backend/Edge Function ou une API Supabase qui
+accepte des métadonnées sur `resetPasswordForEmail`. La configuration hébergée reste une action
+opérateur et le dépôt ne contient ni credentials SMTP ni copie de secret.
 
 ## Livraison et diagnostic opérateur
 
 Le Dashboard Supabase doit utiliser le template **Authentication → Email Templates → Reset
 Password** avec `{{ .Token }}`. Le parcours ne consomme pas `{{ .ConfirmationURL }}` et n'envoie
 pas de `redirectTo` : le code est vérifié dans l'app avec `verifyOtp({ type: 'recovery' })`.
+
+Avant le prochain essai, recharger la page du template en mode source et vérifier le sujet, le
+corps exact, un seul placeholder `{{ .Token }}`, et l'absence des marqueurs/textes obsolètes
+ci-dessus. Demander ensuite un reset à un compte contrôlé et conserver seulement la preuve que le
+mail reçu contient un bloc français unique et un code à six chiffres ; ne pas enregistrer l'OTP.
 
 Tester avec un compte confirmé quand **Confirm email** est activé. Les limites e-mail et le
 cooldown de récupération peuvent bloquer un essai après des envois signup/récupération récents
