@@ -5,7 +5,7 @@ import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { isPasswordEligible, PasswordField } from '@/components/account/PasswordField';
+import { isPasswordLongEnough, PasswordField } from '@/components/account/PasswordField';
 
 export type AccountMode = 'creation' | 'connexion';
 
@@ -27,11 +27,11 @@ export function AccountForm({ mode, loading, error, onSubmit, onApple, onModeCha
   const [focused, setFocused] = useState<'email' | 'password' | null>(null);
 
   const appleAvailable = Platform.OS === 'ios';
-  const isCreationPasswordEligible = isPasswordEligible(password);
-  const submitDisabled = loading || (mode === 'creation' && !isCreationPasswordEligible);
+  const isCreationPasswordLongEnough = isPasswordLongEnough(password);
+  const submitDisabled = loading || (mode === 'creation' && !isCreationPasswordLongEnough);
 
   function submit() {
-    if (mode === 'creation' && !isCreationPasswordEligible) return;
+    if (mode === 'creation' && !isCreationPasswordLongEnough) return;
     onSubmit(email, password);
   }
 

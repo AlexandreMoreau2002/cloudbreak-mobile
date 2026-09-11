@@ -14,7 +14,7 @@ describe('AccountForm', () => {
     expect(onSubmit).toHaveBeenCalledWith('a@b.com', 'Password1!');
   });
 
-  it('ne soumet pas un mot de passe de création qui ne satisfait pas la politique partagée', () => {
+  it('ne soumet pas un mot de passe de création en dessous du plancher de longueur', () => {
     const onSubmit = jest.fn();
     const { getByTestId, UNSAFE_getAllByType } = render(
       <AccountForm
@@ -28,7 +28,7 @@ describe('AccountForm', () => {
     );
 
     fireEvent.changeText(getByTestId('account-email'), 'a@b.com');
-    fireEvent.changeText(getByTestId('account-password'), 'abcdefgh');
+    fireEvent.changeText(getByTestId('account-password'), 'abcde');
     expect(getByTestId('account-submit').props.accessibilityState).toEqual({ disabled: true });
     const submit = UNSAFE_getAllByType(TouchableOpacity)
       .find((element) => element.props.testID === 'account-submit');
@@ -36,6 +36,27 @@ describe('AccountForm', () => {
     submit!.props.onPress();
 
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('soumet un mot de passe de création faible dès six caractères', () => {
+    const onSubmit = jest.fn();
+    const { getByTestId } = render(
+      <AccountForm
+        mode="creation"
+        loading={false}
+        onSubmit={onSubmit}
+        onApple={jest.fn()}
+        onModeChange={jest.fn()}
+        onForgotPassword={jest.fn()}
+      />,
+    );
+
+    fireEvent.changeText(getByTestId('account-email'), 'a@b.com');
+    fireEvent.changeText(getByTestId('account-password'), 'abcdef');
+    expect(getByTestId('account-submit').props.accessibilityState).toEqual({ disabled: false });
+    fireEvent.press(getByTestId('account-submit'));
+
+    expect(onSubmit).toHaveBeenCalledWith('a@b.com', 'abcdef');
   });
 
   it('laisse la connexion soumettre un mot de passe existant hors politique client', () => {
