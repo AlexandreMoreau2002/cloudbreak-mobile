@@ -1,7 +1,7 @@
 import { ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 import { AccountForm } from '@/components/account/AccountForm';
-jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { textPrimary: '#f7f3ed', textSecondary: '#555', surface: '#fff', border: '#ddd', accent: '#b28c6e', textDisabled: '#aaa' }, typography: { fontFamily: { regular: 'System', semiBold: 'System' } }, radius: { sm: 8 }, spacing: { sm: 8 } }) }));
+jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { textPrimary: '#f7f3ed', textSecondary: '#555', surface: '#2a2a2a', border: '#ddd', accent: '#b28c6e', textDisabled: '#aaa' }, typography: { fontFamily: { regular: 'System', semiBold: 'System' } }, radius: { sm: 8 }, spacing: { sm: 8 } }) }));
 jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
 
 describe('AccountForm', () => {
@@ -94,11 +94,11 @@ describe('AccountForm', () => {
     const passwordStyle = StyleSheet.flatten(getByTestId('account-password-container').props.style);
 
     expect(passwordStyle).toMatchObject({
-      backgroundColor: '#fff',
+      backgroundColor: '#2a2a2a',
       borderWidth: emailStyle.borderWidth,
       borderRadius: emailStyle.borderRadius,
     });
-    expect(emailStyle.backgroundColor).toBe('#fff');
+    expect(emailStyle.backgroundColor).toBe('#2a2a2a');
     expect(getByTestId('account-password-toggle').props.accessibilityLabel).toBe('account.show');
 
     fireEvent(getByTestId('account-email'), 'focus');
@@ -122,7 +122,7 @@ describe('AccountForm', () => {
     expect(UNSAFE_getByType(ActivityIndicator).props.color).toBe('#fff');
   });
 
-  it('keeps entered text readable on white fields in dark theme', () => {
+  it('applique le fond et le texte du thème aux champs au lieu de valeurs figées', () => {
     const { getByTestId } = render(
       <AccountForm
         mode="creation"
@@ -135,11 +135,10 @@ describe('AccountForm', () => {
     );
 
     expect(getByTestId('account-email').props.style).toEqual(
-      expect.arrayContaining([expect.objectContaining({ color: '#1a1a1a' })]),
+      expect.arrayContaining([expect.objectContaining({ color: '#f7f3ed', backgroundColor: '#2a2a2a' })]),
     );
-    expect(getByTestId('account-password').props.style).toEqual(
-      expect.arrayContaining([expect.objectContaining({ color: '#1a1a1a' })]),
-    );
+    expect(getByTestId('account-password-container')).toHaveStyle({ backgroundColor: '#2a2a2a' });
+    expect(getByTestId('account-password')).toHaveStyle({ color: '#f7f3ed' });
   });
 
   it('appelle onForgotPassword au tap sur le bouton mot de passe oublié (mode connexion)', () => {
