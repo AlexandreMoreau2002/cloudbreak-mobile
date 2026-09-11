@@ -1,5 +1,5 @@
 import { fireEvent, render } from '@testing-library/react-native';
-import { isPasswordEligible, PasswordField, passwordStrength } from '@/components/account';
+import { isPasswordLongEnough, MIN_PASSWORD_LENGTH, PasswordField, passwordStrength } from '@/components/account';
 
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
@@ -14,12 +14,16 @@ describe('passwordStrength', () => {
     expect(passwordStrength('')).toBe(0);
     expect(passwordStrength('Abcdef1!longpass')).toBe(4);
   });
+});
 
-  it('n’accepte que les mots de passe qui remplissent toutes les règles client', () => {
-    expect(isPasswordEligible('')).toBe(false);
-    expect(isPasswordEligible('NewPa1!')).toBe(false);
-    expect(isPasswordEligible('abcdefgh')).toBe(false);
-    expect(isPasswordEligible('NewPass1!')).toBe(true);
+describe('isPasswordLongEnough', () => {
+  it('exige uniquement une longueur minimale, indépendamment de la force', () => {
+    expect(MIN_PASSWORD_LENGTH).toBe(6);
+    expect(isPasswordLongEnough('')).toBe(false);
+    expect(isPasswordLongEnough('abcde')).toBe(false);
+    expect(isPasswordLongEnough('abcdef')).toBe(true);
+    expect(isPasswordLongEnough('abcdefgh')).toBe(true);
+    expect(isPasswordLongEnough('NewPass1!')).toBe(true);
   });
 });
 
