@@ -1,6 +1,6 @@
 import { configure, render } from '@testing-library/react-native';
 import { processColor } from 'react-native';
-import { FeGaussianBlur, Filter } from 'react-native-svg';
+import { FeGaussianBlur, Filter, Stop } from 'react-native-svg';
 import { AuthBackdrop } from './AuthBackdrop';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -60,6 +60,27 @@ describe('AuthBackdrop', () => {
     const view = render(<AuthBackdrop />);
     expect(view.UNSAFE_getByType(Filter).props.id).toBe('auth-backdrop-cloud-blur');
     expect(view.UNSAFE_getByType(FeGaussianBlur).props.stdDeviation).toBe(9);
+  });
+
+  it('fades to the theme background color, not a hardcoded light value', () => {
+    const { UNSAFE_getAllByType } = render(<AuthBackdrop />);
+    const fadeStops = UNSAFE_getAllByType(Stop).slice(-3);
+
+    fadeStops.forEach((stop) => {
+      expect(stop.props.stopColor).toBe('#EFE8DC');
+    });
+
+    mockedUseTheme.mockReturnValue({
+      scheme: 'dark',
+      colors: { background: '#171513' },
+    });
+
+    const { UNSAFE_getAllByType: getAllDark } = render(<AuthBackdrop />);
+    const fadeStopsDark = getAllDark(Stop).slice(-3);
+
+    fadeStopsDark.forEach((stop) => {
+      expect(stop.props.stopColor).toBe('#171513');
+    });
   });
 
   it('uses the dark handoff palette and lower cloud opacity', () => {

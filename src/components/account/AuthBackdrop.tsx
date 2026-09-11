@@ -4,7 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 /** Static « mer de nuages » artwork matching the 402 × 460 design handoff. */
 export function AuthBackdrop() {
-  const { scheme } = useTheme();
+  const { scheme, colors } = useTheme();
   const dark = scheme === 'dark';
   const ridge = dark ? '#2E2823' : '#CBB79B';
   const ridgeBack = dark ? '#262220' : '#DCCDB4';
@@ -24,9 +24,9 @@ export function AuthBackdrop() {
           <Stop offset="1" stopColor="#D2BA9C" stopOpacity={0} />
         </SvgLinearGradient>
         <SvgLinearGradient id="auth-backdrop-fade-gradient" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#EFE8DC" stopOpacity={0} />
-          <Stop offset="0.7" stopColor="#EFE8DC" stopOpacity={0.86} />
-          <Stop offset="1" stopColor="#EFE8DC" stopOpacity={1} />
+          <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
+          <Stop offset="0.7" stopColor={colors.background} stopOpacity={0.86} />
+          <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
         </SvgLinearGradient>
         <Filter id="auth-backdrop-cloud-blur" x="-20%" y="-40%" width="140%" height="180%">
           <FeGaussianBlur stdDeviation={9} />
