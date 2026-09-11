@@ -5,6 +5,43 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
 
 ---
 
+## 2026-09-11 Story 2-5/2-6/2-8 — Retrait du blocage client sur la force du mot de passe
+
+Commits `0668abb..ac2c21b` — `isPasswordEligible` (4 critères) remplacé par `isPasswordLongEnough`
+(plancher 6 caractères) dans `PasswordField.tsx`, `AccountForm.tsx`, `reset-confirm.tsx`.
+
+### 🔵 INFO
+- **[PasswordField.tsx]** La modification est strictement côté client. La politique de mot de passe
+  réelle est appliquée par Supabase Auth côté serveur (minimum 6 caractères, non configurable en
+  dessous). Un attaquant contournant l'app mobile atteignait déjà Supabase directement — le gate
+  client n'a jamais été une barrière de sécurité, seulement un filtre UX. Aucune régression de
+  sécurité réelle.
+- **[reset-confirm.tsx:53-61]** Le handler d'erreur de `completePasswordReset` intercepte
+  correctement un refus de Supabase sur la politique de mot de passe :
+  `message.includes('weak') || message.includes('password') || message.includes('at least')` →
+  `i18n.t('reset.errorPassword')`. Conforme pour le flux de réinitialisation.
+- **[Pas de log sensible]** Le seul `console.debug` ajouté dans `reset-confirm.tsx` loggue
+  `{ codeLength: code.length }` — jamais la valeur du mot de passe, du code OTP, ni du token.
+
+### 🟡 WARNING
+- **[verify.tsx:42-48 — existant, aggravé]** Dans le flux de création de compte,
+  `completeEmailUpgrade(email, password, code)` est appelé dans `verify.tsx`. Si Supabase rejette
+  le mot de passe (politique Dashboard plus stricte que 6 caractères), l'erreur tombe dans le bloc
+  `else setCodeError(true)` — affiché à l'utilisateur comme une erreur de code OTP, non comme une
+  erreur de mot de passe. Avant ce PR, le gate 4/4 critères client réduisait fortement la
+  probabilité d'atteindre ce cas ; désormais, des mots de passe de 6-7 caractères sans complexité
+  passent le filtre client et peuvent échouer côté Supabase si une politique non-défaut est
+  configurée. **À corriger avant de durcir la politique Supabase** : ajouter une détection par
+  mots-clés (`weak`, `password`, `at least`) dans le handler d'erreur de `verify.tsx` sur le même
+  modèle que `reset-confirm.tsx`, pour afficher un message de mot de passe plutôt que de code OTP.
+
+### Verdict
+CORRECTIONS RECOMMANDÉES — aucun blocage de merge (la politique Supabase par défaut est exactement
+6 caractères, le cas ne se déclenche pas avec la configuration actuelle). Corriger `verify.tsx`
+avant tout durcissement de la politique Dashboard Supabase.
+
+---
+
 ## 2026-03-20 Story 2-1 — Auth Supabase
 
 ### 🔵 INFO
