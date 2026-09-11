@@ -134,12 +134,13 @@ Attendu : `anonymous_users: true`, `email: true`, `mailer_autoconfirm: false`.
    `/reset-confirm`.
 3. Vérifier le cooldown initial de 30 secondes dès l'arrivée sur `/reset-confirm`.
 4. Ouvrir l'e-mail « Reset Password » → saisir le code à six chiffres et un nouveau mot de passe
-   d'au moins huit caractères.
+   d'au moins six caractères (la jauge de force reste affichée mais n'est qu'informative).
 5. **Réinitialiser** → connecté, arrivée Home ou action en attente rejouée.
 6. Se déconnecter : l'ANCIEN mot de passe doit échouer, le NOUVEAU doit réussir.
 7. Cas adresse inconnue : message neutre identique et aucun e-mail reçu (anti-énumération).
 8. Cas code faux ou expiré : message d'erreur, rester sur l'écran, aucun changement de mot de passe.
-9. Cas mot de passe inférieur à huit caractères : bouton de confirmation désactivé.
+9. Cas mot de passe inférieur à six caractères : bouton de confirmation désactivé. Un mot de passe
+   faible mais ≥ six caractères (ex. `abcdef`) doit être accepté sans blocage.
 10. Cas renvoi en erreur : message générique et **aucun nouveau cooldown local**.
 11. Cas renvoi réussi : nouvel e-mail, cooldown réarmé à 30 secondes et double tap sans deuxième
     requête. Le premier renvoi à 30 secondes doit être accepté par la fenêtre Dashboard configurée.

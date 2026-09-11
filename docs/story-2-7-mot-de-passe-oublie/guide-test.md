@@ -5,9 +5,10 @@
 - Utiliser un build mobile relié au projet Supabase de développement.
 - Disposer d'une adresse de test contrôlée avec un compte Cloudbreak permanent existant.
 - Connaître l'ancien mot de passe pour vérifier qu'il devient invalide.
-- Dans **Authentication → Email Templates → Reset Password**, configurer un corps FR/EN avec
-  fallback français et `{{ .Token }}` visible ; ne pas laisser un template limité à
-  `{{ .ConfirmationURL }}`.
+- Dans **Authentication → Email Templates → Reset Password**, recharger le mode source et
+  vérifier le contrat sauvegardé : sujet `Réinitialise ton mot de passe, Cloudbreak Mer de nuage`
+  et un unique bloc français contenant `{{ .Token }}`. Le corps ne doit contenir ni
+  `{{ .ConfirmationURL }}`, ni `.Data.locale`, ni les textes `Reset Password` / `Follow this link`.
 - Vérifier que l'OTP Supabase est à six chiffres et que les limites d'envoi permettent le test.
 - Employer un compte dont l'e-mail est confirmé si **Confirm email** est activé.
 - Le flux OTP n'a besoin ni de `redirectTo` ni de `{{ .ConfirmationURL }}` : le template doit
@@ -15,24 +16,26 @@
 - Dans **Authentication → Rate Limits → Password reset request**, remplacer la fenêtre Supabase
   par défaut de 60 secondes par une valeur inférieure ou égale à 30 secondes, décision Cloudbreak
   nécessaire pour l'aligner avec le cooldown de l'app.
-- Préparer trois comptes destinataires contrôlés : `user_metadata.locale = 'fr'`,
-  `user_metadata.locale = 'en'`, puis locale absente ou invalide. La langue courante de l'app seule
-  ne suffit pas à piloter de façon fiable le template de récupération.
+- Le reset est français fixe : un seul compte contrôlé confirmé suffit. Changer la langue de l'app
+  ne doit pas être présenté comme un test d'i18n du mail.
 - Ne jamais coller l'OTP, le mot de passe, l'access token ou une adresse personnelle dans les logs,
   captures, tickets ou commits.
 - Pour diagnostiquer une non-réception, consulter **Authentication → Logs**, filtrer `recovery` et
   le compte de test. Le log DEBUG mobile est volontairement borné à `hasError`, `code` et `status`.
 
-## Scénario 1 — parcours nominal français
+## Scénario 1 — vérifier le template puis parcours nominal français
 
 1. Sur l'écran compte, passer en mode **Se connecter**.
 2. Appuyer sur **Mot de passe oublié ?** : `/reset` s'ouvre.
 3. Saisir l'adresse du compte existant puis **Envoyer le code**.
 4. Vérifier l'arrivée sur `/reset-confirm` et le message neutre « Si un compte existe… ».
 5. Vérifier que **Renvoyer le code** affiche immédiatement un compte à rebours de 30 secondes.
-6. Ouvrir l'e-mail « Reset Password » et confirmer que le corps est en français et affiche un code
-   à six chiffres, pas seulement un lien.
-7. Saisir le code et un nouveau mot de passe d'au moins huit caractères.
+6. Ouvrir l'e-mail et confirmer que le sujet est `Réinitialise ton mot de passe, Cloudbreak Mer de
+   nuage`, puis que le corps contient exactement un bloc français avec un seul code à six chiffres,
+   sans lien de réinitialisation ni texte anglais/doublé. Ne pas copier le code dans les logs ou
+   captures.
+7. Saisir le code et un nouveau mot de passe d'au moins six caractères (jauge de force informative
+   uniquement, non bloquante).
 8. Appuyer sur **Réinitialiser** : une seule requête part et l'app arrive sur Home.
 9. Se déconnecter et exécuter le scénario de reconnexion décrit plus bas.
 
@@ -78,10 +81,10 @@ dédié ; vérifier le statut dans le log DEBUG borné puis dans les logs Dashbo
 
 1. Saisir un code de six chiffres et un mot de passe de sept caractères.
 2. Vérifier que **Réinitialiser** reste désactivé.
-3. Passer à huit caractères, puis effectuer deux taps très rapides.
+3. Passer à six caractères, puis effectuer deux taps très rapides.
 
-Résultat attendu : aucun appel sous huit caractères et une seule confirmation avec une valeur
-valide. Si Supabase refuse un mot de passe de huit caractères pour une règle plus stricte, la copie
+Résultat attendu : aucun appel sous six caractères et une seule confirmation avec une valeur
+valide. Si Supabase refuse un mot de passe de six caractères pour une règle plus stricte, la copie
 « mot de passe trop faible » s'affiche et l'utilisateur reste sur l'écran.
 
 ## Scénario 6 — action en attente
@@ -103,18 +106,15 @@ libère le formulaire au lieu de rester en chargement.
 Résultat attendu : ancien mot de passe refusé ; nouveau mot de passe accepté ; aucun écran de
 vérification ou mini-sondage lors de cette reconnexion.
 
-## Scénario 8 — langues et fallback
+## Scénario 8 — langue de l'app sans effet sur le reset
 
-1. Demander un code au compte contrôlé dont `user_metadata.locale = 'fr'` : corps français.
-2. Demander un autre code au compte contrôlé dont `user_metadata.locale = 'en'` : corps anglais.
-3. Demander un code au compte avec locale absente ou invalide : corps français.
-4. Changer seulement la langue courante de l'app et vérifier qu'on ne prétend pas qu'elle pilote
-   le mail : le template dépend des métadonnées du compte destinataire.
+1. Demander un code avec l'app en français et vérifier le bloc français unique.
+2. Changer seulement la langue courante de l'app en anglais et demander un nouveau code après le
+   délai autorisé.
+3. Vérifier que le second mail reste français et identique dans sa structure.
 
-Résultat attendu : FR, EN, puis fallback FR. Si le Dashboard ne rend pas la condition dans le
-sujet, utiliser un sujet bilingue neutre et conserver le corps conditionnel. Si une correspondance
-exacte avec la locale pré-auth courante devient obligatoire, ouvrir un chantier d'e-mail
-transactionnel dédié.
+Résultat attendu : le reset reste FR fixe. Toute i18n réelle du reset est un chantier séparé de
+mailer backend/Edge Function ; ne pas réintroduire `.Data.locale` dans ce template Supabase.
 
 ## Cas limites supplémentaires
 
@@ -131,13 +131,17 @@ transactionnel dédié.
 - [ ] Adresse connue : code reçu et message neutre.
 - [ ] Adresse inconnue : même message, aucun e-mail.
 - [ ] Code faux et expiré : erreur, aucune navigation.
-- [ ] Mot de passe inférieur à huit caractères : confirmation bloquée.
+- [ ] Mot de passe inférieur à six caractères : confirmation bloquée. Mot de passe faible mais
+      ≥ six caractères : confirmation acceptée (jauge affichée à titre informatif seulement).
 - [ ] Doubles taps confirmation/renvoi : une seule requête.
 - [ ] Premier envoi : cooldown immédiat 30 secondes.
 - [ ] Renvoi à 30 secondes accepté par la fenêtre Supabase configurée ; succès : cooldown réarmé.
 - [ ] Échec de renvoi : aucun nouveau cooldown local.
 - [ ] Action en attente rejouée ; fallback Home si le replay échoue.
 - [ ] Ancien mot de passe refusé ; nouveau accepté.
-- [ ] E-mails FR, EN et fallback FR observés avec trois métadonnées destinataires contrôlées.
+- [ ] Dashboard rechargé : sujet exact, corps français unique, un seul `{{ .Token }}`, aucun
+  marqueur ou texte legacy.
+- [ ] Prochain e-mail reçu : un seul bloc français, un seul OTP à six chiffres, aucun franglais,
+  doublon ou lien ; l'OTP n'est pas consigné.
 - [ ] Aucun OTP, mot de passe, token ou e-mail personnel exposé dans les logs.
 - [ ] Limites serveur/CAPTCHA Supabase évalués avant production.
