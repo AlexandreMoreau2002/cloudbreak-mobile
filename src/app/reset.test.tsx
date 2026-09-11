@@ -196,5 +196,6 @@ describe('ResetScreen', () => {
 
     expect(spacer.props.style).toEqual(expect.objectContaining({ flex: 1 }));
     expect(center.props.style).not.toEqual(expect.objectContaining({ justifyContent: 'center' }));
+    expect(center.props.style).not.toEqual(expect.objectContaining({ flex: 1 }));
   });
 });

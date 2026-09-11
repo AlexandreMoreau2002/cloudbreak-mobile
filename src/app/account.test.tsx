@@ -48,6 +48,10 @@ describe('AccountScreen route contracts', () => {
     // Le contenu lui-même ne doit JAMAIS avoir justifyContent: 'center' — c'est ce qui causait
     // le bug corrigé par 21d0b06 (CTA poussé à un offset négatif sous clavier).
     expect(center.props.style).not.toEqual(expect.objectContaining({ justifyContent: 'center' }));
+    // Le contenu ne doit pas non plus porter flex:1 lui-même — sinon il entrerait dans le même
+    // pool de compression que le spacer et pourrait à nouveau être rétréci sous sa taille
+    // naturelle (perdant la garantie que seul le spacer absorbe le manque d'espace).
+    expect(center.props.style).not.toEqual(expect.objectContaining({ flex: 1 }));
   });
 
   it('bloque la soumission quand un champ est vide et affiche une erreur', async () => {
