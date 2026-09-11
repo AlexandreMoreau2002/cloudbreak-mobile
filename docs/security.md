@@ -84,9 +84,13 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
   ne garantit pas la langue du message. Les preuves exigent des comptes contrôlés préconfigurés
   `fr`, `en`, puis absent/invalide pour le fallback FR. Une correspondance exacte avec la locale
   pré-auth demanderait plus tard un mécanisme d'e-mail transactionnel dédié.
-- **[Politique mot de passe]** L'app bloque les valeurs sous huit caractères ; la politique
-  Supabase reste autoritative. Vérifier que sa politique de complexité et les messages d'erreur
-  correspondent à la copie produit, sans relâcher la règle côté fournisseur.
+- **[Politique mot de passe]** (mise à jour 2026-09-11) L'app ne bloque plus que les valeurs sous
+  **six** caractères — le blocage client sur les 4 critères de force (majuscule+minuscule, chiffre,
+  caractère spécial) a été retiré ; la jauge de force (`passwordStrength`) reste affichée mais est
+  purement informative, sans conséquence sur le submit. Le plancher de 6 caractères est aligné sur
+  le minimum dur de Supabase Auth (non configurable en dessous) : Supabase reste l'autorité finale.
+  Vérifier que sa politique de complexité (Dashboard → Authentication → Policies) et les messages
+  d'erreur retournés correspondent à la copie produit, sans relâcher la règle côté fournisseur.
 
 ### Verdict
 
