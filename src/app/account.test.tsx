@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import AccountScreen from '@/app/account';
 import { AuthBackdrop } from '@/components/account/AuthBackdrop';
@@ -32,15 +33,21 @@ jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string)
 describe('AccountScreen route contracts', () => {
   beforeEach(() => { jest.clearAllMocks(); mockApple.mockResolvedValue(null); mockParams = {}; mockPendingAction = null; mockSubmitArgs = ['a@b.com', 'Aa!123456']; mockLocale = 'fr'; });
 
-  it('keeps the account content scrollable without vertical centering that can clip the CTA', () => {
+  it('utilise un spacer flexible pour le centrage plutôt que justifyContent sur le contenu — le CTA ne peut jamais être poussé hors écran', () => {
     const { UNSAFE_getByType } = render(<AccountScreen />);
     const { ScrollView } = require('react-native');
     const scroll = UNSAFE_getByType(ScrollView);
     const contentStyle = scroll.props.contentContainerStyle;
-    const center = scroll.props.children.props.style;
+    const children = React.Children.toArray(scroll.props.children) as React.ReactElement<{ style?: object }>[];
+    const [spacer, center] = children;
 
     expect(contentStyle).toEqual(expect.objectContaining({ paddingBottom: expect.any(Number) }));
-    expect(center).not.toEqual(expect.objectContaining({ flex: 1, justifyContent: 'center' }));
+    // Le spacer se comprime en premier quand l'espace manque (clavier ouvert) — le contenu
+    // qui le suit garde toujours sa hauteur naturelle et ne peut jamais être coupé.
+    expect(spacer.props.style).toEqual(expect.objectContaining({ flex: 1 }));
+    // Le contenu lui-même ne doit JAMAIS avoir justifyContent: 'center' — c'est ce qui causait
+    // le bug corrigé par 21d0b06 (CTA poussé à un offset négatif sous clavier).
+    expect(center.props.style).not.toEqual(expect.objectContaining({ justifyContent: 'center' }));
   });
 
   it('bloque la soumission quand un champ est vide et affiche une erreur', async () => {

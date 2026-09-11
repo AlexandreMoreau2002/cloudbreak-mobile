@@ -107,6 +107,7 @@ export default function AccountScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
         >
+          <View style={styles.topSpacer} />
           <View style={styles.center}>
             <Text style={[styles.eyebrow, { color: colors.accent, fontFamily: typography.fontFamily.semiBold }]}>
               {i18n.t('account.eyebrow')}
@@ -148,6 +149,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1, zIndex: 2 },
   back: { width: 44, height: 44, justifyContent: 'center', marginLeft: -6, zIndex: 2 },
   scroll: { flexGrow: 1, paddingBottom: 32, zIndex: 2 },
+  topSpacer: { flex: 1 },
   center: { gap: 12, paddingVertical: 20, zIndex: 2 },
   eyebrow: { fontSize: 11, letterSpacing: 3.4, textAlign: 'center' },
   title: { fontSize: 34, lineHeight: 36, letterSpacing: -1, textAlign: 'center' },
