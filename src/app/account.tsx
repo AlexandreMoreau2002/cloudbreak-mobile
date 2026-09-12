@@ -12,15 +12,14 @@ import {
 } from 'react-native';
 import i18n from '@/utils/i18n';
 import { DEBUG } from '@/constants/devConfig';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
 import { AuthBackdrop } from '@/components/account/AuthBackdrop';
 import { AccountForm, type AccountMode } from '@/components/account';
+import { useAuth, isProvisioningError } from '@/contexts/AuthContext';
 
 const DUPLICATE_ACCOUNT_MESSAGES = new Set(['user already registered']);
-const PROVISIONING_ERROR_MESSAGES = new Set(['provisioning_failed', 'email_upgrade_provisioning_failed']);
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -65,7 +64,7 @@ export default function AccountScreen() {
       : await auth.signIn(email.trim(), password);
     setLoading(false);
     if (err) {
-      if (PROVISIONING_ERROR_MESSAGES.has(err.message.trim().toLowerCase())) {
+      if (isProvisioningError(err.message)) {
         setProvisioningError(true);
       } else {
         setError(errorCopy(err.message));
@@ -88,7 +87,7 @@ export default function AccountScreen() {
     const err = await auth.signInWithApple(mode);
     setLoading(false);
     if (err) {
-      if (PROVISIONING_ERROR_MESSAGES.has(err.message.trim().toLowerCase())) {
+      if (isProvisioningError(err.message)) {
         setProvisioningError(true);
       } else {
         setError(errorCopy(err.message));

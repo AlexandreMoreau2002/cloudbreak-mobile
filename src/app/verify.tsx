@@ -4,11 +4,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { DEBUG } from '@/constants/devConfig';
-import { useAuth } from '@/contexts/AuthContext';
 import { CodeInput } from '@/components/account';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
+import { useAuth, isProvisioningError } from '@/contexts/AuthContext';
 
 const CODE_LENGTH = 6;
 
@@ -49,7 +49,7 @@ export default function VerifyScreen() {
     setLoading(false);
     if (err) {
       const message = err.message.toLowerCase();
-      if (err.message === 'EMAIL_UPGRADE_PROVISIONING_FAILED') setProvisioningError(true);
+      if (isProvisioningError(err.message)) setProvisioningError(true);
       else if (message.includes('weak') || message.includes('password') || message.includes('at least')) {
         setPasswordError(true);
       } else setCodeError(true);

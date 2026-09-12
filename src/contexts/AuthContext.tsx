@@ -34,6 +34,12 @@ export function isRateLimitError(error: unknown): boolean {
     || (typeof message === 'string' && message.toLowerCase().includes('rate limit'));
 }
 
+const PROVISIONING_ERROR_MESSAGES = new Set(['provisioning_failed', 'email_upgrade_provisioning_failed']);
+
+export function isProvisioningError(message: string): boolean {
+  return PROVISIONING_ERROR_MESSAGES.has(message.trim().toLowerCase());
+}
+
 function logPasswordResetResult(error: unknown): void {
   if (!DEBUG) return;
   const { code, status } = (error && typeof error === 'object' ? error : {}) as {

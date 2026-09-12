@@ -26,7 +26,11 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { background: '#fff', textPrimary: '#111', textSecondary: '#555', accent: '#b28c6e' }, typography: { fontFamily: { bold: 'System', semiBold: 'System' } } }) }));
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ locale: mockLocale }) }));
-jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ beginEmailUpgrade: mockBegin, signIn: mockSignIn, signInWithApple: mockApple, retryProvisioning: mockRetryProvisioning }) }));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ beginEmailUpgrade: mockBegin, signIn: mockSignIn, signInWithApple: mockApple, retryProvisioning: mockRetryProvisioning }),
+  isProvisioningError: (message: string) =>
+    new Set(['provisioning_failed', 'email_upgrade_provisioning_failed']).has(message.trim().toLowerCase()),
+}));
 jest.mock('@/contexts/AccountGateContext', () => ({ useAccountGate: () => ({ pendingAction: mockPendingAction, cancelAccountFlow: mockCancel, finishAccountCreation: mockFinish, setEmailUpgradeCredentials: mockSetCredentials }) }));
 jest.mock('@/components/account', () => { const { TouchableOpacity: Button, Text: Label, View } = require('react-native'); return { AccountForm: ({ onSubmit, onApple, onForgotPassword, mode, error }: { onSubmit: (email: string, password: string) => void; onApple: () => void; onForgotPassword: () => void; mode: string; error?: string | null }) => <View><Button testID="form" onPress={() => onSubmit(mockSubmitArgs[0], mockSubmitArgs[1])}><Label>{mode}</Label></Button><Button testID="apple" onPress={onApple}><Label>Apple</Label></Button><Button testID="forgot" onPress={onForgotPassword}><Label>Forgot</Label></Button>{error ? <Label>{error}</Label> : null}</View> }; });
 jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));

@@ -2,7 +2,7 @@ import React from 'react';
 import { AuthError } from '@supabase/supabase-js';
 import { Text, TouchableOpacity, Platform } from 'react-native';
 import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
-import { AuthProvider, isRateLimitError, useAuth } from '@/contexts/AuthContext';
+import { AuthProvider, isProvisioningError, isRateLimitError, useAuth } from '@/contexts/AuthContext';
 import { deleteAccount, provisionUser, updateUserSurvey } from '@/services/api/user';
 
 const mockUnsubscribe = jest.fn();
@@ -1138,6 +1138,19 @@ describe('AuthContext', () => {
 
     expect((error as AuthError | null)?.message).toBe('EMAIL_UPGRADE_PROVISIONING_UNAVAILABLE');
     expect(mockProvisionUser).not.toHaveBeenCalled();
+  });
+
+  describe('isProvisioningError', () => {
+    it.each(['PROVISIONING_FAILED', 'EMAIL_UPGRADE_PROVISIONING_FAILED', '  provisioning_failed  '])(
+      'reconnait un message de provisioning: %s',
+      (message) => {
+        expect(isProvisioningError(message)).toBe(true);
+      },
+    );
+
+    it('ignore un message qui n’est pas lié au provisioning', () => {
+      expect(isProvisioningError('Invalid login credentials')).toBe(false);
+    });
   });
 
   describe('password reset', () => {

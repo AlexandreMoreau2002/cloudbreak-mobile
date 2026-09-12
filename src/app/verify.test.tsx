@@ -7,7 +7,11 @@ jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: m
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { background: '#fff', textPrimary: '#111', textSecondary: '#555', accent: '#b28c6e' }, typography: { fontFamily: { bold: 'System' } } }) }));
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ locale: mockLocale }) }));
-jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ completeEmailUpgrade: mockComplete, resendEmailUpgrade: mockResend, retryProvisioning: mockRetryProvisioning }) }));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ completeEmailUpgrade: mockComplete, resendEmailUpgrade: mockResend, retryProvisioning: mockRetryProvisioning }),
+  isProvisioningError: (message: string) =>
+    new Set(['provisioning_failed', 'email_upgrade_provisioning_failed']).has(message.trim().toLowerCase()),
+}));
 jest.mock('@/contexts/AccountGateContext', () => ({ useAccountGate: () => ({ emailUpgradeCredentials: mockCredentials }) }));
 jest.mock('@/components/account', () => { const { TouchableOpacity, Text } = require('react-native'); return { CodeInput: ({ onChange }: { onChange: (value: string) => void }) => <><TouchableOpacity testID="code-five" onPress={() => onChange('12345')}><Text>five</Text></TouchableOpacity><TouchableOpacity testID="code-six" onPress={() => onChange('123456')}><Text>six</Text></TouchableOpacity><TouchableOpacity testID="code-seven" onPress={() => onChange('1234567')}><Text>seven</Text></TouchableOpacity></> }; });
 jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
