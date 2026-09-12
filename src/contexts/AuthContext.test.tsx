@@ -1122,7 +1122,7 @@ describe('AuthContext', () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
-    await act(async () => { expect(await getAuth().retryEmailUpgradeProvisioning()).toBeNull(); });
+    await act(async () => { expect(await getAuth().retryProvisioning()).toBeNull(); });
 
     expect(mockProvisionUser).toHaveBeenCalledWith('permanent-token');
   });
@@ -1134,7 +1134,7 @@ describe('AuthContext', () => {
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
     let error: AuthError | null = null;
-    await act(async () => { error = await getAuth().retryEmailUpgradeProvisioning(); });
+    await act(async () => { error = await getAuth().retryProvisioning(); });
 
     expect((error as AuthError | null)?.message).toBe('EMAIL_UPGRADE_PROVISIONING_UNAVAILABLE');
     expect(mockProvisionUser).not.toHaveBeenCalled();

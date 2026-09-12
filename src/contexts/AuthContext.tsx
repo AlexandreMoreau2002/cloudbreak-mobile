@@ -97,7 +97,7 @@ interface AuthContextValue extends AuthState {
   completePasswordReset: (email: string, code: string, newPassword: string) => Promise<AuthError | null>;
   beginEmailUpgrade: (email: string, locale: AuthEmailLocale) => Promise<AuthError | null>;
   completeEmailUpgrade: (email: string, password: string, code: string) => Promise<AuthError | null>;
-  retryEmailUpgradeProvisioning: () => Promise<AuthError | null>;
+  retryProvisioning: () => Promise<AuthError | null>;
   resendEmailUpgrade: (email: string, locale: AuthEmailLocale) => Promise<AuthError | null>;
   signInWithApple: (intent: AppleAuthIntent) => Promise<AuthError | null>;
   saveSurvey: (answer: SurveyAnswers) => Promise<AuthError | null>;
@@ -416,7 +416,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  async function retryEmailUpgradeProvisioning(): Promise<AuthError | null> {
+  async function retryProvisioning(): Promise<AuthError | null> {
     try {
       const { data } = await supabase.auth.getSession();
       const currentSession = data.session;
@@ -535,7 +535,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp, signIn, signOut, deleteAccount,
         ensureAnonymousSession, requestPasswordReset, completePasswordReset,
         beginEmailUpgrade, completeEmailUpgrade,
-        resendEmailUpgrade, retryEmailUpgradeProvisioning, signInWithApple, saveSurvey, signOutToAnonymous,
+        resendEmailUpgrade, retryProvisioning, signInWithApple, saveSurvey, signOutToAnonymous,
         setLocationPermission, refreshLocationPermission,
       }}
     >
