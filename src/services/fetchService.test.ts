@@ -38,6 +38,7 @@ describe('fetchService', () => {
         method: 'GET',
         headers: { Authorization: 'Bearer token-123' },
         body: undefined,
+        signal: expect.any(AbortSignal),
       },
     );
     expect(result).toEqual({ ok: true });
@@ -64,6 +65,7 @@ describe('fetchService', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ peak_id: 'peak-1' }),
+        signal: expect.any(AbortSignal),
       },
     );
   });
@@ -204,6 +206,37 @@ describe('fetchService', () => {
     }
   });
 
+  it('préserve AbortError pour ne pas signaler une panne réseau après annulation', async () => {
+    const error = Object.assign(new Error('Aborted'), { name: 'AbortError' });
+    (global.fetch as jest.Mock).mockRejectedValue(error);
+    await expect(apiFetch('/api/v1/peaks/search', null)).rejects.toBe(error);
+  });
+
+  it('interrompt une requête qui ne répond pas après le délai commun', async () => {
+    jest.useFakeTimers();
+    (global.fetch as jest.Mock).mockImplementation(() => new Promise(() => {}));
+
+    const request = apiFetch('/api/v1/slow', 'token-123');
+    const expectation = expect(request).rejects.toMatchObject({ code: 'NETWORK_TIMEOUT' });
+    await jest.advanceTimersByTimeAsync(10_000);
+    await expectation;
+    jest.useRealTimers();
+  });
+
+  it('nettoie le timeout quand la requête se termine avant le délai', async () => {
+    jest.useFakeTimers();
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ ok: true }),
+    });
+
+    await expect(apiFetch('/api/v1/fast', 'token-123')).resolves.toEqual({ ok: true });
+    await jest.advanceTimersByTimeAsync(10_000);
+    expect(jest.getTimerCount()).toBe(0);
+    jest.useRealTimers();
+  });
+
   it('attache httpStatus sur l erreur HTTP', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: false,
@@ -249,6 +282,7 @@ describe('fetchService', () => {
         method: 'GET',
         headers: {},
         body: undefined,
+        signal: expect.any(AbortSignal),
       },
     );
   });
@@ -268,23 +302,47 @@ describe('fetchService', () => {
         method: 'GET',
         headers: { Authorization: 'Bearer token-abc' },
         body: undefined,
+        signal: expect.any(AbortSignal),
       },
     );
   });
 
-  it('passe le signal abort dans les options de fetch', async () => {
+  it('propage l’annulation d’un signal externe jusqu’au fetch sous-jacent', async () => {
     const controller = new AbortController();
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: jest.fn().mockResolvedValue({ ok: true }),
+    let capturedSignal: AbortSignal | undefined;
+    (global.fetch as jest.Mock).mockImplementation((_url: string, opts: { signal: AbortSignal }) => {
+      capturedSignal = opts.signal;
+      return new Promise((_resolve, reject) => {
+        opts.signal.addEventListener('abort', () => {
+          reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+        });
+      });
     });
 
-    await apiFetch('/api/v1/test', 'token-123', undefined, { signal: controller.signal });
+    const request = apiFetch('/api/v1/test', 'token-123', undefined, { signal: controller.signal });
+    controller.abort();
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.cloudbreak-app.com/api/v1/test',
-      expect.objectContaining({ signal: controller.signal }),
-    );
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it('rejette immédiatement si le signal externe est déjà aborté avant l’appel', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    (global.fetch as jest.Mock).mockImplementation((_url: string, opts: { signal: AbortSignal }) => {
+      return new Promise((_resolve, reject) => {
+        if (opts.signal.aborted) {
+          reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+          return;
+        }
+        opts.signal.addEventListener('abort', () => {
+          reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+        });
+      });
+    });
+
+    await expect(
+      apiFetch('/api/v1/test', 'token-123', undefined, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
   });
 });

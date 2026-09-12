@@ -1,27 +1,29 @@
 import { supabase } from '@/services/supabaseClient';
 
-jest.mock('@/services/supabaseClient', () => ({
-  supabase: {
-    auth: {
-      getSession: jest.fn(),
-      onAuthStateChange: jest.fn(),
-      signInWithPassword: jest.fn(),
-      signUp: jest.fn(),
-      signOut: jest.fn(),
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      extra: {
+        supabaseUrl: 'https://project.supabase.co',
+        supabaseKey: 'public-anon-key',
+      },
     },
   },
 }));
 
-describe('supabaseClient', () => {
-  it('exporte un client supabase valide', () => {
-    expect(supabase).toBeDefined();
-    expect(supabase.auth).toBeDefined();
-  });
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: { getItem: jest.fn(), setItem: jest.fn(), removeItem: jest.fn() },
+}));
 
-  it('le client expose les méthodes auth attendues', () => {
-    expect(typeof supabase.auth.getSession).toBe('function');
-    expect(typeof supabase.auth.signInWithPassword).toBe('function');
-    expect(typeof supabase.auth.signUp).toBe('function');
-    expect(typeof supabase.auth.signOut).toBe('function');
+describe('supabaseClient', () => {
+  it('expose les primitives Supabase requises par le parcours compte', () => {
+    expect(typeof supabase.auth.resend).toBe('function');
+    expect(typeof supabase.auth.updateUser).toBe('function');
+    expect(typeof supabase.auth.verifyOtp).toBe('function');
+    expect(typeof supabase.auth.linkIdentity).toBe('function');
+    expect(typeof supabase.auth.signInAnonymously).toBe('function');
+    expect(typeof supabase.auth.signInWithIdToken).toBe('function');
   });
 });

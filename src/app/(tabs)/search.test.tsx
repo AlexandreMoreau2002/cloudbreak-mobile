@@ -1,6 +1,8 @@
 import React from 'react';
-import SearchScreen from '@/app/(tabs)/search';
+import { FlatList } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
+
+import SearchScreen from '@/app/(tabs)/search';
 
 let mockPeakSearch = {
   state: { status: 'idle' } as { status: string; data?: unknown[]; error?: string },
@@ -8,14 +10,18 @@ let mockPeakSearch = {
   setQuery: jest.fn(),
 };
 let mockFavoritesState: { status: string; data: unknown[] } = { status: 'success', data: [] };
+let mockAuth = { session: { access_token: 'token', user: { is_anonymous: false } }, isAnonymous: false };
 
 const mockFavCallbacks = {
   addFavorite: jest.fn(),
   removeFavorite: jest.fn(),
 };
 
+const mockRequireAccount = jest.fn();
+const mockRetry = jest.fn();
+
 jest.mock('@/hooks/usePeakSearch', () => ({
-  usePeakSearch: () => mockPeakSearch,
+  usePeakSearch: () => ({ ...mockPeakSearch, retry: mockRetry }),
 }));
 
 jest.mock('@/hooks/useFavorites', () => ({
@@ -43,6 +49,14 @@ jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
 }));
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => mockAuth,
+}));
+
+jest.mock('@/contexts/AccountGateContext', () => ({
+  useAccountGate: () => ({ requireAccount: mockRequireAccount }),
+}));
+
 jest.mock('@/utils/i18n', () => ({ t: (k: string) => k }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
@@ -59,15 +73,6 @@ jest.mock('@/contexts/SelectedPeakContext', () => ({
   useSelectedPeak: () => ({ setSelectedPeak: mockSetSelectedPeak }),
 }));
 
-jest.mock('@/components/error-state', () => {
-  const React = jest.requireActual('react');
-  const { Text } = jest.requireActual('react-native');
-  return {
-    ErrorState: function MockErrorState(props: { title: string }) {
-      return React.createElement(Text, null, props.title);
-    },
-  };
-});
 jest.mock('@/components/empty-state', () => {
   const React = jest.requireActual('react');
   const { Text } = jest.requireActual('react-native');
@@ -111,6 +116,7 @@ describe('SearchScreen', () => {
     jest.clearAllMocks();
     mockPeakSearch = { state: { status: 'idle' }, query: '', setQuery: jest.fn() };
     mockFavoritesState = { status: 'success', data: [] };
+    mockAuth = { session: { access_token: 'token', user: { is_anonymous: false } }, isAnonymous: false };
   });
 
   it('affiche le hint quand query < 2 chars', () => {
@@ -138,6 +144,21 @@ describe('SearchScreen', () => {
     };
     const { getByText } = render(<SearchScreen />);
     expect(getByText('common.error')).toBeTruthy();
+  });
+
+  it('permet de réessayer une recherche échouée', () => {
+    mockPeakSearch = { state: { status: 'error', error: 'Erreur réseau' }, query: 'mont', setQuery: jest.fn() };
+    const { getByText } = render(<SearchScreen />);
+    fireEvent.press(getByText('common.retry'));
+    expect(mockRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('transmet le premier tap sur un résultat même si le clavier est ouvert', () => {
+    mockPeakSearch = { state: { status: 'success', data: peaks }, query: 'mont', setQuery: jest.fn() };
+    const screen = render(<SearchScreen />);
+    expect(screen.UNSAFE_getByType(FlatList).props.keyboardShouldPersistTaps).toBe('handled');
+    fireEvent.press(screen.getByText('Autre'));
+    expect(mockSetSelectedPeak).toHaveBeenCalledWith(peaks[0]);
   });
 
   it('affiche ErrorState même si message absent', () => {
@@ -193,6 +214,21 @@ describe('SearchScreen', () => {
     const { getByLabelText } = render(<SearchScreen />);
     fireEvent.press(getByLabelText('search.addFavorite'));
     expect(mockFavCallbacks.addFavorite).toHaveBeenCalledWith('other');
+  });
+
+  it('un invité ouvre account au tap favori sans mutation API', () => {
+    mockAuth = { session: { access_token: 'guest-token', user: { is_anonymous: true } }, isAnonymous: true };
+    mockPeakSearch = {
+      state: { status: 'success', data: [{ id: 'other', name: 'Autre', slug: 'autre', lat: 0, lng: 0, altitude: 1000 }] },
+      query: 'test',
+      setQuery: jest.fn(),
+    };
+    const { getByLabelText } = render(<SearchScreen />);
+
+    fireEvent.press(getByLabelText('search.addFavorite'));
+
+    expect(mockRequireAccount).toHaveBeenCalledWith({ kind: 'favorite', peakId: 'other' });
+    expect(mockFavCallbacks.addFavorite).not.toHaveBeenCalled();
   });
 
   it('supprime un favori au tap sur le bouton coeur favori', () => {
