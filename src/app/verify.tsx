@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
+import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { CodeInput } from '@/components/account';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -19,6 +20,11 @@ export default function VerifyScreen() {
   const gate = useAccountGate();
   const router = useRouter();
   const { email = '', password = '' } = gate.emailUpgradeCredentials ?? {};
+
+  useEffect(() => {
+    if (!email || !password) router.replace('/account' as never);
+  }, [email, password, router]);
+
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
@@ -70,11 +76,17 @@ export default function VerifyScreen() {
   async function retryProvisioning() {
     if (loading || !provisioningError) return;
     setLoading(true);
-    const err = await auth.retryEmailUpgradeProvisioning();
+    const err = await auth.retryProvisioning();
     setLoading(false);
-    if (err) return;
+    if (err) {
+      if (DEBUG) console.debug('[verify] retryProvisioning failed again', { message: err.message });
+      return;
+    }
+    setProvisioningError(false);
     router.push('/survey' as never);
   }
+
+  if (!email || !password) return null;
 
   return (
     <View
