@@ -11,6 +11,7 @@ const mockSignIn = jest.fn().mockResolvedValue(null);
 const mockApple = jest.fn().mockResolvedValue(null);
 const mockSetCredentials = jest.fn();
 const mockFinish = jest.fn().mockResolvedValue(undefined);
+const mockRetryProvisioning = jest.fn().mockResolvedValue(null);
 let mockParams: Record<string, string> = {};
 let mockPendingAction: { kind: 'favorite'; peakId: string } | null = null;
 let mockSubmitArgs: [string, string] = ['a@b.com', 'Aa!123456'];
@@ -25,13 +26,17 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { background: '#fff', textPrimary: '#111', textSecondary: '#555', accent: '#b28c6e' }, typography: { fontFamily: { bold: 'System', semiBold: 'System' } } }) }));
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ locale: mockLocale }) }));
-jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ beginEmailUpgrade: mockBegin, signIn: mockSignIn, signInWithApple: mockApple }) }));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ beginEmailUpgrade: mockBegin, signIn: mockSignIn, signInWithApple: mockApple, retryProvisioning: mockRetryProvisioning }),
+  isProvisioningError: (message: string) =>
+    new Set(['provisioning_failed', 'email_upgrade_provisioning_failed']).has(message.trim().toLowerCase()),
+}));
 jest.mock('@/contexts/AccountGateContext', () => ({ useAccountGate: () => ({ pendingAction: mockPendingAction, cancelAccountFlow: mockCancel, finishAccountCreation: mockFinish, setEmailUpgradeCredentials: mockSetCredentials }) }));
 jest.mock('@/components/account', () => { const { TouchableOpacity: Button, Text: Label, View } = require('react-native'); return { AccountForm: ({ onSubmit, onApple, onForgotPassword, mode, error }: { onSubmit: (email: string, password: string) => void; onApple: () => void; onForgotPassword: () => void; mode: string; error?: string | null }) => <View><Button testID="form" onPress={() => onSubmit(mockSubmitArgs[0], mockSubmitArgs[1])}><Label>{mode}</Label></Button><Button testID="apple" onPress={onApple}><Label>Apple</Label></Button><Button testID="forgot" onPress={onForgotPassword}><Label>Forgot</Label></Button>{error ? <Label>{error}</Label> : null}</View> }; });
 jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
 
 describe('AccountScreen route contracts', () => {
-  beforeEach(() => { jest.clearAllMocks(); mockApple.mockResolvedValue(null); mockParams = {}; mockPendingAction = null; mockSubmitArgs = ['a@b.com', 'Aa!123456']; mockLocale = 'fr'; });
+  beforeEach(() => { jest.clearAllMocks(); mockApple.mockResolvedValue(null); mockParams = {}; mockPendingAction = null; mockSubmitArgs = ['a@b.com', 'Aa!123456']; mockLocale = 'fr'; mockRetryProvisioning.mockResolvedValue(null); });
 
   it('utilise un spacer flexible pour le centrage plutôt que justifyContent sur le contenu — le CTA ne peut jamais être poussé hors écran', () => {
     const { UNSAFE_getByType } = render(<AccountScreen />);
@@ -140,6 +145,59 @@ describe('AccountScreen route contracts', () => {
     fireEvent.press(getByTestId('form'));
 
     await waitFor(() => expect(mockBegin).toHaveBeenCalledWith('a@b.com', 'en'));
+  });
+
+  it('shows a distinct recoverable error and retry when provisioning fails after email login', async () => {
+    mockParams = { mode: 'login' };
+    mockPendingAction = { kind: 'favorite', peakId: 'peak-1' };
+    mockSignIn.mockResolvedValueOnce({ message: 'PROVISIONING_FAILED' });
+    const { getByTestId, getByText, queryByText } = render(<AccountScreen />);
+    fireEvent.press(getByTestId('form'));
+    await waitFor(() => expect(getByText('account.provisioningError')).toBeTruthy());
+    expect(queryByText('account.errorNetwork')).toBeNull();
+
+    fireEvent.press(getByText('account.retryProvisioning'));
+    await waitFor(() => expect(mockRetryProvisioning).toHaveBeenCalledTimes(1));
+    expect(mockFinish).toHaveBeenCalled();
+  });
+
+  it('shows a distinct recoverable error and retry when provisioning fails after Apple sign-in', async () => {
+    mockParams = { mode: 'login' };
+    mockPendingAction = { kind: 'favorite', peakId: 'peak-1' };
+    mockApple.mockResolvedValueOnce({ message: 'EMAIL_UPGRADE_PROVISIONING_FAILED' });
+    const { getByTestId, getByText } = render(<AccountScreen />);
+    fireEvent.press(getByTestId('apple'));
+    await waitFor(() => expect(getByText('account.provisioningError')).toBeTruthy());
+
+    fireEvent.press(getByText('account.retryProvisioning'));
+    await waitFor(() => expect(mockRetryProvisioning).toHaveBeenCalledTimes(1));
+    expect(mockFinish).toHaveBeenCalled();
+  });
+
+  it('routes to survey (not complete) after a successful retry following an Apple signup provisioning failure', async () => {
+    mockParams = {};
+    mockApple.mockResolvedValueOnce({ message: 'PROVISIONING_FAILED' });
+    const { getByTestId, getByText } = render(<AccountScreen />);
+    fireEvent.press(getByTestId('apple'));
+    await waitFor(() => expect(getByText('account.provisioningError')).toBeTruthy());
+
+    fireEvent.press(getByText('account.retryProvisioning'));
+    await waitFor(() => expect(mockRetryProvisioning).toHaveBeenCalledTimes(1));
+    expect(mockPush).toHaveBeenCalledWith('/survey');
+    expect(mockFinish).not.toHaveBeenCalled();
+  });
+
+  it('keeps provisioning error visible after a second failed retry on account screen', async () => {
+    mockParams = { mode: 'login' };
+    mockSignIn.mockResolvedValueOnce({ message: 'PROVISIONING_FAILED' });
+    mockRetryProvisioning.mockResolvedValueOnce({ message: 'PROVISIONING_FAILED' });
+    const { getByTestId, getByText } = render(<AccountScreen />);
+    fireEvent.press(getByTestId('form'));
+    await waitFor(() => expect(getByText('account.provisioningError')).toBeTruthy());
+    fireEvent.press(getByText('account.retryProvisioning'));
+    await waitFor(() => expect(mockRetryProvisioning).toHaveBeenCalledTimes(1));
+    expect(getByText('account.provisioningError')).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('finishes an existing login through AccountGate without verification', async () => {
