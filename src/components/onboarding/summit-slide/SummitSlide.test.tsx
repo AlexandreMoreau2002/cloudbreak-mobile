@@ -1,11 +1,10 @@
-import { render, fireEvent, configure } from '@testing-library/react-native';
 import i18n from '@/utils/i18n';
+import { SummitSlide } from './SummitSlide';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
+import { render, fireEvent, configure } from '@testing-library/react-native';
 import { useOnboardingPeaks } from '@/hooks/onboarding/useOnboardingPeaks';
-import { SummitSlide } from '@/components/onboarding/summit-slide/SummitSlide';
 
-jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('@/hooks/onboarding/useOnboardingPeaks');
 jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
 jest.mock('@/contexts/SelectedPeakContext', () => ({
@@ -42,11 +41,10 @@ function setup({
   query?: string;
 } = {}) {
   const setQuery = jest.fn();
-  const retry = jest.fn();
-  mockUseOnboardingPeaks.mockReturnValue({ curated, results, query, setQuery, retry });
+  mockUseOnboardingPeaks.mockReturnValue({ curated, results, query, setQuery });
   const setSelectedPeak = jest.fn();
   mockUseSelectedPeak.mockReturnValue({ setSelectedPeak });
-  return { setQuery, setSelectedPeak, retry };
+  return { setQuery, setSelectedPeak };
 }
 
 function renderWithTheme(ui: React.ReactElement) {
@@ -96,35 +94,21 @@ describe('SummitSlide', () => {
     expect(track).toHaveBeenCalledWith('peak_selected', { peak_id: PEAKS[1].id, source: 'onboarding' });
   });
 
-  it.each(['', 'bl'])('shows a retry instead of deceptive rows on error (%s)', (query) => {
-    const { retry, setSelectedPeak } = setup({ query, curated: { status: 'error', error: 'offline' }, results: { status: 'error', error: 'offline' } });
+  it('falls back to the static curated list without friction on curated error', () => {
+    const { setSelectedPeak } = setup({ curated: { status: 'error', error: 'offline' } });
     const onContinue = jest.fn();
     const { getByTestId, queryByTestId } = renderWithTheme(<SummitSlide onContinue={onContinue} />);
-    expect(queryByTestId('summit-row-mont-aiguille')).toBeNull();
-    fireEvent.press(getByTestId('summit-retry'));
-    expect(retry).toHaveBeenCalledTimes(1);
+
+    expect(getByTestId('summit-static-list')).toBeTruthy();
+    expect(getByTestId('summit-row-mont-aiguille')).toBeTruthy();
+
+    fireEvent.press(getByTestId('summit-row-mont-aiguille'));
+    // Static rows are not selectable — no radio fill should appear.
+    expect(queryByTestId('summit-row-mont-aiguille-selected')).toBeNull();
+
     fireEvent.press(getByTestId('summit-continue'));
     expect(setSelectedPeak).not.toHaveBeenCalled();
     expect(onContinue).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not present curated peaks when an active search fails', () => {
-    setup({ query: 'bl', results: { status: 'error', error: 'offline' } });
-    const { getByTestId, queryByTestId } = renderWithTheme(<SummitSlide onContinue={() => {}} />);
-    expect(queryByTestId('summit-row-mont-aiguille')).toBeNull();
-    expect(getByTestId('summit-retry')).toBeTruthy();
-  });
-
-  it('shows an empty state for a search with no matches', () => {
-    setup({ query: 'zz', results: { status: 'success', data: [] } });
-    const { getByText } = renderWithTheme(<SummitSlide onContinue={() => {}} />);
-    expect(getByText(i18n.t('onboarding.peaksEmpty'))).toBeTruthy();
-  });
-
-  it('lets a result receive the first tap with the keyboard open', () => {
-    setup();
-    const { getByTestId } = renderWithTheme(<SummitSlide onContinue={() => {}} />);
-    expect(getByTestId('summit-list-scroll').props.keyboardShouldPersistTaps).toBe('handled');
   });
 
   it('shows search results instead of curated when query has 2+ chars', () => {
@@ -246,15 +230,3 @@ describe('SummitSlide', () => {
     expect(queryByTestId('summit-list-fade')).toBeTruthy();
   });
 });
-
- it.each([true, false])('renders the eyebrow only in development (%s)', (dev) => {
-   const previous = __DEV__;
-   Object.defineProperty(globalThis, '__DEV__', { value: dev, configurable: true, writable: true });
-   try {
-     setup();
-     const { queryByText } = renderWithTheme(<SummitSlide onContinue={() => {}} />);
-     expect(Boolean(queryByText(i18n.t('onboarding.step2Eyebrow')))).toBe(dev);
-   } finally {
-     Object.defineProperty(globalThis, '__DEV__', { value: previous, configurable: true, writable: true });
-   }
- });

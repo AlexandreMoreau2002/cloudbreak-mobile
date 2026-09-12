@@ -29,22 +29,6 @@ npm start              # Metro uniquement
 
 > Ne pas utiliser Expo Go — l'app a des modules natifs incompatibles (AsyncStorage, expo-linear-gradient).
 
-### Après la mise à jour du parcours compte / Sign in with Apple
-
-Depuis `mobile/`, reconstruire l'application avant les tests :
-
-```bash
-npm install
-npx expo prebuild --platform ios --no-install
-npx expo run:ios
-```
-
-Le prébuild sans `--clean` synchronise le projet iOS existant avec la configuration et le
-plugin Apple (capability Sign in with Apple). La compilation intègre `ExpoCrypto` et
-`ExpoAppleAuthentication` au binaire. Redémarrer Metro seul ne peut pas ajouter ces modules.
-Une erreur `Cannot find native module 'ExpoCrypto'` à l'import d'`AuthContext` peut aussi
-provoquer en cascade des avertissements d'exports de routes et de providers manquants.
-
 ## Qualité & Tests
 
 ```bash

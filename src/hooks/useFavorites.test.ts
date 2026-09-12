@@ -6,10 +6,8 @@ import { useFavorites } from '@/hooks/useFavorites';
 const mockFetchFavorites = jest.fn();
 const mockRemoveFavorite = jest.fn();
 const mockAddFavorite = jest.fn();
-const mockRequireAccount = jest.fn();
 const mockAuthState = {
   session: { access_token: 'mock-token', user: { id: 'user-1' } } as { access_token: string; user: { id: string } } | null,
-  isAnonymous: false,
 };
 const mockDevConfigState = { MOCK_API: false, DEBUG: false };
 
@@ -25,10 +23,6 @@ jest.mock('@/services/api/user', () => ({
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => mockAuthState,
-}));
-
-jest.mock('@/contexts/AccountGateContext', () => ({
-  useAccountGate: () => ({ requireAccount: mockRequireAccount }),
 }));
 
 jest.mock('@/constants/devConfig', () => ({
@@ -63,7 +57,6 @@ describe('useFavorites', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthState.session = { access_token: 'mock-token', user: { id: 'user-1' } };
-    mockAuthState.isAnonymous = false;
     mockDevConfigState.MOCK_API = false;
     mockDevConfigState.DEBUG = false;
     mockAsyncStorage.getItem.mockResolvedValue(null);
@@ -270,30 +263,6 @@ describe('useFavorites', () => {
     expect(mockFetchFavorites).toHaveBeenCalledTimes(2);
   });
 
-  it('un invité ouvre account au lieu d’appeler le backend pour ajouter un favori', async () => {
-    mockAuthState.isAnonymous = true;
-    mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
-    const { result } = renderHook(() => useFavorites());
-
-    await waitFor(() => expect(result.current.state).toEqual({ status: 'success', data: [] }));
-    await act(async () => result.current.addFavorite('peak-3'));
-
-    expect(mockRequireAccount).toHaveBeenCalledWith({ kind: 'favorite', peakId: 'peak-3' });
-    expect(mockAddFavorite).not.toHaveBeenCalled();
-    expect(mockFetchFavorites).not.toHaveBeenCalled();
-  });
-
-  it('un invité obtient une liste vide sûre sans requête favoris ni cache', async () => {
-    mockAuthState.isAnonymous = true;
-    const { result } = renderHook(() => useFavorites());
-
-    await waitFor(() => expect(result.current.state).toEqual({ status: 'success', data: [] }));
-
-    expect(mockNetInfoFetch).not.toHaveBeenCalled();
-    expect(mockFetchFavorites).not.toHaveBeenCalled();
-    expect(mockAsyncStorage.getItem).not.toHaveBeenCalled();
-  });
-
   it('removeFavorite appelle l\'API et recharge la liste', async () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
     mockRemoveFavorite.mockResolvedValue(undefined);
@@ -362,16 +331,6 @@ describe('useFavorites', () => {
     await act(async () => {
       await result.current.removeFavorite('peak-3');
     });
-
-    expect(mockRemoveFavorite).not.toHaveBeenCalled();
-  });
-
-  it('ignore removeFavorite pour une session invitée', async () => {
-    mockAuthState.isAnonymous = true;
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
-
-    await act(async () => result.current.removeFavorite('peak-3'));
 
     expect(mockRemoveFavorite).not.toHaveBeenCalled();
   });

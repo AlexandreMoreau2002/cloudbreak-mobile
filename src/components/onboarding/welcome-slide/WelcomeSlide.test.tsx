@@ -1,7 +1,7 @@
-import { render, fireEvent, configure } from '@testing-library/react-native';
 import i18n from '@/utils/i18n';
+import { WelcomeSlide } from './WelcomeSlide';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import { WelcomeSlide } from '@/components/onboarding/welcome-slide/WelcomeSlide';
+import { render, fireEvent, configure } from '@testing-library/react-native';
 
 jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
 
@@ -37,14 +37,3 @@ describe('WelcomeSlide', () => {
     expect(track).toHaveBeenCalledWith('onboarding_step_viewed', { step: 1 });
   });
 });
-
- it.each([true, false])('renders the eyebrow only in development (%s)', (dev) => {
-   const previous = __DEV__;
-   Object.defineProperty(globalThis, '__DEV__', { value: dev, configurable: true, writable: true });
-   try {
-     const { queryByText } = renderWithTheme(<WelcomeSlide onContinue={() => {}} />);
-     expect(Boolean(queryByText(i18n.t('onboarding.step1Eyebrow')))).toBe(dev);
-   } finally {
-     Object.defineProperty(globalThis, '__DEV__', { value: previous, configurable: true, writable: true });
-   }
- });

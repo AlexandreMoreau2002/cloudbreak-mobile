@@ -11,10 +11,6 @@ jest.mock('expo-constants', () => ({
 
 jest.mock('@react-native-async-storage/async-storage', () => ({ mockedStorage: true }));
 
-jest.mock('@/services/secureSessionStorage', () => ({
-  secureSessionStorage: { __keychain: true },
-}));
-
 jest.mock('@supabase/supabase-js', () => ({
   createClient: (url: string, key: string, options: unknown) => mockCreateClient(url, key, options),
 }));
@@ -25,9 +21,9 @@ describe('supabaseClient module', () => {
     jest.resetModules();
   });
 
-  it('crée le client avec les paramètres Expo et le stockage Keychain', () => {
+  it('crée le client avec les paramètres Expo et AsyncStorage', () => {
     jest.isolateModules(() => {
-      const { secureSessionStorage } = require('@/services/secureSessionStorage');
+      const AsyncStorage = require('@react-native-async-storage/async-storage');
       const { supabase } = require('@/services/supabaseClient');
 
       expect(mockCreateClient).toHaveBeenCalledWith(
@@ -35,7 +31,7 @@ describe('supabaseClient module', () => {
         'anon-key',
         {
           auth: {
-            storage: secureSessionStorage,
+            storage: AsyncStorage,
             autoRefreshToken: true,
             persistSession: true,
             detectSessionInUrl: false,

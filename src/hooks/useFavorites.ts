@@ -13,7 +13,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { DEBUG, MOCK_API } from '@/constants/devConfig';
-import { useAccountGate } from '@/contexts/AccountGateContext';
 import type { AsyncState, Peak } from '@/services/mockData/types';
 import { addFavorite as apiAddFavorite } from '@/services/api/user';
 import { fetchFavorites, removeFavorite as apiRemoveFavorite } from '@/services/api/peaks';
@@ -31,10 +30,9 @@ interface FavoritesCachePayload {
 }
 
 export function useFavorites() {
-  const { session, isAnonymous } = useAuth();
+  const { session } = useAuth();
   const token = session?.access_token ?? null;
   const userId = session?.user?.id ?? null;
-  const { requireAccount } = useAccountGate();
   const [state, setState] = useState<AsyncState<Peak[]>>({ status: 'idle' });
   const [fromCache, setFromCache] = useState(false);
   const [cachedAt, setCachedAt] = useState<number | null>(null);
@@ -63,12 +61,6 @@ export function useFavorites() {
   }, []);
 
   const listFavorites = useCallback(async () => {
-    if (isAnonymous || session?.user.is_anonymous) {
-      setState({ status: 'success', data: [] });
-      setFromCache(false);
-      setCachedAt(null);
-      return;
-    }
     if (!token || !userId) {
       setState({ status: 'error', error: 'Non authentifié' });
       return;
@@ -117,7 +109,7 @@ export function useFavorites() {
 
       setState({ status: 'error', error: message });
     }
-  }, [isAnonymous, session?.user.is_anonymous, token, userId, readCache, writeCache]);
+  }, [token, userId, readCache, writeCache]);
 
   useEffect(() => {
     listFavorites();
@@ -125,10 +117,6 @@ export function useFavorites() {
 
   const addFavorite = useCallback(async (peakId: string) => {
     if (!token) return;
-    if (isAnonymous || session?.user.is_anonymous) {
-      requireAccount({ kind: 'favorite', peakId });
-      return;
-    }
     if (DEBUG) console.debug('[useFavorites] addFavorite', { peakId });
     try {
       await apiAddFavorite(token, peakId);
@@ -137,11 +125,10 @@ export function useFavorites() {
       const message = err instanceof Error ? err.message : 'Erreur inconnue';
       if (DEBUG) console.debug('[useFavorites] addFavorite error', { message });
     }
-  }, [token, isAnonymous, session?.user.is_anonymous, requireAccount, listFavorites]);
+  }, [token, listFavorites]);
 
   const removeFavorite = useCallback(async (peakId: string) => {
     if (!token) return;
-    if (isAnonymous || session?.user.is_anonymous) return;
     if (DEBUG) console.debug('[useFavorites] removeFavorite', { peakId });
     try {
       await apiRemoveFavorite(token, peakId);
@@ -150,7 +137,7 @@ export function useFavorites() {
       const message = err instanceof Error ? err.message : 'Erreur inconnue';
       if (DEBUG) console.debug('[useFavorites] removeFavorite error', { message });
     }
-  }, [token, isAnonymous, session?.user.is_anonymous, listFavorites]);
+  }, [token, listFavorites]);
 
   return { state, addFavorite, removeFavorite, refresh: listFavorites, fromCache, cachedAt };
 }

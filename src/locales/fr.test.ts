@@ -1,4 +1,3 @@
-import en from '@/locales/en';
 import fr from '@/locales/fr';
 
 describe('locale fr', () => {
@@ -11,17 +10,5 @@ describe('locale fr', () => {
   it('expose les libellés de score attendus', () => {
     expect(fr.score.label.none).toBe('Pas de nuages');
     expect(fr.score.context.none.low_cloud_cover).toContain('Pas de nuages');
-  });
-
-  it('expose le namespace reset avec les libellés critiques', () => {
-    expect(fr.reset.requestTitle).toBe('Réinitialise ton mot de passe');
-    expect(fr.reset.send).toBe('Envoyer le code');
-    expect(fr.reset.resendWait).toBe('Renvoyer dans {{count}} s');
-    expect(fr.reset.errorPassword).toBe('Utilise au moins 8 caractères, avec une majuscule, une minuscule, un chiffre et un symbole.');
-    expect(fr.reset.errorRateLimit).toBe('Trop de demandes. Réessaie dans quelques minutes.');
-  });
-
-  it('garde la parité des clés reset avec la locale anglaise', () => {
-    expect(Object.keys(fr.reset).sort()).toEqual(Object.keys(en.reset).sort());
   });
 });

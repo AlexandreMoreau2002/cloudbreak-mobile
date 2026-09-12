@@ -1,29 +1,27 @@
 import { useCallback } from 'react';
-import type { Href } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
 import { track } from '@/services/analytics';
-import { useAuth } from '@/contexts/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useFavorites } from '@/hooks/useFavorites';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
+import { useFavorites } from '@/hooks/useFavorites';
 import type { Peak } from '@/services/mockData/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AsyncStateView } from '@/components/async-state-view';
-import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
+import { useFocusEffect } from '@react-navigation/native';
 import { FavoritesSkeleton } from '@/components/favorites-skeleton';
+import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const HOME_ROUTE = '/(tabs)/' as Href;
 const SEARCH_ROUTE = '/(tabs)/search' as Href;
 
 export default function FavoritesScreen() {
   useLanguage();
-  const { isAnonymous } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, typography, spacing } = useTheme();
@@ -38,9 +36,8 @@ export default function FavoritesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (isAnonymous) return undefined;
       refresh();
-    }, [isAnonymous, refresh]),
+    }, [refresh]),
   );
 
   function renderItem({ item }: { item: Peak }) {
@@ -72,14 +69,14 @@ export default function FavoritesScreen() {
     );
   }
 
-  const data = isAnonymous ? [] : state.status === 'success' ? (state.data ?? []) : [];
+  const data = state.status === 'success' ? (state.data ?? []) : [];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 16 }]}>
       <AsyncStateView
-        isLoading={!isAnonymous && (state.status === 'loading' || state.status === 'idle')}
-        isEmpty={isAnonymous || (state.status === 'success' && data.length === 0)}
-        error={!isAnonymous && state.status === 'error' ? (state.error ?? i18n.t('common.error')) : null}
+        isLoading={state.status === 'loading' || state.status === 'idle'}
+        isEmpty={state.status === 'success' && data.length === 0}
+        error={state.status === 'error' ? (state.error ?? i18n.t('common.error')) : null}
         loadingComponent={<FavoritesSkeleton />}
         emptyComponent={
           <View style={styles.centered}>

@@ -12,11 +12,11 @@
  * ou que l'appel échoue, `onFinish` est TOUJOURS appelé — l'onboarding ne bloque jamais sur
  * ce choix. Le bouton « Plus tard » ne demande même pas la permission : il termine directement.
  */
-import { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
 import i18n from '@/utils/i18n';
+import { useEffect, useRef } from 'react';
 import { track } from '@/services/analytics';
 import { useTheme } from '@/contexts/ThemeContext';
+import { StyleSheet, Text, View } from 'react-native';
 import { OnboardingCta } from '@/components/onboarding/cta';
 import { MascotBreadcrumb } from '@/components/onboarding/mascot-breadcrumb';
 import { useNotificationPermission } from '@/hooks/onboarding/useNotificationPermission';
@@ -54,13 +54,11 @@ export function NotificationsSlide({ onGoNext }: NotificationsSlideProps) {
 
   return (
     <View style={styles.root}>
-      {__DEV__ ? (
-        <Text
-          style={[styles.eyebrow, { color: colors.textDisabled, fontFamily: typography.fontFamily.semiBold }]}
-        >
-          {i18n.t('onboarding.step3Eyebrow')}
-        </Text>
-      ) : null}
+      <Text
+        style={[styles.eyebrow, { color: colors.textDisabled, fontFamily: typography.fontFamily.semiBold }]}
+      >
+        {i18n.t('onboarding.step3Eyebrow')}
+      </Text>
 
       <Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.light }]}>
         {i18n.t('onboarding.step3Title')}

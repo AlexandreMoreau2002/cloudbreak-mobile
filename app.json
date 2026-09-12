@@ -9,7 +9,6 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.alexandremoreau.cloudbreak",
-      "usesAppleSignIn": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Cloudbreak utilise votre position pour vous proposer les sommets les plus proches."
       }
@@ -40,8 +39,7 @@
         }
       ],
       "expo-font",
-      "expo-localization",
-      "expo-apple-authentication"
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,

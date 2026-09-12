@@ -4,7 +4,6 @@ import { render, fireEvent } from '@testing-library/react-native';
 
 const mockRemoveFavorite = jest.fn();
 const mockRefresh = jest.fn();
-const mockUseAuth = jest.fn();
 let mockState: { status: string; data?: unknown[]; error?: string } = {
   status: 'success',
   data: [],
@@ -20,10 +19,6 @@ jest.mock('@/hooks/useFavorites', () => ({
     removeFavorite: mockRemoveFavorite,
     refresh: mockRefresh,
   }),
-}));
-
-jest.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => mockUseAuth(),
 }));
 
 jest.mock('@/contexts/ThemeContext', () => ({
@@ -113,23 +108,12 @@ jest.mock('@/components/async-state-view', () => ({
 describe('FavoritesScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseAuth.mockReturnValue({ isAnonymous: false });
     mockState = { status: 'success', data: [] };
   });
 
   it("affiche l'état vide quand aucun favori", () => {
     const { getByText } = render(<FavoritesScreen />);
     expect(getByText('favorites.empty')).toBeTruthy();
-  });
-
-  it("affiche l'état vide invité sans rafraîchir le backend", () => {
-    mockUseAuth.mockReturnValue({ isAnonymous: true });
-    mockState = { status: 'error', error: 'ACCOUNT_REQUIRED' };
-
-    const { getByText } = render(<FavoritesScreen />);
-
-    expect(getByText('favorites.empty')).toBeTruthy();
-    expect(mockRefresh).not.toHaveBeenCalled();
   });
 
   it('affiche FavoritesSkeleton en état loading', () => {

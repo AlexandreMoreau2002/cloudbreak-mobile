@@ -1,8 +1,8 @@
-import { act, configure, fireEvent, render } from '@testing-library/react-native';
 import i18n from '@/utils/i18n';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { NotificationsSlide } from './NotificationsSlide';
+import { act, configure, fireEvent, render } from '@testing-library/react-native';
 import { useNotificationPermission } from '@/hooks/onboarding/useNotificationPermission';
-import { NotificationsSlide } from '@/components/onboarding/notifications-slide/NotificationsSlide';
 
 jest.mock('@/hooks/onboarding/useNotificationPermission');
 jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
@@ -126,14 +126,3 @@ describe('NotificationsSlide', () => {
     expect(onGoNext).toHaveBeenCalledTimes(1);
   });
 });
-
- it.each([true, false])('renders the eyebrow only in development (%s)', (dev) => {
-   const previous = __DEV__;
-   Object.defineProperty(globalThis, '__DEV__', { value: dev, configurable: true, writable: true });
-   try {
-     const { queryByText } = renderWithTheme(<NotificationsSlide onGoNext={() => {}} />);
-     expect(Boolean(queryByText(i18n.t('onboarding.step3Eyebrow')))).toBe(dev);
-   } finally {
-     Object.defineProperty(globalThis, '__DEV__', { value: previous, configurable: true, writable: true });
-   }
- });
