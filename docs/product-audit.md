@@ -53,7 +53,6 @@ _Dernière mise à jour : 2026-09-09_
 | Retrait/ré-octroi consentement newsletter — Profil → Compte → Newsletter, `PATCH /api/v1/user/preferences` (stories 2.5/2.8, RGPD) | 🟡 Code présent, persistance réelle non validée |
 | Mot de passe oublié — flow OTP in-app (`/reset` → `/reset-confirm`, `resetPasswordForEmail` + `verifyOtp type:'recovery'`) (story 2.7) | 🟡 Code présent, template Dashboard + test réel à valider |
 | Politique mot de passe — plancher 6 caractères (`MIN_PASSWORD_LENGTH`), jauge de force purement informative, plus de blocage sur les 4 critères de complexité (2026-09-11) | ✅ |
-| Durcissement post-merge auth (2026-09-12) — timeout HTTP qui abort réellement (`AbortController`), garde env Supabase (échec explicite si config absente), retry provisioning distinct sur verify/account (login+Apple) | ✅ |
 
 ## Ce qui n'existe pas encore
 

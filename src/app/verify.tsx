@@ -3,12 +3,11 @@ import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
-import { DEBUG } from '@/constants/devConfig';
+import { useAuth } from '@/contexts/AuthContext';
 import { CodeInput } from '@/components/account';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
-import { useAuth, isProvisioningError } from '@/contexts/AuthContext';
 
 const CODE_LENGTH = 6;
 
@@ -20,11 +19,6 @@ export default function VerifyScreen() {
   const gate = useAccountGate();
   const router = useRouter();
   const { email = '', password = '' } = gate.emailUpgradeCredentials ?? {};
-
-  useEffect(() => {
-    if (!email || !password) router.replace('/account' as never);
-  }, [email, password, router]);
-
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
@@ -49,7 +43,7 @@ export default function VerifyScreen() {
     setLoading(false);
     if (err) {
       const message = err.message.toLowerCase();
-      if (isProvisioningError(err.message)) setProvisioningError(true);
+      if (err.message === 'EMAIL_UPGRADE_PROVISIONING_FAILED') setProvisioningError(true);
       else if (message.includes('weak') || message.includes('password') || message.includes('at least')) {
         setPasswordError(true);
       } else setCodeError(true);
@@ -76,17 +70,11 @@ export default function VerifyScreen() {
   async function retryProvisioning() {
     if (loading || !provisioningError) return;
     setLoading(true);
-    const err = await auth.retryProvisioning();
+    const err = await auth.retryEmailUpgradeProvisioning();
     setLoading(false);
-    if (err) {
-      if (DEBUG) console.debug('[verify] retryProvisioning failed again', { message: err.message });
-      return;
-    }
-    setProvisioningError(false);
+    if (err) return;
     router.push('/survey' as never);
   }
-
-  if (!email || !password) return null;
 
   return (
     <View
