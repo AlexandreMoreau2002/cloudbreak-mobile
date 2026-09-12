@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import i18n from '@/utils/i18n';
+import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -19,6 +20,7 @@ import { AuthBackdrop } from '@/components/account/AuthBackdrop';
 import { AccountForm, type AccountMode } from '@/components/account';
 
 const DUPLICATE_ACCOUNT_MESSAGES = new Set(['user already registered']);
+const PROVISIONING_ERROR_MESSAGES = new Set(['provisioning_failed', 'email_upgrade_provisioning_failed']);
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -31,6 +33,7 @@ export default function AccountScreen() {
   const [mode, setMode] = useState<AccountMode>(params.mode === 'login' ? 'connexion' : 'creation');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [provisioningError, setProvisioningError] = useState(false);
 
   async function complete() {
     if (gate.pendingAction) await gate.finishAccountCreation();
@@ -56,12 +59,17 @@ export default function AccountScreen() {
     }
     setLoading(true);
     setError(null);
+    setProvisioningError(false);
     const err = mode === 'creation'
       ? await auth.beginEmailUpgrade(email.trim(), locale)
       : await auth.signIn(email.trim(), password);
     setLoading(false);
     if (err) {
-      setError(errorCopy(err.message));
+      if (PROVISIONING_ERROR_MESSAGES.has(err.message.trim().toLowerCase())) {
+        setProvisioningError(true);
+      } else {
+        setError(errorCopy(err.message));
+      }
       return;
     }
     if (mode === 'creation') {
@@ -76,10 +84,32 @@ export default function AccountScreen() {
     if (Platform.OS !== 'ios') return;
     setLoading(true);
     setError(null);
+    setProvisioningError(false);
     const err = await auth.signInWithApple(mode);
     setLoading(false);
-    if (err) setError(errorCopy(err.message));
-    else if (mode === 'creation') router.push('/survey');
+    if (err) {
+      if (PROVISIONING_ERROR_MESSAGES.has(err.message.trim().toLowerCase())) {
+        setProvisioningError(true);
+      } else {
+        setError(errorCopy(err.message));
+      }
+      return;
+    }
+    if (mode === 'creation') router.push('/survey');
+    else await complete();
+  }
+
+  async function retryProvisioning() {
+    if (loading || !provisioningError) return;
+    setLoading(true);
+    const err = await auth.retryProvisioning();
+    setLoading(false);
+    if (err) {
+      if (DEBUG) console.debug('[account] retryProvisioning failed again', { message: err.message });
+      return;
+    }
+    setProvisioningError(false);
+    if (mode === 'creation') router.push('/survey');
     else await complete();
   }
 
@@ -127,6 +157,22 @@ export default function AccountScreen() {
               onModeChange={() => setMode(mode === 'creation' ? 'connexion' : 'creation')}
               onForgotPassword={() => router.push('/reset')}
             />
+            {provisioningError ? (
+              <>
+                <Text accessibilityRole="alert" style={{ color: '#C25C4A', textAlign: 'center' }}>
+                  {i18n.t('account.provisioningError')}
+                </Text>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  disabled={loading}
+                  onPress={() => void retryProvisioning()}
+                >
+                  <Text style={{ color: colors.accent, textAlign: 'center' }}>
+                    {i18n.t('account.retryProvisioning')}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
