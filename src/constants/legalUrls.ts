@@ -4,8 +4,9 @@
 // pas encore déployé en prod), voir ops/docs/story-1-legal-pages.md
 const LEGAL_BASE_URL = process.env.EXPO_PUBLIC_LEGAL_BASE_URL ?? 'https://ops.cloudbreak-app.com';
 
-// EXPO_PUBLIC_SUPPORT_EMAIL can override the public support mailbox per environment.
-const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? 'contact@cloudbreak-app.com';
+// EXPO_PUBLIC_SUPPORT_EMAIL — boîte à créer sur le domaine (redirection OVH ou SMTP).
+// Fallback sur le domaine officiel `cloudbreak-app.com` en attendant.
+const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? 'support@cloudbreak-app.com';
 
 export const LEGAL_URLS = {
   privacy: `${LEGAL_BASE_URL}/fr/privacy`,
