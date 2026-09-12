@@ -187,6 +187,19 @@ describe('AccountScreen route contracts', () => {
     expect(mockFinish).not.toHaveBeenCalled();
   });
 
+  it('keeps provisioning error visible after a second failed retry on account screen', async () => {
+    mockParams = { mode: 'login' };
+    mockSignIn.mockResolvedValueOnce({ message: 'PROVISIONING_FAILED' });
+    mockRetryProvisioning.mockResolvedValueOnce({ message: 'PROVISIONING_FAILED' });
+    const { getByTestId, getByText } = render(<AccountScreen />);
+    fireEvent.press(getByTestId('form'));
+    await waitFor(() => expect(getByText('account.provisioningError')).toBeTruthy());
+    fireEvent.press(getByText('account.retryProvisioning'));
+    await waitFor(() => expect(mockRetryProvisioning).toHaveBeenCalledTimes(1));
+    expect(getByText('account.provisioningError')).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
   it('finishes an existing login through AccountGate without verification', async () => {
     mockParams = { mode: 'login' };
     mockPendingAction = { kind: 'favorite', peakId: 'peak-1' };
