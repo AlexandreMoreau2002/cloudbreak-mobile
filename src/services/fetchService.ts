@@ -13,6 +13,14 @@
  */
 import { DEBUG, SIMULATE_DELAY_MS } from '@/constants/devConfig';
 
+const HTTP_TIMEOUT_MS = 10_000;
+
+function timeoutError(): Error & { code: string } {
+  const error = new Error('Impossible de joindre le serveur') as Error & { code: string };
+  error.code = 'NETWORK_TIMEOUT';
+  return error;
+}
+
 // ── Config API ────────────────────────────────────────────────────────────────
 
 export const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.cloudbreak-app.com';
@@ -42,19 +50,46 @@ export async function apiFetch<T>(
     headers['Content-Type'] = 'application/json';
   }
 
+  const controller = new AbortController();
+  const onExternalAbort = () => controller.abort();
+  if (options?.signal) {
+    if (options.signal.aborted) controller.abort();
+    else options.signal.addEventListener('abort', onExternalAbort);
+  }
+
   let response: Response;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
-    response = await fetch(url.toString(), {
+    const request = fetch(url.toString(), {
       method,
       headers,
-      signal: options?.signal,
+      signal: controller.signal,
       body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        reject(timeoutError());
+      }, HTTP_TIMEOUT_MS);
+    });
+    response = await Promise.race([request, timeout]);
+    // Au timeout, controller.abort() puis reject(timeoutError()) sont synchrones dans le
+    // même callback setTimeout : la Promise.race résout donc avec NETWORK_TIMEOUT avant que
+    // le fetch() avorté n'ait eu la chance de rejeter (rejet asynchrone, un tick plus tard).
+    // La branche AbortError ci-dessous ne s'exécute donc que pour une annulation vraiment
+    // externe (signal fourni par l'appelant) — ne pas réordonner sans revérifier cette garantie.
   } catch (cause) {
+    if (typeof cause === 'object' && cause !== null && (cause as { code?: string }).code === 'NETWORK_TIMEOUT') {
+      throw cause;
+    }
+    if (cause instanceof Error && cause.name === 'AbortError') throw cause;
     if (DEBUG) console.debug('[fetchService] network unreachable', { url: url.toString(), cause });
     const err = new Error('Impossible de joindre le serveur') as Error & { code: string };
     err.code = 'NETWORK_UNREACHABLE';
     throw err;
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+    options?.signal?.removeEventListener('abort', onExternalAbort);
   }
 
   if (!response.ok) {

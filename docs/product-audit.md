@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-07-26_
+_Dernière mise à jour : 2026-09-09_
 
 ---
 
@@ -47,6 +47,13 @@ _Dernière mise à jour : 2026-07-26_
 | Mode offline-light — cache TTL 3h, bandeau offline, pull-to-refresh, état `OFFLINE_NO_CACHE` sans données obsolètes (story 7.2) | ✅ |
 | Instrumentation analytics — `track()` stub DEBUG-only câblé sur ~25 events UI (onboarding, auth, home, recherche, favoris, paywall, profil, session) (story 1.7) | ✅ Stub, aucun réseau |
 | Validation terrain confirmation/infirmation avec détection GPS foreground (story 6.1) | ✅ Sans photo |
+| Parcours invité, mur différé et replay d'action (stories 2.5/2.6/2.8) | 🟡 Implémenté, review bloquée par le préflight Supabase |
+| Création Apple iOS (story 2.6) | 🟡 Code présent, provider/build native non validés |
+| Mini-sondage post-création (story 2.8) | 🟡 Code présent, persistance réelle non validée |
+| Retrait/ré-octroi consentement newsletter — Profil → Compte → Newsletter, `PATCH /api/v1/user/preferences` (stories 2.5/2.8, RGPD) | 🟡 Code présent, persistance réelle non validée |
+| Mot de passe oublié — flow OTP in-app (`/reset` → `/reset-confirm`, `resetPasswordForEmail` + `verifyOtp type:'recovery'`) (story 2.7) | 🟡 Code présent, template Dashboard + test réel à valider |
+| Politique mot de passe — plancher 6 caractères (`MIN_PASSWORD_LENGTH`), jauge de force purement informative, plus de blocage sur les 4 critères de complexité (2026-09-11) | ✅ |
+| Durcissement post-merge auth (2026-09-12) — timeout HTTP qui abort réellement (`AbortController`), garde env Supabase (échec explicite si config absente), retry provisioning distinct sur verify/account (login+Apple) | ✅ |
 
 ## Ce qui n'existe pas encore
 
@@ -56,6 +63,7 @@ _Dernière mise à jour : 2026-07-26_
 - Notifications push (epic 5)
 - Analytics PostHog réel (compte/SDK/réseau)
 - Déploiement VPS / production (epic 1)
+- Préflight Supabase du parcours compte : Anonymous Auth, Confirm email + template OTP, provider Apple et preuve UUID avant/après
 
 ---
 

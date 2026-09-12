@@ -1,19 +1,22 @@
-import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import i18n from '@/utils/i18n';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
-import { track } from '@/services/analytics';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import i18n from '@/utils/i18n';
+import { track } from '@/services/analytics';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useFavorites } from '@/hooks/useFavorites';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
-import { useFavorites } from '@/hooks/useFavorites';
 import { usePeakSearch } from '@/hooks/usePeakSearch';
 import type { Peak } from '@/services/mockData/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAccountGate } from '@/contexts/AccountGateContext';
 import { AsyncStateView } from '@/components/async-state-view';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const HOME_ROUTE = '/(tabs)/' as Href;
 
@@ -22,7 +25,9 @@ export default function SearchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, typography, spacing, radius } = useTheme();
-  const { state, query, setQuery } = usePeakSearch();
+  const { session, isAnonymous } = useAuth();
+  const { requireAccount } = useAccountGate();
+  const { state, query, setQuery, retry } = usePeakSearch();
   const { state: favState, addFavorite, removeFavorite } = useFavorites();
   const { setSelectedPeak } = useSelectedPeak();
 
@@ -32,6 +37,18 @@ export default function SearchScreen() {
     track('peak_selected', { peak_id: peak.id, source: 'search' });
     setSelectedPeak(peak);
     router.push(HOME_ROUTE);
+  }
+
+  function handleToggleFavorite(peakId: string, isFav: boolean) {
+    if (!isFav) {
+      if (isAnonymous || session?.user?.is_anonymous) {
+        requireAccount({ kind: 'favorite', peakId });
+        return;
+      }
+      addFavorite(peakId);
+      return;
+    }
+    removeFavorite(peakId);
   }
 
   function renderItem({ item }: { item: Peak }) {
@@ -54,7 +71,7 @@ export default function SearchScreen() {
         </View>
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: isFav ? colors.accent : colors.accent + '22' }]}
-          onPress={() => isFav ? removeFavorite(item.id) : addFavorite(item.id)}
+          onPress={() => handleToggleFavorite(item.id, isFav)}
           accessibilityLabel={i18n.t(isFav ? 'search.removeFavorite' : 'search.addFavorite')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
@@ -105,12 +122,14 @@ export default function SearchScreen() {
             <ErrorState
               title={i18n.t('common.error')}
               message={i18n.t('common.networkHint')}
+              action={{ label: i18n.t('common.retry'), onPress: retry }}
             />
           </View>
         }
       >
         <FlatList
           data={sorted}
+          keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: spacing.xl }}

@@ -1,8 +1,8 @@
+import { act, configure, fireEvent, render } from '@testing-library/react-native';
 import i18n from '@/utils/i18n';
-import { LocationSlide } from './LocationSlide';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { useLocationPermission } from '@/hooks/onboarding/useLocationPermission';
-import { act, configure, fireEvent, render } from '@testing-library/react-native';
+import { LocationSlide } from '@/components/onboarding/location-slide/LocationSlide';
 
 jest.mock('@/hooks/onboarding/useLocationPermission', () => ({ useLocationPermission: jest.fn() }));
 jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
@@ -113,3 +113,14 @@ describe('LocationSlide', () => {
     expect(track).toHaveBeenCalledWith('onboarding_step_viewed', { step: 4 });
   });
 });
+
+ it.each([true, false])('renders the eyebrow only in development (%s)', (dev) => {
+   const previous = __DEV__;
+   Object.defineProperty(globalThis, '__DEV__', { value: dev, configurable: true, writable: true });
+   try {
+     const { queryByText } = renderWithTheme(<LocationSlide onFinish={() => {}} />);
+     expect(Boolean(queryByText(i18n.t('onboarding.step4Eyebrow')))).toBe(dev);
+   } finally {
+     Object.defineProperty(globalThis, '__DEV__', { value: previous, configurable: true, writable: true });
+   }
+ });

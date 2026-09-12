@@ -4,14 +4,15 @@ import { ActivityIndicator, StyleSheet, View, type ViewStyle } from 'react-nativ
 interface LoadingSpinnerProps {
   size?: 'small' | 'large';
   style?: ViewStyle;
+  color?: string;
 }
 
-export function LoadingSpinner({ size = 'large', style }: LoadingSpinnerProps) {
+export function LoadingSpinner({ size = 'large', style, color }: LoadingSpinnerProps) {
   const { colors } = useTheme();
 
   return (
     <View testID="loading-spinner" style={[styles.container, style]}>
-      <ActivityIndicator size={size} color={colors.accent} />
+      <ActivityIndicator size={size} color={color ?? colors.accent} />
     </View>
   );
 }

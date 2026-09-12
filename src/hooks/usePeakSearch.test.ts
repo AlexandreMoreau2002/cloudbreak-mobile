@@ -1,5 +1,6 @@
-import { usePeakSearch } from '@/hooks/usePeakSearch';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+
+import { usePeakSearch } from '@/hooks/usePeakSearch';
 
 const mockSearchPeaks = jest.fn();
 const mockAuthState = { session: { access_token: 'mock-token' } as { access_token: string } | null };
@@ -32,6 +33,7 @@ const MOCK_PEAKS = [
 describe('usePeakSearch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearchPeaks.mockReset();
     jest.useFakeTimers();
     mockAuthState.session = { access_token: 'mock-token' };
     mockDevConfigState.MOCK_API = false;
@@ -129,6 +131,46 @@ describe('usePeakSearch', () => {
     expect(mockSearchPeaks).toHaveBeenLastCalledWith('mock-token', 'mon', expect.any(AbortSignal));
   });
 
+  it.each(['resolve', 'reject'])('ignore une ancienne réponse %s dès le changement de texte', async (outcome) => {
+    let resolve!: (value: typeof MOCK_PEAKS) => void;
+    let reject!: (reason: Error) => void;
+    mockSearchPeaks.mockImplementationOnce(() => new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    })).mockResolvedValueOnce([MOCK_PEAKS[1]]);
+    const { result } = renderHook(() => usePeakSearch());
+    act(() => { result.current.setQuery('mo'); });
+    act(() => { jest.advanceTimersByTime(300); });
+    const signal = mockSearchPeaks.mock.calls[0][2] as AbortSignal;
+    act(() => { result.current.setQuery('ventoux'); });
+    expect(signal.aborted).toBe(true);
+    await act(async () => {
+      if (outcome === 'resolve') resolve([MOCK_PEAKS[0]]);
+      else reject(new Error('ancienne erreur'));
+    });
+    expect(result.current.state).toEqual({ status: 'loading' });
+    await act(async () => { jest.advanceTimersByTime(300); });
+    expect(result.current.state).toEqual({ status: 'success', data: [MOCK_PEAKS[1]] });
+    const { track } = jest.requireMock('@/services/analytics');
+    expect(track).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['clear', 'unmount'])('annule la requête et ignore son résultat après %s', async (action) => {
+    let resolve!: (value: typeof MOCK_PEAKS) => void;
+    mockSearchPeaks.mockImplementationOnce(() => new Promise((res) => { resolve = res; }));
+    const { result, unmount } = renderHook(() => usePeakSearch());
+    act(() => { result.current.setQuery('mo'); });
+    act(() => { jest.advanceTimersByTime(300); });
+    const signal = mockSearchPeaks.mock.calls[0][2] as AbortSignal;
+    if (action === 'clear') act(() => { result.current.setQuery(''); });
+    else unmount();
+    expect(signal.aborted).toBe(true);
+    await act(async () => { resolve(MOCK_PEAKS); });
+    if (action === 'clear') expect(result.current.state).toEqual({ status: 'idle' });
+    const { track } = jest.requireMock('@/services/analytics');
+    expect(track).not.toHaveBeenCalled();
+  });
+
   it('ignore les AbortError sans passer en erreur', async () => {
     mockSearchPeaks.mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }));
     const { result } = renderHook(() => usePeakSearch());
@@ -197,18 +239,33 @@ describe('usePeakSearch', () => {
     expect(result.current.state.data).toEqual([]);
   });
 
-  it('passe en error si aucun token n’est disponible au déclenchement', async () => {
+  it('recherche les sommets sans session', async () => {
     mockAuthState.session = null;
+    mockSearchPeaks.mockResolvedValue(MOCK_PEAKS);
     const { result } = renderHook(() => usePeakSearch());
 
     act(() => { result.current.setQuery('mo'); });
     act(() => { jest.runAllTimers(); });
 
     await waitFor(() => {
-      expect(result.current.state).toEqual({ status: 'error', error: 'Non authentifié' });
+      expect(result.current.state).toEqual({ status: 'success', data: MOCK_PEAKS });
     });
 
-    expect(mockSearchPeaks).not.toHaveBeenCalled();
+    expect(mockSearchPeaks).toHaveBeenCalledWith(null, 'mo', expect.any(AbortSignal));
+  });
+
+  it('relance la même recherche après une erreur réseau', async () => {
+    mockSearchPeaks.mockRejectedValueOnce(new Error('Réseau indisponible'))
+      .mockResolvedValueOnce(MOCK_PEAKS);
+    const { result } = renderHook(() => usePeakSearch());
+    act(() => { result.current.setQuery('mont'); });
+    await act(async () => { jest.advanceTimersByTime(300); });
+    expect(result.current.state.status).toBe('error');
+    act(() => { result.current.retry(); });
+    expect(result.current.query).toBe('mont');
+    expect(result.current.state.status).toBe('loading');
+    await act(async () => { jest.advanceTimersByTime(300); });
+    expect(result.current.state).toEqual({ status: 'success', data: MOCK_PEAKS });
   });
 
   it('log le succès en mode debug', async () => {

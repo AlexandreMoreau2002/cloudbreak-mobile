@@ -3,6 +3,7 @@ import ProfileScreen from '@/app/(tabs)/profile';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 const mockPush = jest.fn();
+const mockOpenAccount = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
   useFocusEffect: (callback: () => void) => callback(),
@@ -24,10 +25,11 @@ jest.mock('@/utils/i18n', () => ({
 jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
 
 const mockSignOut = jest.fn();
+const mockSignOutToAnonymous = jest.fn().mockResolvedValue(null);
 const mockDeleteAccount = jest.fn();
 const mockToggleScheme = jest.fn();
 const mockToggleLocale = jest.fn();
-let mockSession: { user: { email?: string } } | null = { user: { email: 'test@example.com' } };
+let mockSession: { user: { email?: string; is_anonymous?: boolean } } | null = { user: { email: 'test@example.com' } };
 
 const mockRefreshLocationPermission = jest.fn();
 let mockLocationPermission: 'undetermined' | 'granted' | 'denied' = 'denied';
@@ -35,6 +37,7 @@ let mockLocationPermission: 'undetermined' | 'granted' | 'denied' = 'denied';
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     signOut: mockSignOut,
+    signOutToAnonymous: mockSignOutToAnonymous,
     deleteAccount: mockDeleteAccount,
     session: mockSession,
     locationPermission: mockLocationPermission,
@@ -45,6 +48,10 @@ jest.mock('@/contexts/AuthContext', () => ({
 const mockShowPaywall = jest.fn();
 jest.mock('@/contexts/PaywallContext', () => ({
   usePaywall: () => ({ showPaywall: mockShowPaywall }),
+}));
+
+jest.mock('@/contexts/AccountGateContext', () => ({
+  useAccountGate: () => ({ openAccount: mockOpenAccount }),
 }));
 
 const mockSetSelectedPeak = jest.fn();
@@ -77,6 +84,16 @@ jest.mock('@/hooks/useLocationSettingsLink', () => ({
   useLocationSettingsLink: () => ({ openLocationSettings: mockOpenLocationSettings }),
 }));
 
+const mockToggleNewsletter = jest.fn();
+let mockNewsletter = {
+  optedIn: false,
+  state: { status: 'success' as const, data: false },
+  toggle: mockToggleNewsletter,
+};
+jest.mock('@/hooks/useNewsletterConsent', () => ({
+  useNewsletterConsent: () => mockNewsletter,
+}));
+
 let mockScheme = 'light';
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
@@ -103,7 +120,13 @@ describe('ProfileScreen', () => {
     mockScheme = 'light';
     mockLocale = 'fr';
     mockSession = { user: { email: 'test@example.com' } };
+    mockSignOutToAnonymous.mockResolvedValue(null);
     mockLocationPermission = 'denied';
+    mockNewsletter = {
+      optedIn: false,
+      state: { status: 'success', data: false },
+      toggle: mockToggleNewsletter,
+    };
   });
 
   it('s\'affiche sans erreur', () => {
@@ -123,6 +146,38 @@ describe('ProfileScreen', () => {
 
     expect(getByText('profile.title')).toBeTruthy();
     expect(queryByText('test@example.com')).toBeNull();
+  });
+
+  it('affiche la carte invitée sans actions sensibles', () => {
+    mockSession = { user: { is_anonymous: true } };
+
+    const { getByText, queryByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.guest.title')).toBeTruthy();
+    expect(getByText('profile.guest.subtitle')).toBeTruthy();
+    expect(getByText('profile.guest.createAccount')).toBeTruthy();
+    expect(getByText('profile.guest.login')).toBeTruthy();
+    expect(queryByText('profile.signOut')).toBeNull();
+    expect(queryByText('profile.deleteAccount')).toBeNull();
+    expect(queryByText('test@example.com')).toBeNull();
+  });
+
+  it('ouvre la création de compte depuis la carte invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.guest.createAccount'));
+
+    expect(mockOpenAccount).toHaveBeenCalledWith('creation');
+  });
+
+  it('ouvre la connexion depuis la carte invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.guest.login'));
+
+    expect(mockOpenAccount).toHaveBeenCalledWith('login');
   });
 
   it('affiche le banner pro', () => {
@@ -177,10 +232,11 @@ describe('ProfileScreen', () => {
     expect(getByText('profile.signOut')).toBeTruthy();
   });
 
-  it('appelle signOut au clic sur se déconnecter', () => {
+  it('crée une vraie session invitée au clic sur se déconnecter', async () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('profile.signOut'));
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockSignOutToAnonymous).toHaveBeenCalledTimes(1));
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
 
   it('tracks signed_out then calls signOut', () => {
@@ -188,7 +244,17 @@ describe('ProfileScreen', () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('profile.signOut'));
     expect(track).toHaveBeenCalledWith('signed_out');
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockSignOutToAnonymous).toHaveBeenCalledTimes(1);
+  });
+
+  it('propose de réessayer si la session invitée ne peut pas être créée', async () => {
+    mockSignOutToAnonymous.mockResolvedValueOnce(new Error('Anonymous sign-ins are disabled'));
+    const { getByText, getByTestId } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.signOut'));
+    await waitFor(() => expect(getByTestId('profile-signout-error')).toBeTruthy());
+
+    fireEvent.press(getByTestId('profile-signout-retry'));
+    await waitFor(() => expect(mockSignOutToAnonymous).toHaveBeenCalledTimes(2));
   });
 
   it('tracks theme_toggled then calls toggleScheme', () => {
@@ -270,6 +336,36 @@ describe('ProfileScreen', () => {
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
   });
 
+  it('affiche la ligne newsletter avec la valeur désactivée par défaut', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.newsletter')).toBeTruthy();
+    expect(getByText('profile.newsletterOff')).toBeTruthy();
+  });
+
+  it('affiche "Activée" quand le consentement newsletter est donné', () => {
+    mockNewsletter = {
+      optedIn: true,
+      state: { status: 'success', data: true },
+      toggle: mockToggleNewsletter,
+    };
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.newsletterOn')).toBeTruthy();
+  });
+
+  it('bascule le consentement newsletter et le tracke au clic', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.newsletter'));
+    expect(track).toHaveBeenCalledWith('newsletter_consent_toggled', { opted_in: true });
+    expect(mockToggleNewsletter).toHaveBeenCalledTimes(1);
+  });
+
+  it('masque la ligne newsletter pour une session invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { queryByText } = render(<ProfileScreen />);
+    expect(queryByText('profile.newsletter')).toBeNull();
+  });
+
   it('affiche la section légale avec les trois entrées', () => {
     const { getByText } = render(<ProfileScreen />);
     expect(getByText('legal.sectionTitle')).toBeTruthy();
@@ -293,7 +389,7 @@ describe('ProfileScreen', () => {
   it('ouvre le lien mailto du support au clic', () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('legal.support'));
-    expect(mockOpenLegalLink).toHaveBeenCalledWith('mailto:support@cloudbreak.app');
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('mailto:support@cloudbreak-app.com');
   });
 
   it('branche les boutons DEV sur le sandbox et le reset du sommet sélectionné', () => {

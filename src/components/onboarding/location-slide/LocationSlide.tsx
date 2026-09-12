@@ -6,13 +6,13 @@
  * que la permission soit accordée, refusée, ou que l'appel échoue, `onFinish` est
  * TOUJOURS appelé — l'onboarding ne bloque jamais sur ce choix.
  */
-import i18n from '@/utils/i18n';
-import Svg, { Path } from 'react-native-svg';
 import { useEffect, useRef } from 'react';
-import { track } from '@/services/analytics';
+import Svg, { Path } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/contexts/ThemeContext';
 import { StyleSheet, Text, View } from 'react-native';
+import i18n from '@/utils/i18n';
+import { track } from '@/services/analytics';
+import { useTheme } from '@/contexts/ThemeContext';
 import { OnboardingCta } from '@/components/onboarding/cta';
 import { MascotBreadcrumb } from '@/components/onboarding/mascot-breadcrumb';
 import { useLocationPermission } from '@/hooks/onboarding/useLocationPermission';
@@ -50,11 +50,13 @@ export function LocationSlide({ onFinish }: LocationSlideProps) {
 
   return (
     <View style={styles.root}>
-      <Text
-        style={[styles.eyebrow, { color: colors.textDisabled, fontFamily: typography.fontFamily.semiBold }]}
-      >
-        {i18n.t('onboarding.step4Eyebrow')}
-      </Text>
+      {__DEV__ ? (
+        <Text
+          style={[styles.eyebrow, { color: colors.textDisabled, fontFamily: typography.fontFamily.semiBold }]}
+        >
+          {i18n.t('onboarding.step4Eyebrow')}
+        </Text>
+      ) : null}
 
       <Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.light }]}>
         {i18n.t('onboarding.step4Title')}
