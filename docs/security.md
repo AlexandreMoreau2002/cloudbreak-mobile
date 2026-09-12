@@ -23,22 +23,16 @@ Commits `0668abb..ac2c21b` — `isPasswordEligible` (4 critères) remplacé par 
 - **[Pas de log sensible]** Le seul `console.debug` ajouté dans `reset-confirm.tsx` loggue
   `{ codeLength: code.length }` — jamais la valeur du mot de passe, du code OTP, ni du token.
 
-### 🟡 WARNING
-- **[verify.tsx:42-48 — existant, aggravé]** Dans le flux de création de compte,
-  `completeEmailUpgrade(email, password, code)` est appelé dans `verify.tsx`. Si Supabase rejette
-  le mot de passe (politique Dashboard plus stricte que 6 caractères), l'erreur tombe dans le bloc
-  `else setCodeError(true)` — affiché à l'utilisateur comme une erreur de code OTP, non comme une
-  erreur de mot de passe. Avant ce PR, le gate 4/4 critères client réduisait fortement la
-  probabilité d'atteindre ce cas ; désormais, des mots de passe de 6-7 caractères sans complexité
-  passent le filtre client et peuvent échouer côté Supabase si une politique non-défaut est
-  configurée. **À corriger avant de durcir la politique Supabase** : ajouter une détection par
-  mots-clés (`weak`, `password`, `at least`) dans le handler d'erreur de `verify.tsx` sur le même
-  modèle que `reset-confirm.tsx`, pour afficher un message de mot de passe plutôt que de code OTP.
+### 🟢 RÉSOLU
+- **[verify.tsx]** Le handler d'erreur de `completeEmailUpgrade(email, password, code)` distingue
+  désormais un refus Supabase sur la politique de mot de passe (`message.includes('weak') ||
+  message.includes('password') || message.includes('at least')` → `passwordError` /
+  `verify.errorWeakPassword`) d'un code OTP invalide (`codeError` / `verify.error`), sur le même
+  modèle que `reset-confirm.tsx`. Plus de risque d'afficher "code incorrect" pour un mot de passe
+  refusé.
 
 ### Verdict
-CORRECTIONS RECOMMANDÉES — aucun blocage de merge (la politique Supabase par défaut est exactement
-6 caractères, le cas ne se déclenche pas avec la configuration actuelle). Corriger `verify.tsx`
-avant tout durcissement de la politique Dashboard Supabase.
+SECURE — plus de blocage ni de correction en attente sur ce point.
 
 ---
 
