@@ -5,6 +5,43 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
 
 ---
 
+## 2026-09-11 Story 2-5/2-6/2-8 — Retrait du blocage client sur la force du mot de passe
+
+Commits `0668abb..ac2c21b` — `isPasswordEligible` (4 critères) remplacé par `isPasswordLongEnough`
+(plancher 6 caractères) dans `PasswordField.tsx`, `AccountForm.tsx`, `reset-confirm.tsx`.
+
+### 🔵 INFO
+- **[PasswordField.tsx]** La modification est strictement côté client. La politique de mot de passe
+  réelle est appliquée par Supabase Auth côté serveur (minimum 6 caractères, non configurable en
+  dessous). Un attaquant contournant l'app mobile atteignait déjà Supabase directement — le gate
+  client n'a jamais été une barrière de sécurité, seulement un filtre UX. Aucune régression de
+  sécurité réelle.
+- **[reset-confirm.tsx:53-61]** Le handler d'erreur de `completePasswordReset` intercepte
+  correctement un refus de Supabase sur la politique de mot de passe :
+  `message.includes('weak') || message.includes('password') || message.includes('at least')` →
+  `i18n.t('reset.errorPassword')`. Conforme pour le flux de réinitialisation.
+- **[Pas de log sensible]** Le seul `console.debug` ajouté dans `reset-confirm.tsx` loggue
+  `{ codeLength: code.length }` — jamais la valeur du mot de passe, du code OTP, ni du token.
+
+### 🟡 WARNING
+- **[verify.tsx:42-48 — existant, aggravé]** Dans le flux de création de compte,
+  `completeEmailUpgrade(email, password, code)` est appelé dans `verify.tsx`. Si Supabase rejette
+  le mot de passe (politique Dashboard plus stricte que 6 caractères), l'erreur tombe dans le bloc
+  `else setCodeError(true)` — affiché à l'utilisateur comme une erreur de code OTP, non comme une
+  erreur de mot de passe. Avant ce PR, le gate 4/4 critères client réduisait fortement la
+  probabilité d'atteindre ce cas ; désormais, des mots de passe de 6-7 caractères sans complexité
+  passent le filtre client et peuvent échouer côté Supabase si une politique non-défaut est
+  configurée. **À corriger avant de durcir la politique Supabase** : ajouter une détection par
+  mots-clés (`weak`, `password`, `at least`) dans le handler d'erreur de `verify.tsx` sur le même
+  modèle que `reset-confirm.tsx`, pour afficher un message de mot de passe plutôt que de code OTP.
+
+### Verdict
+CORRECTIONS RECOMMANDÉES — aucun blocage de merge (la politique Supabase par défaut est exactement
+6 caractères, le cas ne se déclenche pas avec la configuration actuelle). Corriger `verify.tsx`
+avant tout durcissement de la politique Dashboard Supabase.
+
+---
+
 ## 2026-03-20 Story 2-1 — Auth Supabase
 
 ### 🔵 INFO
@@ -16,6 +53,88 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
 - **[Supabase]** "Confirm email" désactivé en dev → réactiver avant release 1.0.0
 - **[AsyncStorage]** Le cache score ne contient pas de données sensibles ; la session Supabase fait encore exception et constitue une dette suivie ci-dessous
 - **[supabaseClient.ts]** CORRECTION DOCUMENTATION : le client Supabase utilise `storage: AsyncStorage` (non chiffré), pas `expo-secure-store`. Le JWT et le refresh token Supabase sont donc stockés en clair dans AsyncStorage. Migrer vers `expo-secure-store` avant release 1.0.0 pour aligner l'implémentation avec la politique de sécurité déclarée dans ce fichier et dans `mobile/CLAUDE.md`.
+
+---
+
+## 2026-09-06 Stories 2.5/2.6/2.8 — Parcours compte : Keychain + consentement newsletter
+
+### 🟢 RÉSOLU
+- **[supabaseClient.ts]** La session Supabase (access + refresh token) est désormais rangée
+  dans le **Keychain iOS** via `expo-secure-store`, plus dans AsyncStorage en clair.
+  L'adaptateur [`secureSessionStorage`](../src/services/secureSessionStorage.ts) fragmente la
+  valeur (limite ~2048 octets de SecureStore) et **migre** une session héritée d'AsyncStorage
+  au premier accès (recopie dans le Keychain puis suppression du token en clair) — aucune
+  reconnexion forcée. Plugin `expo-secure-store` ajouté à `app.config.ts` → **rebuild natif
+  requis** (`npx expo run:ios`). Clôt la dette ouverte depuis la story 2-1
+  (`security_jwt_asyncstorage_debt`).
+
+### 🟢 RÉSOLU (dans la même branche)
+- **[secureSessionStorage.ts]** `setItem` purge désormais AsyncStorage (`await AsyncStorage.removeItem(key)`) après `writeChunked`, en plus du chemin de migration de `getItem`. Un résidu de token en clair laissé par un crash pendant la migration est effacé au prochain rafraîchissement de session, plus seulement à la déconnexion.
+
+### 🔵 INFO
+- **[useNewsletterConsent / api/user.ts]** Le consentement newsletter est lu via
+  `GET /api/v1/user/me` et modifié via `PATCH /api/v1/user/preferences` (compte permanent
+  requis, `403 ACCOUNT_REQUIRED` sinon). Aucune donnée personnelle nouvelle stockée sur
+  l'appareil ; le booléen transite en HTTPS, jamais loggé (seul `if (DEBUG) console.debug`).
+- **[RGPD]** Le retrait de consentement est aussi simple que l'octroi (une bascule dans
+  Profil → Compte → Newsletter), conforme à l'art. 7-3.
+- **[secureSessionStorage.ts — migration path]** La logique de migration lit d'abord le Keychain (`readChunked`), puis AsyncStorage seulement si le Keychain est vide. Un crash après `writeChunked` mais avant `AsyncStorage.removeItem` laisse le Keychain valide : au redémarrage, `readChunked` retourne les données du Keychain et la migration n'est pas ré-exécutée — pas de boucle, pas de perte de session. La purge d'un résidu AsyncStorage est garantie par `setItem` (voir RÉSOLU ci-dessus).
+- **[supabaseClient.ts:8]** `detectSessionInUrl: false` — désactivé, conforme à un contexte mobile sans deep-link auth. Aucune session ne peut être injectée via URL.
+
+---
+
+## 2026-09-09 Story 2.7 — Récupération du mot de passe par OTP
+
+### 🟢 PROTECTIONS EN PLACE
+
+- **[Anti-énumération]** Après une demande acceptée, `/reset-confirm` affiche uniquement « Si un
+  compte existe pour cette adresse… ». La route ne reçoit `sent=1` qu'après la réussite de
+  `resetPasswordForEmail`; les échecs réseau et rate-limit utilisent une copie générique.
+- **[Secrets et logs]** L'adresse complète, l'OTP, le nouveau mot de passe, l'access token et le
+  refresh token ne sont jamais loggés. Les traces DEBUG se limitent à `hasEmail`, `codeLength` et
+  aux étapes/résultats catégorisés. Aucun de ces secrets ne transite par le backend Cloudbreak.
+- **[Doubles taps]** `submitInFlight` et `resendInFlight` verrouillent synchroniquement les appels,
+  en complément des boutons désactivés. Deux taps immédiats ne lancent qu'une opération.
+- **[Transport et stockage]** Les appels recovery vont directement à Supabase Auth en HTTPS. La
+  session issue de `verifyOtp(type: 'recovery')` utilise l'adaptateur SecureStore/Keychain existant.
+- **[Pas de deep link recovery]** `detectSessionInUrl: false` reste actif. Le template doit exposer
+  `{{ .Token }}` ; aucune session n'est injectée depuis un lien entrant.
+
+### 🟡 RISQUES À TRAITER / VALIDER AVANT PRODUCTION
+
+- **[Rate-limit]** Supabase documente pour `/recover` une fenêtre personnalisable de 60 secondes
+  par défaut. La décision Cloudbreak est de régler **Authentication → Rate Limits → Password reset
+  request** à 30 secondes maximum, en cohérence avec le cooldown initial et les cooldowns de renvoi
+  de l'app. Cette protection UX se contourne avec un client modifié ou un nouvel appareil : tester
+  la limite serveur, surveiller les abus et évaluer un CAPTCHA.
+- **[Anti-énumération côté fournisseur]** La copie mobile est neutre, mais il reste à mesurer les
+  réponses et timings Supabase pour adresses connues/inconnues. Les journaux opérateur peuvent
+  distinguer la livraison, mais ne doivent pas exposer d'OTP ni être accessibles au client.
+- **[Session recovery]** `verifyOtp` établit et persiste une session authentifiée avant
+  `updateUser({ password })`. Si l'écriture du mot de passe ou le provisioning échoue, la session
+  peut déjà exister dans le Keychain tandis que l'écran reste ouvert. Tester interruption,
+  redémarrage et retry ; confirmer les droits RLS/backend de cette session et décider si un échec
+  terminal doit forcer une déconnexion avant la release.
+- **[Template et locale]** Configurer dans le Dashboard Supabase le template **Reset Password**
+  avec `{{ .Token }}`, variantes FR/EN via `.Data.locale` et branche française par défaut. Cette
+  valeur vient des `user_metadata` du compte destinataire : la locale courante du client pré-auth
+  ne garantit pas la langue du message. Les preuves exigent des comptes contrôlés préconfigurés
+  `fr`, `en`, puis absent/invalide pour le fallback FR. Une correspondance exacte avec la locale
+  pré-auth demanderait plus tard un mécanisme d'e-mail transactionnel dédié.
+- **[Politique mot de passe]** (mise à jour 2026-09-11) L'app ne bloque plus que les valeurs sous
+  **six** caractères — le blocage client sur les 4 critères de force (majuscule+minuscule, chiffre,
+  caractère spécial) a été retiré ; la jauge de force (`passwordStrength`) reste affichée mais est
+  purement informative, sans conséquence sur le submit. Le plancher de 6 caractères est aligné sur
+  le minimum dur de Supabase Auth (non configurable en dessous) : Supabase reste l'autorité finale.
+  Vérifier que sa politique de complexité (Dashboard → Authentication → Policies) et les messages
+  d'erreur retournés correspondent à la copie produit, sans relâcher la règle côté fournisseur.
+
+### Verdict
+
+CODE MOBILE PRÊT POUR VALIDATION RÉELLE — aucun secret ajouté et aucune surface backend
+Cloudbreak créée. Le merge production reste conditionné par le template hébergé, les tests de
+livraison/anti-énumération, les limites Supabase et le comportement d'une session recovery
+interrompue.
 
 ---
 

@@ -11,4 +11,12 @@ describe('locale en', () => {
     expect(en.score.label.none).toBe('No clouds');
     expect(en.score.context.none.low_cloud_cover).toContain('No clouds');
   });
+
+  it('expose the reset namespace with critical labels', () => {
+    expect(en.reset.requestTitle).toBe('Reset your password');
+    expect(en.reset.send).toBe('Send code');
+    expect(en.reset.resendWait).toBe('Resend in {{count}}s');
+    expect(en.reset.errorPassword).toBe('Use at least 8 characters, including uppercase, lowercase, a number, and a symbol.');
+    expect(en.reset.errorRateLimit).toBe('Too many requests. Try again in a few minutes.');
+  });
 });

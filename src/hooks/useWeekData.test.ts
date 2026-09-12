@@ -138,7 +138,7 @@ describe('useWeekData', () => {
     });
   });
 
-  it('lit le cache valide et applique le tie-breaker du cache hit', async () => {
+  it('garde le cache valide comme source autoritaire pendant son TTL quand l’appareil est connecté', async () => {
     const today = '2026-03-24';
     mockAsyncStorage.getItem.mockResolvedValueOnce(
       JSON.stringify({
@@ -151,12 +151,12 @@ describe('useWeekData', () => {
         cachedAt: Date.now(),
       }),
     );
-
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.data).not.toBeNull();
     expect(result.current.data!.bestByDate[today].hour).toBe(6);
+    expect(result.current.fromCache).toBe(true);
+    expect(result.current.isOffline).toBe(false);
     expect(mockFetchScore).not.toHaveBeenCalled();
     expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
   });
@@ -176,6 +176,44 @@ describe('useWeekData', () => {
 
     expect(result.current.fromCache).toBe(true);
     expect(result.current.cachedAt).toBe(cachedAt);
+    expect(result.current.isOffline).toBe(false);
+    expect(mockFetchScore).not.toHaveBeenCalled();
+  });
+
+  it('garde le cache visible et expose isOffline sans requête quand l’appareil est déconnecté', async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: { [today]: { 6: MOCK_SCORE } },
+        cachedAt: Date.now(),
+      }),
+    );
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
+
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.data).not.toBeNull();
+    expect(result.current.fromCache).toBe(true);
+    expect(result.current.isOffline).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(mockFetchScore).not.toHaveBeenCalled();
+  });
+
+  it('ne traite pas un état réseau inconnu comme une absence de connexion', async () => {
+    const today = '2026-03-24';
+    mockAsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify({
+        byDate: { [today]: { 6: MOCK_SCORE } },
+        cachedAt: Date.now(),
+      }),
+    );
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: null } as never);
+    const { result } = renderHook(() => useWeekData('peak-1', 'token'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.isOffline).toBe(false);
+    expect(mockFetchScore).not.toHaveBeenCalled();
   });
 
   it('expose fromCache=false et cachedAt=null après un fetch réseau frais', async () => {
@@ -196,7 +234,6 @@ describe('useWeekData', () => {
         cachedAt: Date.now(),
       }),
     );
-
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -228,6 +265,7 @@ describe('useWeekData', () => {
         cachedAt: Date.now(),
       }),
     );
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
 
     const { result, rerender } = renderHook(
       (({ peakId, token }: WeekDataHookProps) => useWeekData(peakId, token)) as (
@@ -246,8 +284,8 @@ describe('useWeekData', () => {
     mockAsyncStorage.getItem.mockResolvedValueOnce(null);
     mockFetchScore.mockImplementationOnce(() => new Promise<never>(() => undefined));
     typedRerender({ peakId: 'peak-1', token: 'token-2' });
+    await waitFor(() => expect(typedResult.current.loading).toBe(true));
     expect(typedResult.current.data).not.toBeNull();
-    expect(typedResult.current.loading).toBe(true);
   });
 
   it('refetch si le cache est stale même quand la journée existe', async () => {
@@ -262,7 +300,6 @@ describe('useWeekData', () => {
         cachedAt: Date.now() - (3 * 60 * 60 * 1000 + 60 * 1000),
       }),
     );
-
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -282,7 +319,6 @@ describe('useWeekData', () => {
         cachedAt: Date.now(),
       }),
     );
-
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -388,6 +424,7 @@ describe('useWeekData', () => {
         cachedAt: Date.now(),
       }),
     );
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
 
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -486,6 +523,7 @@ describe('useWeekData', () => {
         cachedAt: Date.now(),
       }),
     );
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
 
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -509,6 +547,7 @@ describe('useWeekData', () => {
         cachedAt: Date.now(),
       }),
     );
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
 
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -583,6 +622,7 @@ describe('useWeekData', () => {
         cachedAt: Date.now(),
       }),
     );
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
 
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -606,6 +646,7 @@ describe('useWeekData', () => {
         cachedAt,
       }),
     );
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
 
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -631,6 +672,7 @@ describe('useWeekData', () => {
         cachedAt,
       }),
     );
+    mockNetInfoFetch.mockResolvedValueOnce({ isConnected: false } as never);
 
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -687,6 +729,7 @@ describe('useWeekData', () => {
         cachedAt: Date.now(),
       }),
     );
+    mockNetInfoFetch.mockResolvedValue({ isConnected: false } as never);
 
     const { result } = renderHook(() => useWeekData('peak-1', 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));

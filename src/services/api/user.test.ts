@@ -4,6 +4,10 @@ import {
   fetchUserSubscription,
   updateNotificationPreferences,
   updatePushToken,
+  provisionUser,
+  updateUserSurvey,
+  fetchMe,
+  updateUserPreferences,
 } from '@/services/api/user';
 import { apiFetch } from '@/services/fetchService';
 import { MOCK_SUBSCRIPTION } from '@/services/mockData/user';
@@ -133,6 +137,76 @@ describe('deleteAccount', () => {
 
     expect(consoleSpy).toHaveBeenCalledWith('[api/user] MOCK deleteAccount');
     consoleSpy.mockRestore();
+  });
+});
+
+describe('provisionUser', () => {
+  it('appelle POST /api/v1/user/provision avec le token', async () => {
+    const profile = { supabase_user_id: 'u1', auth_provider: 'email' };
+    mockApiFetch.mockResolvedValueOnce(profile);
+
+    await expect(provisionUser(TOKEN)).resolves.toEqual(profile);
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/v1/user/provision', TOKEN, undefined, { method: 'POST' },
+    );
+  });
+});
+
+describe('updateUserSurvey', () => {
+  it('appelle PATCH /api/v1/user/survey avec le payload backend', async () => {
+    const profile = { supabase_user_id: 'u1', auth_provider: 'email' };
+    const survey = {
+      acquisitionSource: 'app_store' as const,
+      practice: 'hiker' as const,
+      newsletterOptIn: true,
+    };
+    mockApiFetch.mockResolvedValueOnce(profile);
+
+    await expect(updateUserSurvey(TOKEN, survey)).resolves.toEqual(profile);
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/v1/user/survey', TOKEN, undefined, {
+        method: 'PATCH',
+        body: {
+          acquisition_source: 'app_store',
+          practice: 'hiker',
+          newsletter_opt_in: true,
+        },
+      },
+    );
+  });
+
+  it('encode un skip sans inventer de réponses', async () => {
+    mockApiFetch.mockResolvedValueOnce({});
+    await updateUserSurvey(TOKEN, { newsletterOptIn: false, skipped: true });
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/v1/user/survey', TOKEN, undefined, {
+        method: 'PATCH', body: { skipped: true },
+      },
+    );
+  });
+});
+
+describe('fetchMe', () => {
+  it('appelle GET /api/v1/user/me avec le token', async () => {
+    const me = { id: 'u1', is_anonymous: false, provisioned: true, newsletter_opt_in: true };
+    mockApiFetch.mockResolvedValueOnce(me);
+
+    await expect(fetchMe(TOKEN)).resolves.toEqual(me);
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/user/me', TOKEN);
+  });
+});
+
+describe('updateUserPreferences', () => {
+  it('appelle PATCH /api/v1/user/preferences avec newsletter_opt_in', async () => {
+    const profile = { supabase_user_id: 'u1', auth_provider: 'email', newsletter_opt_in: false };
+    mockApiFetch.mockResolvedValueOnce(profile);
+
+    await expect(updateUserPreferences(TOKEN, false)).resolves.toEqual(profile);
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/v1/user/preferences', TOKEN, undefined, {
+        method: 'PATCH', body: { newsletter_opt_in: false },
+      },
+    );
   });
 });
 

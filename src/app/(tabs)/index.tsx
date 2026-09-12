@@ -3,8 +3,8 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
@@ -23,10 +23,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { HomeSkeleton } from '@/components/home-skeleton';
 import { OfflineBanner } from '@/components/offline-banner';
 import { FavoritesGrid } from '@/components/favorites-grid';
+import { useAccountGate } from '@/contexts/AccountGateContext';
 import { ValidationBottomSheet } from '@/components/validation';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
-import { useTerrainValidation } from '@/hooks/useTerrainValidation';
 import { localizeScoreResponse } from '@/services/mockData/score';
+import { useTerrainValidation } from '@/hooks/useTerrainValidation';
 import { useTerrainAutoDetect } from '@/hooks/useTerrainAutoDetect';
 import { ConditionsSection } from '@/components/conditions-section';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
@@ -63,18 +64,21 @@ export async function shareForecast(
 export default function HomeScreen() {
   useLanguage();
   const router = useRouter();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
-  const { session, locationPermission } = useAuth();
+  const { session, isAnonymous, locationPermission } = useAuth();
   const { colors, typography, spacing } = useTheme();
   const [quotaDismissed, setQuotaDismissed] = useState(false);
   const [lastSuccessfulPeak, setLastSuccessfulPeak] = useState<Peak | null>(null);
   const { selectedPeak, setSelectedPeak, selectedDate, selectedHour, setSelectedDate, setSelectedHour } = useSelectedPeak();
 
   const token = session?.access_token ?? null;
-  const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded, fromCache, cachedAt, refresh } = useWeekData(selectedPeak?.id ?? null, token);
+  const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded, fromCache, isOffline, cachedAt, refresh } = useWeekData(selectedPeak?.id ?? null, token);
 
   const { showPaywall } = usePaywall();
+  const { requireAccount } = useAccountGate();
   const userClickedHourRef = useRef(false);
+  const quotaEpisodeHandledRef = useRef(false);
 
   // Sommet différent sélectionné → la carte quota doit pouvoir se réafficher pour lui aussi
   useEffect(() => {
@@ -82,8 +86,18 @@ export default function HomeScreen() {
   }, [selectedPeak?.id]);
 
   useEffect(() => {
-    if (quotaExceeded) showPaywall('quota');
-  }, [quotaExceeded, showPaywall]);
+    if (!quotaExceeded) {
+      quotaEpisodeHandledRef.current = false;
+      return;
+    }
+    if (!isFocused || quotaEpisodeHandledRef.current) return;
+
+    // Consommer l'épisode avant la navigation : le changement de segments modifie
+    // les callbacks AccountGate, mais ne doit pas rouvrir le parcours compte.
+    quotaEpisodeHandledRef.current = true;
+    if (isAnonymous || session?.user?.is_anonymous) requireAccount({ kind: 'quota', retry: refresh });
+    else showPaywall('quota');
+  }, [quotaExceeded, refresh, requireAccount, isAnonymous, isFocused, session?.user?.is_anonymous, showPaywall]);
 
   useEffect(() => {
     if (quotaExceeded && selectedPeak) {
@@ -199,9 +213,21 @@ export default function HomeScreen() {
     /* istanbul ignore next - aucun sommet n'affiche ce bouton */
     if (isFavorite(peakId)) {
       removeFavorite(peakId);
-    } else {
-      addFavorite(peakId);
+      return;
     }
+    if (isAnonymous || session?.user?.is_anonymous) {
+      requireAccount({ kind: 'favorite', peakId });
+      return;
+    }
+    addFavorite(peakId);
+  }
+
+  function handleQuotaAction() {
+    if (isAnonymous || session?.user?.is_anonymous) {
+      requireAccount({ kind: 'quota', retry: refresh });
+      return;
+    }
+    showPaywall('quota');
   }
 
   function handleDismissQuota() {
@@ -252,7 +278,7 @@ export default function HomeScreen() {
     if (displayScore) {
       return (
         <View style={[styles.forecastStack, isRefreshing && { opacity: 0.7 }]}>
-          {fromCache && cachedAt ? <OfflineBanner cachedAt={cachedAt} /> : null}
+          {isOffline && cachedAt ? <OfflineBanner cachedAt={cachedAt} /> : null}
           <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
           <ScoreCard
             score={displayScore}
@@ -262,18 +288,6 @@ export default function HomeScreen() {
             onSelectHour={(h) => { userClickedHourRef.current = true; setSelectedHour(h); }}
             onValidateTerrain={handleValidateTerrain}
           />
-          {quotaExceeded ? (
-            <TouchableOpacity
-              testID="quota-counter-badge"
-              style={[styles.quotaCounterBadge, { borderColor: colors.border, backgroundColor: colors.surface }]}
-              onPress={() => showPaywall('home_badge')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.quotaCounterText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs }]}>
-                {i18n.t('paywall.quotaCounterNone')}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
           <WeekStrip selectedDate={selectedDate} onSelectDate={handleSelectDate} dayScores={weekData?.bestByDate} />
           <ConditionsSection score={displayScore} />
           <FavoritesGrid favorites={favorites} onSelectPeak={handleSelectFavoritePeak} />
@@ -292,7 +306,7 @@ export default function HomeScreen() {
                   icon="lock-closed-outline"
                   title={i18n.t('paywall.quotaTitle')}
                   message={i18n.t('home.quotaUpgrade')}
-                  action={{ label: i18n.t('home.discoverPro'), onPress: () => showPaywall('quota') }}
+                  action={{ label: i18n.t('home.discoverPro'), onPress: handleQuotaAction }}
                   actionTestID="quota-open-paywall-button"
                   secondaryAction={{ label: i18n.t('home.notNow'), onPress: handleDismissQuota }}
                 />
