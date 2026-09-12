@@ -195,3 +195,15 @@ SECURE — aucune donnée sensible supplémentaire exposée par la story 2.3. La
 
 ### Verdict
 SECURE — les coordonnées GPS réelles introduites par cette story ne quittent l'appareil que sur action explicite de l'utilisateur (réponse Oui/Non dans le sheet), ne sont jamais persistées localement, et le watcher d'auto-détection est strictement scopé au foreground avec un sommet actif. Réévaluer côté backend, comme noté en story 2.3, si une politique de rétention/anonymisation de `terrain_validations.lat/lng` est nécessaire avant release 1.0.0.
+
+---
+
+## 2026-09-12 Durcissement post-merge auth
+
+### 🔵 INFO
+- **[src/services/fetchService.ts]** Le timeout HTTP (`Promise.race` entre `fetch()` et un timer 10s) n'abortait pas réellement la requête sous-jacente si le timer gagnait la course — le `fetch()` continuait en arrière-plan. Corrigé : un `AbortController` interne est créé à chaque appel, écoute un `signal` externe optionnel (annulation propagée), et `controller.abort()` est appelé dans le callback du timeout avant de rejeter. Le listener externe est retiré (`removeEventListener`) dans le `finally` pour éviter toute fuite si un signal est réutilisé.
+- **[src/services/supabaseClient.ts]** Le client Supabase lisait `Constants.expoConfig?.extra?.{supabaseUrl,supabaseKey}` sans vérification (`as string`). Un profil de build EAS mal configuré aurait échoué de façon opaque plus tard (dans `createClient()` ou au premier appel réseau). Corrigé : `throw` explicite au chargement du module si l'une des deux valeurs est absente, avec un message pointant vers la cause probable (profil EAS).
+- **[src/app/verify.tsx, src/app/account.tsx, src/contexts/AuthContext.tsx]** Si `signIn()`/`signInWithApple()`/`completeEmailUpgrade()` réussissait côté Supabase mais que le provisioning backend échouait, l'utilisateur était déjà authentifié mais pas provisionné en DB — `account.tsx` affichait un message générique sans retry. Ajout d'un état `provisioningError` distinct + bouton retry sur les deux écrans (login e-mail, Apple, création e-mail), réutilisant `AuthContext.retryProvisioning()` (renommé depuis `retryEmailUpgradeProvisioning`, la fonction étant déjà générique). Détection factorisée dans `isProvisioningError()` exportée par `AuthContext.tsx`, utilisée identiquement par les deux écrans. `verify.tsx` redirige désormais vers `/account` si l'écran est ouvert sans email/password en mémoire (ex : app tuée en plein flow).
+
+### Verdict
+SECURE — aucune nouvelle surface de données exposée. Ces corrections sont de la robustesse réseau/UX et une garde de configuration, pas des changements de flux d'authentification. Le retry provisioning ne contourne aucune vérification serveur : il rappelle exactement le même provisioning que le chemin nominal.
