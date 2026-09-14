@@ -121,6 +121,18 @@ EXPO_PUBLIC_API_URL=http://localhost:8000
 
 Avec `MOCK_API=true`, tous les appels réseau sont remplacés par des données statiques. Les fonctions mock sont définies dans `src/services/api/` (score.ts, peaks.ts, user.ts, validations.ts) et retournent les données de `src/services/mockData/` : sommets, scores, user, abonnement. Changer la variable et relancer Metro pour basculer.
 
+## Outils de dev (logs + bloc profil)
+
+Désactivés par défaut, même sur un build `__DEV__` — un testeur externe sur un build dev ne les voit pas sans ces variables.
+
+```bash
+# .env.local
+EXPO_PUBLIC_DEBUG=true       # active les logs console.debug (requêtes réseau, cache, AsyncState)
+EXPO_PUBLIC_DEV_TOOLS=true   # affiche le bloc "DEV ·" du profil (sandbox CloudLayerViz, reset sommet, rejouer onboarding)
+```
+
+Contrôlé par `DEBUG` et `DEV_TOOLS_ENABLED` dans `src/constants/devConfig.ts`.
+
 ---
 
 ## Design system

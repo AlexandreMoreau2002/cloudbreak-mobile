@@ -7,10 +7,11 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { usePaywall } from '@/contexts/PaywallContext';
-import { useAccountGate } from '@/contexts/AccountGateContext';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { DEV_TOOLS_ENABLED } from '@/constants/devConfig';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useAccountGate } from '@/contexts/AccountGateContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNewsletterConsent } from '@/hooks/useNewsletterConsent';
@@ -214,7 +215,7 @@ export default function ProfileScreen() {
         loading={deleteLoading}
       />
 
-      {__DEV__ && (
+      {DEV_TOOLS_ENABLED && (
         <>
           <TouchableOpacity
             style={[styles.devButton, { borderColor: colors.border }]}

@@ -160,12 +160,16 @@ Clés définies dans src/locales/fr.ts et src/locales/en.ts — ajouter dans les
 
 ```typescript
 // src/constants/devConfig.ts
-export const DEBUG = __DEV__ && true;
+export const DEBUG = __DEV__ && process.env.EXPO_PUBLIC_DEBUG === 'true';
 
 if (DEBUG) console.debug('[useScore] state', { peakId, state });
 if (DEBUG) console.debug('[apiFetch] request', { url, params });
 if (DEBUG) console.debug('[cache] result', { key, hit, age });
 ```
+
+`DEBUG` nécessite `__DEV__` **ET** `EXPO_PUBLIC_DEBUG=true` en `.env` — un build dev sans cette
+variable reste silencieux. Idem pour le bloc "DEV ·" du profil, gated par
+`DEV_TOOLS_ENABLED` (`EXPO_PUBLIC_DEV_TOOLS=true`) plutôt que `__DEV__` seul.
 
 ---
 

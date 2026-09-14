@@ -24,6 +24,8 @@ jest.mock('@/utils/i18n', () => ({
 
 jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
 
+jest.mock('@/constants/devConfig', () => ({ DEV_TOOLS_ENABLED: true }));
+
 const mockSignOut = jest.fn();
 const mockSignOutToAnonymous = jest.fn().mockResolvedValue(null);
 const mockDeleteAccount = jest.fn();
