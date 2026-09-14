@@ -5,6 +5,10 @@ import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
 import { AuthProvider, isProvisioningError, isRateLimitError, useAuth } from '@/contexts/AuthContext';
 import { deleteAccount, provisionUser, updateUserSurvey } from '@/services/api/user';
 
+// DEBUG dépend maintenant de EXPO_PUBLIC_DEBUG (pas seulement __DEV__) — ce fichier teste
+// le contenu des logs console.debug, donc on force DEBUG à true indépendamment de l'env de test.
+jest.mock('@/constants/devConfig', () => ({ DEBUG: true }));
+
 const mockUnsubscribe = jest.fn();
 const mockGetSession = jest.fn().mockResolvedValue({ data: { session: null } });
 const mockGetUser = jest.fn().mockResolvedValue({ data: { user: { id: 'validated-user' } }, error: null });
