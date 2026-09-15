@@ -175,6 +175,10 @@ export default {
     location: 'Localisation',
     locationAllowed: 'Autorisée',
     locationDenied: 'Non autorisée',
+    notifications: 'Notifications',
+    notificationsOn: 'Activées',
+    notificationsOff: 'Désactivées',
+    defaultPeak: 'Sommet par défaut',
     guest: {
       title: 'Mode invité',
       subtitle: 'Crée un compte pour sauvegarder tes sommets.',

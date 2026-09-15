@@ -175,6 +175,10 @@ export default {
     location: 'Location',
     locationAllowed: 'Allowed',
     locationDenied: 'Not allowed',
+    notifications: 'Notifications',
+    notificationsOn: 'On',
+    notificationsOff: 'Off',
+    defaultPeak: 'Default summit',
     guest: {
       title: 'Guest mode',
       subtitle: 'Create an account to save your summits.',

@@ -1,22 +1,24 @@
+import Constants from 'expo-constants';
+import { useCallback, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
 import i18n from '@/utils/i18n';
 import { track } from '@/services/analytics';
-import { useCallback, useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { usePaywall } from '@/contexts/PaywallContext';
-import { useRouter, useFocusEffect } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DEV_TOOLS_ENABLED } from '@/constants/devConfig';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNewsletterConsent } from '@/hooks/useNewsletterConsent';
 import { useLocationSettingsLink } from '@/hooks/useLocationSettingsLink';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import { DeleteAccountModal, GuestAccountCard, ProBanner, SettingsRow, UserCard } from '@/components/profile';
 
 export default function ProfileScreen() {
@@ -25,13 +27,14 @@ export default function ProfileScreen() {
   const { showPaywall } = usePaywall();
   const { openAccount } = useAccountGate();
   const { session, signOutToAnonymous, deleteAccount, locationPermission, refreshLocationPermission } = useAuth();
-  const { setSelectedPeak } = useSelectedPeak();
+  const { selectedPeak, setSelectedPeak } = useSelectedPeak();
   const { resetOnboarding } = useOnboarding();
   const { locale, toggleLocale } = useLanguage();
   const { openLegalLink } = useLegalLinks();
   const { openLocationSettings } = useLocationSettingsLink();
   const { colors, typography, scheme, toggleScheme } = useTheme();
   const { optedIn: newsletterOptIn, state: newsletterState, toggle: toggleNewsletter } = useNewsletterConsent();
+  const { state: notifState } = useNotificationPreferences();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -85,6 +88,10 @@ export default function ProfileScreen() {
 
   const email = session?.user?.email ?? '';
   const isAnonymous = session?.user?.is_anonymous === true;
+  const notifSummaryOn =
+    notifState.status === 'success' &&
+    notifState.data !== undefined &&
+    (notifState.data.notif_favorites || notifState.data.notif_regional || notifState.data.notif_terrain);
 
   return (
     <ScrollView
@@ -131,10 +138,40 @@ export default function ProfileScreen() {
           onPress={handleToggleLanguage}
         />
         <SettingsRow
-          icon="location-outline"
+          icon="notifications-outline"
+          label={i18n.t('profile.notifications')}
+          value={
+            notifSummaryOn
+              ? i18n.t('profile.notificationsOn')
+              : i18n.t('profile.notificationsOff')
+          }
+          onPress={() => router.push('/notifications' as import('expo-router').Href)}
+        />
+        <SettingsRow
+          icon="navigate-outline"
           label={i18n.t('profile.location')}
-          value={locationPermission === 'granted' ? i18n.t('profile.locationEnabled') : i18n.t('profile.locationDisabled')}
+          value={locationPermission === 'granted' ? i18n.t('profile.locationAllowed') : i18n.t('profile.locationDenied')}
           onPress={openLocationSettings}
+        />
+        {!isAnonymous && (
+          <SettingsRow
+            icon="mail-outline"
+            label={i18n.t('profile.newsletter')}
+            value={
+              newsletterState.status === 'loading'
+                ? i18n.t('common.loading')
+                : newsletterOptIn
+                  ? i18n.t('profile.newsletterOn')
+                  : i18n.t('profile.newsletterOff')
+            }
+            onPress={handleToggleNewsletter}
+          />
+        )}
+        <SettingsRow
+          icon="pin-outline"
+          label={i18n.t('profile.defaultPeak')}
+          value={selectedPeak?.name}
+          onPress={() => {}}
           isLast
         />
       </View>
@@ -168,40 +205,29 @@ export default function ProfileScreen() {
           </Text>
           <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <SettingsRow
-              icon="mail-outline"
-              label={i18n.t('profile.newsletter')}
-              value={
-                newsletterState.status === 'loading'
-                  ? i18n.t('common.loading')
-                  : newsletterOptIn
-                    ? i18n.t('profile.newsletterOn')
-                    : i18n.t('profile.newsletterOff')
-              }
-              onPress={handleToggleNewsletter}
+              icon="log-out-outline"
+              label={i18n.t('profile.signOut')}
+              onPress={() => void handleSignOut()}
+              tone="danger"
               isLast
             />
           </View>
+          {signOutError ? (
+            <View style={styles.signOutErrorBox}>
+              <Text testID="profile-signout-error" style={styles.signOutError}>{i18n.t('profile.signOutError')}</Text>
+              <TouchableOpacity testID="profile-signout-retry" onPress={() => void handleSignOut()}>
+                <Text style={[styles.signOutRetry, { color: colors.accent }]}>{i18n.t('common.retry')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <TouchableOpacity style={styles.signOutRow} onPress={() => void handleSignOut()} activeOpacity={0.7}>
-              <Ionicons name="log-out-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
-              <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
-                {i18n.t('profile.signOut')}
-              </Text>
-            </TouchableOpacity>
-            {signOutError ? (
-              <View style={styles.signOutErrorBox}>
-                <Text testID="profile-signout-error" style={styles.signOutError}>{i18n.t('profile.signOutError')}</Text>
-                <TouchableOpacity testID="profile-signout-retry" onPress={() => void handleSignOut()}>
-                  <Text style={[styles.signOutRetry, { color: colors.accent }]}>{i18n.t('common.retry')}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-            <TouchableOpacity style={styles.signOutRow} onPress={handleOpenDeleteModal} activeOpacity={0.7}>
-              <Ionicons name="trash-outline" size={18} color="#C25C4A" style={styles.signOutIcon} />
-              <Text style={[styles.signOutLabel, { fontFamily: typography.fontFamily.regular }]}>
-                {i18n.t('profile.deleteAccount')}
-              </Text>
-            </TouchableOpacity>
+            <SettingsRow
+              icon="trash-outline"
+              label={i18n.t('profile.deleteAccount')}
+              onPress={handleOpenDeleteModal}
+              tone="danger"
+              isLast
+            />
           </View>
         </>
       )}
@@ -214,6 +240,10 @@ export default function ProfileScreen() {
         error={deleteError}
         loading={deleteLoading}
       />
+
+      <Text style={[styles.footer, { color: colors.textSecondary }]}>
+        {`Cloudbreak v${Constants.expoConfig?.version ?? '1.0.0'}`}
+      </Text>
 
       {DEV_TOOLS_ENABLED && (
         <>
@@ -262,12 +292,11 @@ const styles = StyleSheet.create({
 
   group: { borderWidth: 1, borderRadius: 16, overflow: 'hidden' },
 
-  signOutRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  signOutIcon: { width: 20, textAlign: 'center' },
-  signOutLabel: { flex: 1, fontSize: 15, lineHeight: Math.round(15 * 1.5), color: '#C25C4A' },
   signOutErrorBox: { paddingHorizontal: 16, paddingBottom: 14, gap: 4 },
   signOutError: { color: '#C25C4A', fontSize: 13 },
   signOutRetry: { fontSize: 13, fontWeight: '600' },
+
+  footer: { textAlign: 'center', fontSize: 11, letterSpacing: 1, marginTop: 12 },
 
   devButton: { borderWidth: 1, borderRadius: 12, borderStyle: 'dashed', padding: 12, alignItems: 'center', marginTop: 8 },
   devText: { fontSize: 12, lineHeight: Math.round(12 * 1.5) },
