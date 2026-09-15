@@ -88,7 +88,10 @@ export async function updateNotificationPreferences(
     await _delay(100);
     return;
   }
-  await apiFetch<void>('/api/v1/user/notifications', token);
+  await apiFetch<void>('/api/v1/user/notifications', token, undefined, {
+    method: 'PATCH',
+    body: prefs,
+  });
 }
 
 export async function updatePushToken(token: string, push_token: string): Promise<void> {
