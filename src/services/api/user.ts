@@ -54,6 +54,9 @@ export interface UserMe {
   survey_completed_at?: string | null;
   survey_skipped_at?: string | null;
   newsletter_opt_in?: boolean | null;
+  notif_favorites?: boolean;
+  notif_regional?: boolean;
+  notif_terrain?: boolean;
 }
 
 export async function fetchMe(token: string): Promise<UserMe> {
