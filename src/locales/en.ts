@@ -173,8 +173,8 @@ export default {
     languageFrLabel: 'Français',
     languageEnLabel: 'English',
     location: 'Location',
-    locationEnabled: 'Enabled',
-    locationDisabled: 'Disabled',
+    locationAllowed: 'Allowed',
+    locationDenied: 'Not allowed',
     guest: {
       title: 'Guest mode',
       subtitle: 'Create an account to save your summits.',
@@ -202,6 +202,16 @@ export default {
     support: 'Support',
     errorTitle: 'Unable to open link',
     errorMessage: 'Please try again later.',
+  },
+  notifications: {
+    title: 'Notifications',
+    favorites: 'Favourite alerts',
+    regional: 'Regional alerts',
+    terrain: 'GPS field validation',
+    on: 'On',
+    off: 'Off',
+    unavailable: 'Unavailable',
+    gpsLockedHint: 'GPS field validation needs location access, disabled in Profile → Location.',
   },
   paywall: {
     trialBadge: '7-day free trial',

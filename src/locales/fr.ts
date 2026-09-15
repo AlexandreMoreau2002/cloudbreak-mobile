@@ -173,8 +173,8 @@ export default {
     languageFrLabel: 'Français',
     languageEnLabel: 'English',
     location: 'Localisation',
-    locationEnabled: 'Activée',
-    locationDisabled: 'Désactivée',
+    locationAllowed: 'Autorisée',
+    locationDenied: 'Non autorisée',
     guest: {
       title: 'Mode invité',
       subtitle: 'Crée un compte pour sauvegarder tes sommets.',
@@ -202,6 +202,16 @@ export default {
     support: 'Support',
     errorTitle: 'Impossible d\'ouvrir le lien',
     errorMessage: 'Réessayez plus tard.',
+  },
+  notifications: {
+    title: 'Notifications',
+    favorites: 'Alertes favoris',
+    regional: 'Alertes régionales',
+    terrain: 'Validation terrain GPS',
+    on: 'Activé',
+    off: 'Désactivé',
+    unavailable: 'Indisponible',
+    gpsLockedHint: 'La validation terrain GPS demande l’accès à la localisation, désactivé dans Profil → Localisation.',
   },
   paywall: {
     trialBadge: 'Essai gratuit 7 jours',
