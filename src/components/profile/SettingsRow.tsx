@@ -8,25 +8,48 @@ type Props = {
   value?: string;
   onPress: () => void;
   isLast?: boolean;
+  tone?: 'default' | 'danger';
+  disabled?: boolean;
 };
 
-export function SettingsRow({ icon, label, value, onPress, isLast }: Props) {
+export function SettingsRow({ icon, label, value, onPress, isLast, tone = 'default', disabled = false }: Props) {
   const { colors, typography } = useTheme();
+  const danger = tone === 'danger';
+  const fg = danger ? '#C25C4A' : colors.textPrimary;
 
   return (
     <TouchableOpacity
-      style={[styles.row, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
-      onPress={onPress}
+      style={[
+        styles.row,
+        !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border },
+        disabled && styles.disabled,
+      ]}
+      onPress={disabled ? undefined : onPress}
       activeOpacity={0.7}
+      disabled={disabled}
     >
-      <Ionicons name={icon} size={18} color={colors.textSecondary} style={styles.icon} />
-      <Text style={[styles.label, { color: colors.textPrimary, fontFamily: typography.fontFamily.regular }]}>
+      <Ionicons
+        name={icon}
+        size={18}
+        color={danger ? fg : colors.textSecondary}
+        style={styles.icon}
+      />
+      <Text style={[styles.label, { color: fg, fontFamily: typography.fontFamily.regular }]}>
         {label}
       </Text>
-      <Text style={[styles.value, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
-        {value}
-      </Text>
-      <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+      {value && (
+        <Text style={[styles.value, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+          {value}
+        </Text>
+      )}
+      {!danger && (
+        <Ionicons
+          testID="settings-row-chevron"
+          name="chevron-forward"
+          size={16}
+          color={colors.textSecondary}
+        />
+      )}
     </TouchableOpacity>
   );
 }
@@ -39,6 +62,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 12,
   },
+  disabled: { opacity: 0.45 },
   icon: { width: 20, textAlign: 'center' },
   label: { flex: 1, fontSize: 15, lineHeight: Math.round(15 * 1.5) },
   value: { fontSize: 15, lineHeight: Math.round(15 * 1.5) },
