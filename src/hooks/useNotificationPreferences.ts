@@ -9,6 +9,7 @@
  *   const { state, toggle } = useNotificationPreferences();
  */
 import { useCallback, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMe, updateNotificationPreferences } from '@/services/api/user';
@@ -16,9 +17,44 @@ import type { AsyncState, NotificationPreferences } from '@/services/mockData/ty
 
 type PrefKey = keyof NotificationPreferences;
 
+const CACHE_VERSION = 'v1';
+const CACHE_TTL_MS = 3 * 60 * 60 * 1000;
+
+interface NotificationPreferencesCachePayload {
+  data: NotificationPreferences;
+  cachedAt: number;
+}
+
+function notificationPreferencesCacheKey(userId: string): string {
+  return `cache:notification-preferences:${CACHE_VERSION}:${userId}`;
+}
+
+async function readCache(userId: string): Promise<NotificationPreferences | null> {
+  try {
+    const raw = await AsyncStorage.getItem(notificationPreferencesCacheKey(userId));
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as NotificationPreferencesCachePayload;
+    return Date.now() - cached.cachedAt < CACHE_TTL_MS ? cached.data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache(userId: string, data: NotificationPreferences): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      notificationPreferencesCacheKey(userId),
+      JSON.stringify({ data, cachedAt: Date.now() } satisfies NotificationPreferencesCachePayload),
+    );
+  } catch {
+    // Cache write failure — non-fatal
+  }
+}
+
 export function useNotificationPreferences() {
   const { session, isAnonymous } = useAuth();
   const token = session?.access_token ?? null;
+  const userId = session?.user?.id ?? null;
   const anonymous = isAnonymous || session?.user?.is_anonymous === true;
   const [state, setState] = useState<AsyncState<NotificationPreferences>>({ status: 'idle' });
 
@@ -30,21 +66,25 @@ export function useNotificationPreferences() {
     if (DEBUG) console.debug('[useNotificationPreferences] load');
     setState({ status: 'loading' });
     try {
+      const cached = userId ? await readCache(userId) : null;
+      if (cached) {
+        setState({ status: 'success', data: cached });
+        return;
+      }
       const me = await fetchMe(token);
-      setState({
-        status: 'success',
-        data: {
-          notif_favorites: me.notif_favorites ?? true,
-          notif_regional: me.notif_regional ?? true,
-          notif_terrain: me.notif_terrain ?? true,
-        },
-      });
+      const data = {
+        notif_favorites: me.notif_favorites ?? true,
+        notif_regional: me.notif_regional ?? true,
+        notif_terrain: me.notif_terrain ?? true,
+      };
+      setState({ status: 'success', data });
+      if (userId) await writeCache(userId, data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur inconnue';
       if (DEBUG) console.debug('[useNotificationPreferences] load error', { message });
       setState({ status: 'error', error: message });
     }
-  }, [anonymous, token]);
+  }, [anonymous, token, userId]);
 
   useEffect(() => {
     void load();
@@ -57,15 +97,17 @@ export function useNotificationPreferences() {
       const next = { ...previous, [key]: !previous[key] };
       if (DEBUG) console.debug('[useNotificationPreferences] toggle', { key, value: next[key] });
       setState({ status: 'success', data: next });
+      if (userId) await writeCache(userId, next);
       try {
         await updateNotificationPreferences(token, { [key]: next[key] });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erreur inconnue';
         if (DEBUG) console.debug('[useNotificationPreferences] toggle error', { message });
         setState({ status: 'success', data: previous });
+        if (userId) await writeCache(userId, previous);
       }
     },
-    [state, token],
+    [state, token, userId],
   );
 
   return { state, toggle, refresh: load };
