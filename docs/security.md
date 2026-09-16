@@ -5,6 +5,23 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
 
 ---
 
+## 2026-09-15 Story 2.2 — Préférences de notifications (mobile)
+
+### 🔵 INFO
+
+- **[notifications.tsx]** Aucune donnée sensible affichée ou transmise : les trois préférences
+  sont des booléens et utilisent le même JWT que le reste du parcours compte.
+- **[notifications.tsx]** Le verrouillage GPS lit uniquement `locationPermission`, déjà géré par
+  `AuthContext`. La fonctionnalité n'ajoute aucune lecture ni transmission de position.
+- **[useNotificationPreferences / api/user.ts]** La mise à jour partielle transmet uniquement le
+  champ de préférence modifié via HTTPS ; aucune préférence ni aucun token n'est journalisé.
+
+### Verdict
+
+SECURE.
+
+---
+
 ## 2026-09-11 Story 2-5/2-6/2-8 — Retrait du blocage client sur la force du mot de passe
 
 Commits `0668abb..ac2c21b` — `isPasswordEligible` (4 critères) remplacé par `isPasswordLongEnough`

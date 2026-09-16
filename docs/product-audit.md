@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-09-09_
+_Dernière mise à jour : 2026-09-15_
 
 ---
 
@@ -54,6 +54,8 @@ _Dernière mise à jour : 2026-09-09_
 | Mot de passe oublié — flow OTP in-app (`/reset` → `/reset-confirm`, `resetPasswordForEmail` + `verifyOtp type:'recovery'`) (story 2.7) | 🟡 Code présent, template Dashboard + test réel à valider |
 | Politique mot de passe — plancher 6 caractères (`MIN_PASSWORD_LENGTH`), jauge de force purement informative, plus de blocage sur les 4 critères de complexité (2026-09-11) | ✅ |
 | Durcissement post-merge auth (2026-09-12) — timeout HTTP qui abort réellement (`AbortController`), garde env Supabase (échec explicite si config absente), retry provisioning distinct sur verify/account (login+Apple) | ✅ |
+| Préférences de notifications (Profil → Notifications, 3 toggles indépendants, story 2.2) | ✅ |
+| Profil réaligné sur la maquette du 2026-09-15 (sections, danger rows, footer version) | ✅ |
 
 ## Ce qui n'existe pas encore
 

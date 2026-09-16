@@ -54,6 +54,9 @@ export interface UserMe {
   survey_completed_at?: string | null;
   survey_skipped_at?: string | null;
   newsletter_opt_in?: boolean | null;
+  notif_favorites?: boolean;
+  notif_regional?: boolean;
+  notif_terrain?: boolean;
 }
 
 export async function fetchMe(token: string): Promise<UserMe> {
@@ -88,7 +91,10 @@ export async function updateNotificationPreferences(
     await _delay(100);
     return;
   }
-  await apiFetch<void>('/api/v1/user/notifications', token);
+  await apiFetch<void>('/api/v1/user/notifications', token, undefined, {
+    method: 'PATCH',
+    body: prefs,
+  });
 }
 
 export async function updatePushToken(token: string, push_token: string): Promise<void> {

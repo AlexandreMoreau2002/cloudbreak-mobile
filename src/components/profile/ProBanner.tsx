@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/contexts/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 function MountainDecoration({ color }: { color: string }) {
   return (
@@ -21,29 +22,31 @@ type Props = {
 export function ProBanner({ label, title, subtitle, onPress }: Props) {
   const { colors, typography, scheme } = useTheme();
 
-  const bg = scheme === 'light' ? colors.surface : '#2A2A2A';
   const border = scheme === 'light' ? colors.accent : '#3A3A3A';
   const mountainColor = scheme === 'light' ? 'rgba(178,140,110,0.15)' : 'rgba(178,140,110,0.12)';
 
   return (
-    <TouchableOpacity
-      style={[styles.banner, { backgroundColor: bg, borderColor: border }]}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      <View style={styles.content}>
-        <Text style={[styles.label, { color: colors.accent, fontFamily: typography.fontFamily.semiBold }]}>
-          {label}
-        </Text>
-        <Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold }]}>
-          {title}
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
-          {subtitle}
-        </Text>
-      </View>
-      <MountainDecoration color={mountainColor} />
-      <Ionicons name="arrow-forward" size={18} color={colors.accent} style={styles.arrow} />
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+      <LinearGradient
+        colors={[colors.surface, colors.accentSecondary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.banner, { borderColor: border }]}
+      >
+        <View style={styles.content}>
+          <Text style={[styles.label, { color: colors.accent, fontFamily: typography.fontFamily.semiBold }]}>
+            {label}
+          </Text>
+          <Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold }]}>
+            {title}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+            {subtitle}
+          </Text>
+        </View>
+        <MountainDecoration color={mountainColor} />
+        <Ionicons name="arrow-forward" size={18} color={colors.accent} style={styles.arrow} />
+      </LinearGradient>
     </TouchableOpacity>
   );
 }
@@ -53,9 +56,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 22,
     marginTop: 4,
+    minHeight: 124,
     overflow: 'hidden',
   },
   content: { flex: 1, gap: 4 },

@@ -1,6 +1,7 @@
 import React from 'react';
-import ProfileScreen from '@/app/(tabs)/profile';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+
+import ProfileScreen from '@/app/(tabs)/profile';
 
 const mockPush = jest.fn();
 const mockOpenAccount = jest.fn();
@@ -57,8 +58,12 @@ jest.mock('@/contexts/AccountGateContext', () => ({
 }));
 
 const mockSetSelectedPeak = jest.fn();
+let mockSelectedPeak: { name: string } | null = null;
 jest.mock('@/contexts/SelectedPeakContext', () => ({
-  useSelectedPeak: () => ({ setSelectedPeak: mockSetSelectedPeak }),
+  useSelectedPeak: () => ({
+    selectedPeak: mockSelectedPeak,
+    setSelectedPeak: mockSetSelectedPeak,
+  }),
 }));
 
 const mockResetOnboarding = jest.fn();
@@ -96,6 +101,18 @@ jest.mock('@/hooks/useNewsletterConsent', () => ({
   useNewsletterConsent: () => mockNewsletter,
 }));
 
+let mockNotificationState = {
+  status: 'success' as const,
+  data: {
+    notif_favorites: false,
+    notif_regional: false,
+    notif_terrain: false,
+  },
+};
+jest.mock('@/hooks/useNotificationPreferences', () => ({
+  useNotificationPreferences: () => ({ state: mockNotificationState }),
+}));
+
 let mockScheme = 'light';
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
@@ -124,6 +141,15 @@ describe('ProfileScreen', () => {
     mockSession = { user: { email: 'test@example.com' } };
     mockSignOutToAnonymous.mockResolvedValue(null);
     mockLocationPermission = 'denied';
+    mockSelectedPeak = null;
+    mockNotificationState = {
+      status: 'success',
+      data: {
+        notif_favorites: false,
+        notif_regional: false,
+        notif_terrain: false,
+      },
+    };
     mockNewsletter = {
       optedIn: false,
       state: { status: 'success', data: false },
@@ -227,6 +253,37 @@ describe('ProfileScreen', () => {
     const { getByText } = render(<ProfileScreen />);
     fireEvent.press(getByText('profile.language'));
     expect(mockToggleLocale).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche la ligne Notifications dans Préférences et navigue vers l\'écran dédié', () => {
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.notifications'));
+
+    expect(mockPush).toHaveBeenCalledWith('/notifications');
+  });
+
+  it('affiche la ligne Sommet par défaut en lecture seule avec le sommet sélectionné', () => {
+    mockSelectedPeak = { name: 'Mont Blanc' };
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.defaultPeak')).toBeTruthy();
+    expect(getByText('Mont Blanc')).toBeTruthy();
+  });
+
+  it('affiche le footer avec la version de l\'app', () => {
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText(/Cloudbreak v/)).toBeTruthy();
+  });
+
+  it('la ligne Déconnexion est en tone danger sans fond de pastille', () => {
+    const { getByText } = render(<ProfileScreen />);
+    const label = getByText('profile.signOut');
+
+    expect(label.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ color: '#C25C4A' })]),
+    );
   });
 
   it('affiche le bouton de déconnexion', () => {
@@ -411,7 +468,7 @@ describe('ProfileScreen', () => {
     mockLocationPermission = 'denied';
     const { getByText } = render(<ProfileScreen />);
 
-    expect(getByText('profile.locationDisabled')).toBeTruthy();
+    expect(getByText('profile.locationDenied')).toBeTruthy();
     fireEvent.press(getByText('profile.location'));
 
     expect(mockOpenLocationSettings).toHaveBeenCalledTimes(1);
@@ -421,7 +478,7 @@ describe('ProfileScreen', () => {
     mockLocationPermission = 'granted';
     const { getByText } = render(<ProfileScreen />);
 
-    expect(getByText('profile.locationEnabled')).toBeTruthy();
+    expect(getByText('profile.locationAllowed')).toBeTruthy();
   });
 
   it('refreshes the location permission when the screen regains focus', () => {

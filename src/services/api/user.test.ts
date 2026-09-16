@@ -58,10 +58,15 @@ describe('fetchUserSubscription', () => {
 });
 
 describe('updateNotificationPreferences', () => {
-  it('appelle /api/v1/user/notifications', async () => {
+  it('envoie le payload réel en PATCH', async () => {
     mockApiFetch.mockResolvedValueOnce(undefined);
-    await updateNotificationPreferences(TOKEN, { notif_favorites: true });
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/user/notifications', TOKEN);
+    await updateNotificationPreferences(TOKEN, { notif_favorites: false });
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/v1/user/notifications',
+      TOKEN,
+      undefined,
+      { method: 'PATCH', body: { notif_favorites: false } },
+    );
   });
 
   it('résout sans appel réseau en mode MOCK_API', async () => {
