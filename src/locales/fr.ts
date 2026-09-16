@@ -200,7 +200,7 @@ export default {
     },
   },
   legal: {
-    sectionTitle: 'Légal',
+    sectionTitle: 'LÉGAL',
     privacy: 'Politique de confidentialité',
     cgu: "Conditions d'utilisation",
     support: 'Support',

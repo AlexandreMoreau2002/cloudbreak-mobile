@@ -171,7 +171,6 @@ export default function ProfileScreen() {
           icon="pin-outline"
           label={i18n.t('profile.defaultPeak')}
           value={selectedPeak?.name}
-          onPress={() => {}}
           isLast
         />
       </View>

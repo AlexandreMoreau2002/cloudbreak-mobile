@@ -1,33 +1,35 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type Props = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value?: string;
-  onPress: () => void;
+  onPress?: () => void;
   isLast?: boolean;
   tone?: 'default' | 'danger';
   disabled?: boolean;
+  chevron?: boolean;
 };
 
-export function SettingsRow({ icon, label, value, onPress, isLast, tone = 'default', disabled = false }: Props) {
+export function SettingsRow({
+  icon,
+  label,
+  value,
+  onPress,
+  isLast,
+  tone = 'default',
+  disabled = false,
+  chevron = true,
+}: Props) {
   const { colors, typography } = useTheme();
   const danger = tone === 'danger';
   const fg = danger ? '#C25C4A' : colors.textPrimary;
+  const showChevron = chevron && !danger && onPress !== undefined;
 
-  return (
-    <TouchableOpacity
-      style={[
-        styles.row,
-        !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border },
-        disabled && styles.disabled,
-      ]}
-      onPress={disabled ? undefined : onPress}
-      activeOpacity={0.7}
-      disabled={disabled}
-    >
+  const content = (
+    <>
       <Ionicons
         name={icon}
         size={18}
@@ -42,7 +44,7 @@ export function SettingsRow({ icon, label, value, onPress, isLast, tone = 'defau
           {value}
         </Text>
       )}
-      {!danger && (
+      {showChevron && (
         <Ionicons
           testID="settings-row-chevron"
           name="chevron-forward"
@@ -50,6 +52,27 @@ export function SettingsRow({ icon, label, value, onPress, isLast, tone = 'defau
           color={colors.textSecondary}
         />
       )}
+    </>
+  );
+
+  const rowStyle = [
+    styles.row,
+    !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border },
+    disabled && styles.disabled,
+  ];
+
+  if (!onPress) {
+    return <View style={rowStyle}>{content}</View>;
+  }
+
+  return (
+    <TouchableOpacity
+      style={rowStyle}
+      onPress={disabled ? undefined : onPress}
+      activeOpacity={0.7}
+      disabled={disabled}
+    >
+      {content}
     </TouchableOpacity>
   );
 }
