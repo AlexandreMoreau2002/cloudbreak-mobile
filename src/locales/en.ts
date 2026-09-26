@@ -179,6 +179,9 @@ export default {
     notificationsOn: 'On',
     notificationsOff: 'Off',
     defaultPeak: 'Default summit',
+    devSandbox: 'DEV · CloudLayerViz Sandbox',
+    devResetPeak: 'DEV · Reset selected summit',
+    devReplayOnboarding: 'DEV · Replay onboarding',
     guest: {
       title: 'Guest mode',
       subtitle: 'Create an account to save your summits.',

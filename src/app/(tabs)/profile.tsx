@@ -252,7 +252,7 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
           >
             <Text style={[styles.devText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
-              DEV · CloudLayerViz Sandbox
+              {i18n.t('profile.devSandbox')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -261,7 +261,7 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
           >
             <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
-              DEV · Reset sommet sélectionné
+              {i18n.t('profile.devResetPeak')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -271,7 +271,7 @@ export default function ProfileScreen() {
             testID="dev-reset-onboarding"
           >
             <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
-              DEV · Rejouer l&apos;onboarding
+              {i18n.t('profile.devReplayOnboarding')}
             </Text>
           </TouchableOpacity>
         </>

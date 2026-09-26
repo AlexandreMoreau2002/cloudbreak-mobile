@@ -454,13 +454,13 @@ describe('ProfileScreen', () => {
   it('branche les boutons DEV sur le sandbox et le reset du sommet sélectionné', () => {
     const { getByText } = render(<ProfileScreen />);
 
-    fireEvent.press(getByText('DEV · CloudLayerViz Sandbox'));
+    fireEvent.press(getByText('profile.devSandbox'));
     expect(mockPush).toHaveBeenCalledWith('/sandbox');
 
-    fireEvent.press(getByText('DEV · Reset sommet sélectionné'));
+    fireEvent.press(getByText('profile.devResetPeak'));
     expect(mockSetSelectedPeak).toHaveBeenCalledWith(null);
 
-    fireEvent.press(getByText("DEV · Rejouer l'onboarding"));
+    fireEvent.press(getByText('profile.devReplayOnboarding'));
     expect(mockResetOnboarding).toHaveBeenCalledTimes(1);
   });
 

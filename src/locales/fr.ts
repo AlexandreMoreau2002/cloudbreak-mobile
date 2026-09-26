@@ -179,6 +179,9 @@ export default {
     notificationsOn: 'Activées',
     notificationsOff: 'Désactivées',
     defaultPeak: 'Sommet par défaut',
+    devSandbox: 'DEV · Sandbox CloudLayerViz',
+    devResetPeak: 'DEV · Réinitialiser le sommet sélectionné',
+    devReplayOnboarding: "DEV · Rejouer l'onboarding",
     guest: {
       title: 'Mode invité',
       subtitle: 'Crée un compte pour sauvegarder tes sommets.',
