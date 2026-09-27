@@ -5,6 +5,24 @@ Chaque entrée est horodatée et liée à la story qui l'a générée.
 
 ---
 
+## 2026-09-27 Config Supabase — Secure email change durci
+
+### 🟢 RÉSOLU
+- **[Dashboard Supabase]** Réglage `Secure email change` passé de OFF à **ON** (dette P0 trackée
+  dans `TODO.md` depuis les stories 2.5/2.6/2.8 — contournable hors UI mobile tant qu'il était
+  désactivé). Vérifié que ça ne casse pas le parcours invité → compte (`AuthContext.tsx`,
+  `beginEmailUpgrade`) : `supabase.auth.updateUser({ email })` y est appelé sur une session
+  anonyme qui n'a jamais eu d'e-mail confirmé — c'est un premier réglage, pas un changement
+  d'adresse existante, donc la double-confirmation ancien/nouveau e-mail qu'active ce réglage
+  ne s'applique pas à ce flux (elle ne concerne que le changement d'un e-mail déjà confirmé).
+
+### Verdict
+SECURE — la surface de contournement identifiée (changer l'e-mail d'un compte permanent hors de
+l'UI mobile, sans reconfirmation) est fermée. Aucune régression attendue sur la conversion
+invité → compte.
+
+---
+
 ## 2026-09-15 Story 2.2 — Préférences de notifications (mobile)
 
 ### 🔵 INFO
