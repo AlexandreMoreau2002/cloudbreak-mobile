@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Cloudbreak – Mer de nuage",
+    "slug": "cloudbreak",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -43,6 +43,11 @@
       "expo-localization",
       "expo-apple-authentication"
     ],
+    "extra": {
+      "eas": {
+        "projectId": "d4e348c3-ea1b-4bf3-8752-072e99860e91"
+      }
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
