@@ -2,8 +2,8 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Cloudbreak',
-  slug: 'mobile',
+  name: 'Cloudbreak – Mer de nuage',
+  slug: 'cloudbreak',
   userInterfaceStyle: 'automatic',
   plugins: [
     'expo-image',
@@ -18,6 +18,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
   ],
   extra: {
+    ...config.extra,
     supabaseUrl: process.env.SUPABASE_URL ?? 'https://yggehvcwxiqrkhsoxrxe.supabase.co',
     supabaseKey: process.env.SUPABASE_KEY ?? 'sb_publishable_kvTa5gayV_CeR2V9W08_CQ_oU0yPhak',
   },

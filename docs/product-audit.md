@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-09-15_
+_Dernière mise à jour : 2026-09-28_
 
 ---
 
@@ -16,6 +16,8 @@ _Dernière mise à jour : 2026-09-15_
 | AuthContext + AuthGuard | ✅ |
 | i18n FR/EN + toggle runtime | ✅ |
 | CI GitHub Actions (lint + tsc + jest + build check) | ✅ |
+| Socle EAS iOS — projet Expo lié, profils development/preview/production et credentials Apple App Store / Ad Hoc internes | ✅ |
+| App iOS créée dans App Store Connect — nom FR « Cloudbreak – Mer de nuage » | ✅ Configuration initiale |
 | Recherche de sommets autocomplete (story 3.3) | ✅ |
 | Favoris — ajout, suppression, liste (story 3.3) | ✅ |
 | Toggle favori depuis la recherche (story 3.3) | ✅ |
@@ -61,8 +63,10 @@ _Dernière mise à jour : 2026-09-15_
 
 - Compteur de consultations restantes avant quota (AC3 story 4.2 — à planifier)
 - Photo optionnelle après validation + calcul du taux de précision (story 6.2)
-- StoreKit 2 — intégration achat In-App réel (epic 4, story 4.3)
-- Notifications push (epic 5)
+- StoreKit 2 — intégration achat In-App réel (epic 4, story 4.3), désormais débloquable côté credentials
+- Notifications push (epic 5), désormais débloquables côté credentials mais non implémentées
+- Universal Links et validation native réelle de Sign in with Apple
+- Métadonnées et localisation anglaise de la fiche App Store (« Cloudbreak – Sea of Clouds »)
 - Analytics PostHog réel (compte/SDK/réseau)
 - Déploiement VPS / production (epic 1)
 - Préflight Supabase du parcours compte : Anonymous Auth, Confirm email + template OTP, provider Apple et preuve UUID avant/après
@@ -72,5 +76,5 @@ _Dernière mise à jour : 2026-09-15_
 ## Prochaines étapes
 
 1. **Story 6.2** — Photo optionnelle + calcul du taux de précision par zone
-2. **StoreKit 2** — paiement réel, actuellement bloqué par le compte Apple Developer
-3. **Notifications push** — actuellement bloquées par les prérequis Apple/APNs
+2. **StoreKit 2** — paiement réel (story 4.3), à implémenter et tester sur une build native
+3. **Notifications push** — configuration et implémentation APNs/Epic 5 à réaliser
