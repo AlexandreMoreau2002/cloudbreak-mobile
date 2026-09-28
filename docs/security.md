@@ -1,5 +1,24 @@
 # Security — Mobile
 
+## 2026-09-29 — Signal d'installation pour quota invité
+
+### 🔵 INFO
+
+- **[src/services/installationId.ts]** Un UUID v4 est généré avec `expo-crypto` au premier
+  lancement puis conservé dans Keychain via `expo-secure-store`. Il n'est ni loggé ni stocké dans
+  AsyncStorage ; une recréation de session Supabase ne le remplace pas.
+- **[src/services/fetchService.ts]** L'identifiant est envoyé dans
+  `X-Cloudbreak-Installation-Id` uniquement avec un JWT, jamais sur les requêtes publiques. Le
+  token reste exclusivement dans le header `Authorization`.
+- Ce signal est une mesure de coût contre le contournement du quota, pas une attestation de
+  terminal : un client modifié peut toujours forger un UUID. App Attest/DeviceCheck reste le
+  chantier ultérieur de device-binding.
+
+### Verdict
+
+SECURE DANS LE PÉRIMÈTRE — aucune PII ajoutée ; le signal opaque est persisté dans le stockage
+sécurisé de l'OS.
+
 Ce fichier est maintenu automatiquement par l'agent `cloudbreak-security`.
 Chaque entrée est horodatée et liée à la story qui l'a générée.
 
