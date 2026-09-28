@@ -12,6 +12,7 @@
  *   import { apiFetch } from '@/services/fetchService';
  */
 import { DEBUG, SIMULATE_DELAY_MS } from '@/constants/devConfig';
+import { getInstallationId } from '@/services/installationId';
 
 const HTTP_TIMEOUT_MS = 10_000;
 
@@ -45,7 +46,10 @@ export async function apiFetch<T>(
   if (DEBUG) console.debug('[fetchService] request', { method, url: url.toString() });
 
   const headers: Record<string, string> = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+    headers['X-Cloudbreak-Installation-Id'] = await getInstallationId();
+  }
   if (options?.body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
