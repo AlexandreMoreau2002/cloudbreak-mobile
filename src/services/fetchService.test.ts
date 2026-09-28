@@ -1,4 +1,5 @@
 import { API_BASE, _delay, apiFetch } from '@/services/fetchService';
+import { getInstallationId } from '@/services/installationId';
 
 const mockDevConfigState = { DEBUG: false, SIMULATE_DELAY_MS: 0 };
 
@@ -7,11 +8,29 @@ jest.mock('@/constants/devConfig', () => ({
   get SIMULATE_DELAY_MS() { return mockDevConfigState.SIMULATE_DELAY_MS; },
 }));
 
+jest.mock('@/services/installationId', () => ({
+  getInstallationId: jest.fn(),
+}));
+
+const INSTALLATION_ID = '550e8400-e29b-41d4-a716-446655440000';
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
 describe('fetchService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDevConfigState.DEBUG = false;
     mockDevConfigState.SIMULATE_DELAY_MS = 0;
+    jest.mocked(getInstallationId).mockResolvedValue(INSTALLATION_ID);
     global.fetch = jest.fn();
   });
 
@@ -36,12 +55,44 @@ describe('fetchService', () => {
       'https://api.cloudbreak-app.com/api/v1/peaks/search?q=mont+blanc',
       {
         method: 'GET',
-        headers: { Authorization: 'Bearer token-123' },
+        headers: {
+          Authorization: 'Bearer token-123',
+          'X-Cloudbreak-Installation-Id': INSTALLATION_ID,
+        },
         body: undefined,
         signal: expect.any(AbortSignal),
       },
     );
     expect(result).toEqual({ ok: true });
+  });
+
+  it('envoie l’identifiant d’installation avec une requête authentifiée', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ ok: true }),
+    });
+
+    await apiFetch('/api/v1/score', 'token-123');
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.cloudbreak-app.com/api/v1/score',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer token-123',
+          'X-Cloudbreak-Installation-Id': INSTALLATION_ID,
+        }),
+      }),
+    );
+  });
+
+  it('interrompt la requête authentifiée si le signal d’installation échoue', async () => {
+    const error = new Error('Keychain unavailable');
+    jest.mocked(getInstallationId).mockRejectedValue(error);
+
+    await expect(apiFetch('/api/v1/score', 'token-123')).rejects.toBe(error);
+
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('ajoute Content-Type et sérialise le body JSON', async () => {
@@ -63,6 +114,7 @@ describe('fetchService', () => {
         headers: {
           Authorization: 'Bearer token-123',
           'Content-Type': 'application/json',
+          'X-Cloudbreak-Installation-Id': INSTALLATION_ID,
         },
         body: JSON.stringify({ peak_id: 'peak-1' }),
         signal: expect.any(AbortSignal),
@@ -285,6 +337,7 @@ describe('fetchService', () => {
         signal: expect.any(AbortSignal),
       },
     );
+    expect(getInstallationId).not.toHaveBeenCalled();
   });
 
   it('envoie toujours le header Authorization quand un token string est fourni', async () => {
@@ -300,7 +353,10 @@ describe('fetchService', () => {
       'https://api.cloudbreak-app.com/api/v1/peaks/search?q=aiguille',
       {
         method: 'GET',
-        headers: { Authorization: 'Bearer token-abc' },
+        headers: {
+          Authorization: 'Bearer token-abc',
+          'X-Cloudbreak-Installation-Id': INSTALLATION_ID,
+        },
         body: undefined,
         signal: expect.any(AbortSignal),
       },
@@ -320,29 +376,33 @@ describe('fetchService', () => {
     });
 
     const request = apiFetch('/api/v1/test', 'token-123', undefined, { signal: controller.signal });
+    await Promise.resolve();
     controller.abort();
 
     await expect(request).rejects.toMatchObject({ name: 'AbortError' });
     expect(capturedSignal?.aborted).toBe(true);
   });
 
-  it('rejette immédiatement si le signal externe est déjà aborté avant l’appel', async () => {
+  it('rejette sans fetch si le signal externe est déjà aborté avant l’appel', async () => {
     const controller = new AbortController();
     controller.abort();
-    (global.fetch as jest.Mock).mockImplementation((_url: string, opts: { signal: AbortSignal }) => {
-      return new Promise((_resolve, reject) => {
-        if (opts.signal.aborted) {
-          reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
-          return;
-        }
-        opts.signal.addEventListener('abort', () => {
-          reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
-        });
-      });
-    });
 
     await expect(
       apiFetch('/api/v1/test', 'token-123', undefined, { signal: controller.signal }),
     ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejette sans fetch si le signal externe est annulé pendant la lecture Keychain', async () => {
+    const controller = new AbortController();
+    const installationId = deferred<string>();
+    jest.mocked(getInstallationId).mockReturnValue(installationId.promise);
+
+    const request = apiFetch('/api/v1/test', 'token-123', undefined, { signal: controller.signal });
+    controller.abort();
+    installationId.resolve(INSTALLATION_ID);
+
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

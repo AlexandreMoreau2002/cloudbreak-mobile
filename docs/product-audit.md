@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-09-28_
+_Dernière mise à jour : 2026-09-29_
 
 ---
 
@@ -58,6 +58,7 @@ _Dernière mise à jour : 2026-09-28_
 | Durcissement post-merge auth (2026-09-12) — timeout HTTP qui abort réellement (`AbortController`), garde env Supabase (échec explicite si config absente), retry provisioning distinct sur verify/account (login+Apple) | ✅ |
 | Préférences de notifications (Profil → Notifications, 3 toggles indépendants, story 2.2) | ✅ |
 | Profil réaligné sur la maquette du 2026-09-15 (sections, danger rows, footer version) | ✅ |
+| Signal d'installation invité persistant dans Keychain/SecureStore, transmis uniquement aux scores authentifiés (mitigation quota) | ✅ |
 
 ## Ce qui n'existe pas encore
 

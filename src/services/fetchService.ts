@@ -12,12 +12,19 @@
  *   import { apiFetch } from '@/services/fetchService';
  */
 import { DEBUG, SIMULATE_DELAY_MS } from '@/constants/devConfig';
+import { getInstallationId } from '@/services/installationId';
 
 const HTTP_TIMEOUT_MS = 10_000;
 
 function timeoutError(): Error & { code: string } {
   const error = new Error('Impossible de joindre le serveur') as Error & { code: string };
   error.code = 'NETWORK_TIMEOUT';
+  return error;
+}
+
+function abortError(): Error {
+  const error = new Error('Aborted');
+  error.name = 'AbortError';
   return error;
 }
 
@@ -44,22 +51,31 @@ export async function apiFetch<T>(
   const method = options?.method ?? 'GET';
   if (DEBUG) console.debug('[fetchService] request', { method, url: url.toString() });
 
-  const headers: Record<string, string> = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-  if (options?.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-  }
-
   const controller = new AbortController();
   const onExternalAbort = () => controller.abort();
-  if (options?.signal) {
-    if (options.signal.aborted) controller.abort();
-    else options.signal.addEventListener('abort', onExternalAbort);
+  if (options?.signal?.aborted) throw abortError();
+  options?.signal?.addEventListener('abort', onExternalAbort);
+
+  const headers: Record<string, string> = {};
+  try {
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      headers['X-Cloudbreak-Installation-Id'] = await getInstallationId();
+    }
+    if (controller.signal.aborted) throw abortError();
+    if (options?.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
+  } catch (cause) {
+    options?.signal?.removeEventListener('abort', onExternalAbort);
+    if (controller.signal.aborted) throw abortError();
+    throw cause;
   }
 
   let response: Response;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
+    if (controller.signal.aborted) throw abortError();
     const request = fetch(url.toString(), {
       method,
       headers,
