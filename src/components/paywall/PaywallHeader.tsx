@@ -4,14 +4,16 @@ import { Radius, Spacing } from '@/constants/spacing';
 import { StyleSheet, Text, View } from 'react-native';
 import type { PaywallHeaderProps } from './types';
 
-export function PaywallHeader({ colors }: PaywallHeaderProps) {
+export function PaywallHeader({ colors, showTrial }: PaywallHeaderProps) {
   return (
     <>
-      <View style={[styles.trialBadge, { backgroundColor: colors.accent + '20', borderColor: colors.accent + '40' }]}>
-        <Text style={[styles.trialBadgeText, { color: colors.accent, fontFamily: Typography.fontFamily.semiBold }]}>
-          {i18n.t('paywall.trialBadge')}
-        </Text>
-      </View>
+      {showTrial ? (
+        <View style={[styles.trialBadge, { backgroundColor: colors.accent + '20', borderColor: colors.accent + '40' }]}>
+          <Text style={[styles.trialBadgeText, { color: colors.accent, fontFamily: Typography.fontFamily.semiBold }]}>
+            {i18n.t('paywall.trialBadge')}
+          </Text>
+        </View>
+      ) : null}
 
       <Text style={[styles.title, { color: colors.textPrimary, fontFamily: Typography.fontFamily.bold }]}>
         {i18n.t('paywall.title')}

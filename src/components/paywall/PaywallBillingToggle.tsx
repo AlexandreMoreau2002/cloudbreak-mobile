@@ -5,7 +5,9 @@ import { Radius, Spacing } from '@/constants/spacing';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { PaywallBillingToggleProps } from './types';
 
-export function PaywallBillingToggle({ billingPeriod, onChangePeriod, colors }: PaywallBillingToggleProps) {
+export function PaywallBillingToggle({ billingPeriod, onChangePeriod, colors, products }: PaywallBillingToggleProps) {
+  const monthlyProduct = products.find((product) => product.billingPeriod === 'monthly');
+  const annualProduct = products.find((product) => product.billingPeriod === 'annual');
   return (
     <View style={[styles.billingToggle, { borderColor: colors.border }]}>
       <TouchableOpacity
@@ -17,9 +19,11 @@ export function PaywallBillingToggle({ billingPeriod, onChangePeriod, colors }: 
         <Text style={[styles.billingLabel, { color: billingPeriod === 'monthly' ? Colors.light.surface : colors.textPrimary, fontFamily: Typography.fontFamily.semiBold }]}>
           {i18n.t('paywall.billingMonthly')}
         </Text>
-        <Text style={[styles.billingPrice, { color: billingPeriod === 'monthly' ? Colors.light.surface : colors.accent, fontFamily: Typography.fontFamily.bold }]}>
-          {i18n.t('paywall.priceMonthly')}
-        </Text>
+        {monthlyProduct ? (
+          <Text testID="paywall-monthly-price" style={[styles.billingPrice, { color: billingPeriod === 'monthly' ? Colors.light.surface : colors.accent, fontFamily: Typography.fontFamily.bold }]}>
+            {monthlyProduct.displayPrice}
+          </Text>
+        ) : null}
       </TouchableOpacity>
       <TouchableOpacity
         testID="paywall-billing-annual"
@@ -30,9 +34,11 @@ export function PaywallBillingToggle({ billingPeriod, onChangePeriod, colors }: 
         <Text style={[styles.billingLabel, { color: billingPeriod === 'annual' ? Colors.light.surface : colors.textPrimary, fontFamily: Typography.fontFamily.semiBold }]}>
           {i18n.t('paywall.billingAnnual')}
         </Text>
-        <Text style={[styles.billingPrice, { color: billingPeriod === 'annual' ? Colors.light.surface : colors.accent, fontFamily: Typography.fontFamily.bold }]}>
-          {i18n.t('paywall.priceAnnual')}
-        </Text>
+        {annualProduct ? (
+          <Text testID="paywall-annual-price" style={[styles.billingPrice, { color: billingPeriod === 'annual' ? Colors.light.surface : colors.accent, fontFamily: Typography.fontFamily.bold }]}>
+            {annualProduct.displayPrice}
+          </Text>
+        ) : null}
         <View style={[styles.savingsBadge, { backgroundColor: billingPeriod === 'annual' ? Colors.light.surface + '30' : colors.accent + '20' }]}>
           <Text style={[styles.savingsText, { color: billingPeriod === 'annual' ? Colors.light.surface : colors.accent, fontFamily: Typography.fontFamily.semiBold }]}>
             {i18n.t('paywall.billingSavings')}

@@ -1,45 +1,48 @@
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
 import { track } from '@/services/analytics';
-import { DEBUG } from '@/constants/devConfig';
 import { Typography } from '@/constants/typography';
 import { Radius, Spacing } from '@/constants/spacing';
-import { Alert, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import type { PaywallCTAProps } from './types';
 
-function restorePurchases() {
-  track('restore_purchases_clicked');
-  // Stub en attente de la story 4.3 (StoreKit 2 réel)
-  if (DEBUG) console.debug('[Paywall] restorePurchases stub');
-  Alert.alert(i18n.t('paywall.restoreSuccess'));
-}
+export function PaywallCTA({ billingPeriod, product, isLoading, onSelectPlan, onRestore, colors }: PaywallCTAProps) {
+  const canPurchase = product !== null && !isLoading;
+  const disclosure = product?.hasFreeTrial
+    ? i18n.t('paywall.ctaTrialDisclosure', { price: product.displayPrice, period: i18n.t(`paywall.period${billingPeriod === 'monthly' ? 'Month' : 'Year'}`) })
+    : product ? i18n.t('paywall.ctaRenewalDisclosure', { price: product.displayPrice, period: i18n.t(`paywall.period${billingPeriod === 'monthly' ? 'Month' : 'Year'}`) }) : '';
 
-export function PaywallCTA({ billingPeriod, onSelectPlan, colors }: PaywallCTAProps) {
+  async function restorePurchases(): Promise<void> {
+  track('restore_purchases_clicked');
+    await onRestore();
+  }
+
   return (
     <>
       <TouchableOpacity
         testID="paywall-cta-button"
         style={[styles.ctaButton, { backgroundColor: colors.accent }]}
-        onPress={() => onSelectPlan(billingPeriod)}
+        onPress={() => { void onSelectPlan(billingPeriod); }}
+        disabled={!canPurchase}
+        accessibilityState={{ disabled: !canPurchase, busy: isLoading }}
         activeOpacity={0.85}
       >
         <Text style={[styles.ctaButtonText, { color: Colors.light.surface, fontFamily: Typography.fontFamily.bold }]}>
-          {i18n.t('paywall.ctaStart')}
+          {isLoading ? i18n.t('common.loading') : i18n.t('paywall.ctaStart')}
         </Text>
         <Text
           testID="paywall-cta-trial-end-note"
           style={[styles.trialEndNote, { color: Colors.light.surface, fontFamily: Typography.fontFamily.regular }]}
         >
-          {i18n.t('paywall.ctaTrialEndNote', {
-            price: i18n.t(billingPeriod === 'monthly' ? 'paywall.priceMonthly' : 'paywall.priceAnnual'),
-          })}
+          {disclosure}
         </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         testID="paywall-restore-button"
         style={styles.restoreButton}
-        onPress={restorePurchases}
+        onPress={() => { void restorePurchases(); }}
+        disabled={isLoading}
         activeOpacity={0.7}
       >
         <Text style={[styles.restoreText, { color: colors.textSecondary, fontFamily: Typography.fontFamily.regular }]}>

@@ -12,6 +12,7 @@ type AccountEntryMode = 'creation' | 'login';
 export type PendingAction =
   | { kind: 'favorite'; peakId: string }
   | { kind: 'quota'; retry: () => void | Promise<void> }
+  | { kind: 'subscription'; productId: string; retry: () => Promise<void> }
   | { kind: 'first_run' };
 export interface EmailUpgradeCredentials {
   email: string;
