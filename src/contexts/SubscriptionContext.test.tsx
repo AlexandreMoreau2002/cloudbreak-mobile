@@ -90,6 +90,20 @@ describe('SubscriptionProvider', () => {
     expect(latest?.isPremium).toBe(false);
   });
 
+  it.each(['active', 'trial'] as const)('does not entitle an %s plan with a past expiry', async (status) => {
+    mockFetchSubscription.mockResolvedValueOnce({ plan: 'premium', status, expires_at: '2000-01-01T00:00:00Z' });
+    renderProvider();
+    await waitFor(() => expect(latest?.state.status).toBe(status));
+    expect(latest?.isPremium).toBe(false);
+  });
+
+  it('does not entitle a premium response with a malformed expiry', async () => {
+    mockFetchSubscription.mockResolvedValueOnce({ plan: 'premium', status: 'active', expires_at: 'not-a-date' });
+    renderProvider();
+    await waitFor(() => expect(latest?.state.status).toBe('active'));
+    expect(latest?.isPremium).toBe(false);
+  });
+
   it('verifies StoreKit JWS before finishing a purchase', async () => {
     mockVerifySubscription.mockResolvedValue({ plan: 'premium', status: 'trial', expires_at: '2026-10-10T00:00:00Z' });
     renderProvider();
@@ -109,6 +123,15 @@ describe('SubscriptionProvider', () => {
     expect(iap.finishTransaction).not.toHaveBeenCalled();
   });
 
+  it('ends loading with a verification error when StoreKit omits the signed transaction', async () => {
+    renderProvider();
+    await waitFor(() => expect(latest?.products).toHaveLength(2));
+    await act(async () => { await latest?.purchase('com.alexandremoreau.cloudbreak.premium.monthly'); });
+    await act(async () => { onPurchase?.({ productId: 'com.alexandremoreau.cloudbreak.premium.monthly' } as Iap.Purchase); });
+    await waitFor(() => expect(latest?.state).toMatchObject({ loading: false, error: 'verification_failed' }));
+    expect(iap.finishTransaction).not.toHaveBeenCalled();
+  });
+
   it('keeps purchasing available after a cancelled native sheet', async () => {
     iap.requestPurchase.mockRejectedValueOnce({ code: 'E_USER_CANCELLED' });
     renderProvider();
@@ -116,6 +139,24 @@ describe('SubscriptionProvider', () => {
     await act(async () => { await latest?.purchase('com.alexandremoreau.cloudbreak.premium.monthly'); });
     expect(latest?.state.error).toBeNull();
     expect(iap.requestPurchase).toHaveBeenCalled();
+  });
+
+  it('clears loading without an error when the event-based native purchase is cancelled', async () => {
+    renderProvider();
+    await waitFor(() => expect(latest?.products).toHaveLength(2));
+    await act(async () => { await latest?.purchase('com.alexandremoreau.cloudbreak.premium.monthly'); });
+    expect(latest?.state.loading).toBe(true);
+    act(() => { onPurchaseError?.({ code: Iap.ErrorCode.UserCancelled, message: 'cancelled' }); });
+    await waitFor(() => expect(latest?.state).toMatchObject({ loading: false, error: null }));
+  });
+
+  it('clears loading with a generic error after an event-based native failure', async () => {
+    renderProvider();
+    await waitFor(() => expect(latest?.products).toHaveLength(2));
+    await act(async () => { await latest?.purchase('com.alexandremoreau.cloudbreak.premium.monthly'); });
+    expect(latest?.state.loading).toBe(true);
+    act(() => { onPurchaseError?.({ code: Iap.ErrorCode.Unknown, message: 'failed' }); });
+    await waitFor(() => expect(latest?.state).toMatchObject({ loading: false, error: 'purchase_failed' }));
   });
 
   it('verifies every active entitlement during restore', async () => {

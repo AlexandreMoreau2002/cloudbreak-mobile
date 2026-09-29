@@ -22,6 +22,7 @@ jest.mock('expo-location', () => ({
 }));
 
 jest.mock('react-native-iap', () => ({
+  ErrorCode: { UserCancelled: 'user-cancelled', Unknown: 'unknown' },
   endConnection: jest.fn(() => Promise.resolve()),
   fetchProducts: jest.fn(() => Promise.resolve([])),
   finishTransaction: jest.fn(() => Promise.resolve()),

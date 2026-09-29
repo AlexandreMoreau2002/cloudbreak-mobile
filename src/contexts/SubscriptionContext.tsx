@@ -73,6 +73,12 @@ function isCancellation(error: { code?: string } | null | undefined): boolean {
   return error?.code === 'E_USER_CANCELLED' || error?.code === 'user-cancelled';
 }
 
+function hasFutureExpiry(expiresAt: string | null): boolean {
+  if (!expiresAt) return false;
+  const expiresAtMs = Date.parse(expiresAt);
+  return Number.isFinite(expiresAtMs) && expiresAtMs > Date.now();
+}
+
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const { isAnonymous, session } = useAuth();
   const [state, setState] = useState<SubscriptionState>(FREE_STATE);
@@ -99,7 +105,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const verifyAndFinish = useCallback(async (purchase: Purchase): Promise<void> => {
     const currentSession = sessionRef.current;
-    if (!currentSession || currentSession.user.is_anonymous || !purchase.purchaseToken) return;
+    if (!currentSession || currentSession.user.is_anonymous || !purchase.purchaseToken) {
+      setState((current) => ({ ...current, loading: false, error: 'verification_failed' }));
+      return;
+    }
     try {
       const subscription = await verifySubscription(currentSession.access_token, purchase.purchaseToken);
       await finishTransaction({ purchase, isConsumable: false });
@@ -118,7 +127,11 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     let active = true;
     const purchaseSubscription = purchaseUpdatedListener((purchase) => { void verifyAndFinish(purchase); });
     const errorSubscription = purchaseErrorListener((error) => {
-      if (!isCancellation(error)) setState((current) => ({ ...current, error: 'purchase_failed' }));
+      setState((current) => ({
+        ...current,
+        loading: false,
+        error: isCancellation(error) ? null : 'purchase_failed',
+      }));
     });
 
     async function initialiseStore(): Promise<void> {
@@ -193,7 +206,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     purchase,
     restore,
     refresh,
-    isPremium: state.plan === 'premium' && (state.status === 'trial' || state.status === 'active'),
+    isPremium: state.plan === 'premium'
+      && (state.status === 'trial' || state.status === 'active')
+      && hasFutureExpiry(state.expires_at),
   }), [products, purchase, refresh, restore, state]);
 
   return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;
