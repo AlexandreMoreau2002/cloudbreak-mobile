@@ -10,6 +10,7 @@ import { useEffect, useRef } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
+import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
@@ -84,12 +85,14 @@ export default function RootLayout() {
       <OnboardingProvider>
         <LanguageProvider>
           <AuthProvider>
-            <SelectedPeakProvider>
-              <AccountGateProvider>
-                <AuthGuard />
-                <AppStack />
-              </AccountGateProvider>
-            </SelectedPeakProvider>
+            <SubscriptionProvider>
+              <SelectedPeakProvider>
+                <AccountGateProvider>
+                  <AuthGuard />
+                  <AppStack />
+                </AccountGateProvider>
+              </SelectedPeakProvider>
+            </SubscriptionProvider>
           </AuthProvider>
         </LanguageProvider>
       </OnboardingProvider>
