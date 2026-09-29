@@ -4,13 +4,16 @@ import { act, render, waitFor } from '@testing-library/react-native';
 import { SubscriptionProvider, useSubscription } from '@/contexts/SubscriptionContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchSubscription, verifySubscription } from '@/services/api/subscription';
+import { supabase } from '@/services/supabaseClient';
 
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/services/api/subscription', () => ({ fetchSubscription: jest.fn(), verifySubscription: jest.fn() }));
+jest.mock('@/services/supabaseClient', () => ({ supabase: { auth: { getSession: jest.fn() } } }));
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockFetchSubscription = fetchSubscription as jest.MockedFunction<typeof fetchSubscription>;
 const mockVerifySubscription = verifySubscription as jest.MockedFunction<typeof verifySubscription>;
+const mockGetSession = supabase.auth.getSession as jest.MockedFunction<typeof supabase.auth.getSession>;
 const iap = Iap as jest.Mocked<typeof Iap>;
 
 let onPurchase: ((purchase: Iap.Purchase) => void) | undefined;
@@ -28,6 +31,10 @@ function setup(permanent = true): void {
     session: permanent ? { access_token: 'token', user: { id: 'account-id', is_anonymous: false } } : null,
   } as ReturnType<typeof useAuth>);
   mockFetchSubscription.mockResolvedValue({ plan: 'free', status: 'none', expires_at: null });
+  mockGetSession.mockResolvedValue({
+    data: { session: permanent ? { access_token: 'token', user: { id: 'account-id', is_anonymous: false } } : null },
+    error: null,
+  } as Awaited<ReturnType<typeof supabase.auth.getSession>>);
   iap.initConnection.mockResolvedValue(true);
   iap.fetchProducts.mockResolvedValue([
     {
@@ -36,6 +43,8 @@ function setup(permanent = true): void {
       platform: 'ios',
       subscriptionPeriodUnitIOS: 'month',
       introductoryPricePaymentModeIOS: 'free-trial',
+      introductoryPriceNumberOfPeriodsIOS: '1',
+      introductoryPriceSubscriptionPeriodIOS: 'week',
     },
     {
       id: 'com.alexandremoreau.cloudbreak.premium.annual',
@@ -43,6 +52,8 @@ function setup(permanent = true): void {
       platform: 'ios',
       subscriptionPeriodUnitIOS: 'year',
       introductoryPricePaymentModeIOS: 'free-trial',
+      introductoryPriceNumberOfPeriodsIOS: '1',
+      introductoryPriceSubscriptionPeriodIOS: 'week',
     },
   ] as Iap.ProductSubscription[]);
   iap.purchaseUpdatedListener.mockImplementation((listener) => {
@@ -178,12 +189,27 @@ describe('SubscriptionProvider', () => {
     await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(2));
   });
 
-  it('does not connect to StoreKit for anonymous users', async () => {
+  it('loads the StoreKit catalog for anonymous visitors without reading their entitlement', async () => {
     setup(false);
     renderProvider();
-    await waitFor(() => expect(latest?.state.status).toBe('none'));
-    expect(iap.initConnection).not.toHaveBeenCalled();
-    expect(iap.fetchProducts).not.toHaveBeenCalled();
-    expect(onPurchaseError).toBeUndefined();
+    await waitFor(() => expect(latest?.products).toHaveLength(2));
+    expect(iap.initConnection).toHaveBeenCalledTimes(1);
+    expect(mockFetchSubscription).not.toHaveBeenCalled();
+    expect(latest?.state.status).toBe('none');
+  });
+
+  it('does not advertise a trial unless StoreKit confirms one free week', async () => {
+    iap.fetchProducts.mockResolvedValueOnce([{
+      id: 'com.alexandremoreau.cloudbreak.premium.monthly',
+      displayPrice: '5,00 €',
+      platform: 'ios',
+      subscriptionPeriodUnitIOS: 'month',
+      introductoryPricePaymentModeIOS: 'free-trial',
+      introductoryPriceNumberOfPeriodsIOS: '2',
+      introductoryPriceSubscriptionPeriodIOS: 'week',
+    }] as Iap.ProductSubscription[]);
+    renderProvider();
+    await waitFor(() => expect(latest?.products).toHaveLength(1));
+    expect(latest?.products[0].hasFreeTrial).toBe(false);
   });
 });

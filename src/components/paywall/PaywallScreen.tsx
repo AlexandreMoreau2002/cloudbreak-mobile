@@ -6,16 +6,16 @@
  *   onDismiss    function — appelé quand l'utilisateur ferme le paywall
  *   onSelectPlan function — appelé avec 'monthly' ou 'annual' lors de la sélection
  */
+import i18n from '@/utils/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import i18n from '@/utils/i18n';
+import { ErrorState } from '@/components/error-state';
 import { Colors } from '@/constants/colors';
-import { track } from '@/services/analytics';
 import { DEBUG } from '@/constants/devConfig';
 import { Radius, Spacing } from '@/constants/spacing';
-import { ErrorState } from '@/components/error-state';
-import { useTheme } from '@/contexts/ThemeContext';
+import { track } from '@/services/analytics';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { PaywallCTA } from './PaywallCTA';
 import { PaywallHeader } from './PaywallHeader';
 import { PaywallFooter } from './PaywallFooter';
@@ -70,6 +70,10 @@ export function PaywallScreen({
   const selectedProduct = products.find((product) => product.billingPeriod === billingPeriod) ?? null;
   const hasTrial = selectedProduct?.hasFreeTrial ?? false;
   const showStoreError = !isLoading && (!selectedProduct || error === 'store_unavailable');
+  const showPurchaseError = !isLoading && (error === 'purchase_failed' || error === 'verification_failed');
+  const purchaseErrorMessage = error === 'verification_failed'
+    ? i18n.t('paywall.verificationFailedMessage')
+    : i18n.t('paywall.purchaseFailedMessage');
 
   return (
     <Modal
@@ -125,6 +129,15 @@ export function PaywallScreen({
                 message={i18n.t('paywall.storeUnavailableMessage')}
                 action={{ label: i18n.t('common.retry'), onPress: () => { void onRetryProducts(); } }}
                 actionTestID="paywall-store-retry"
+              />
+            ) : null}
+
+            {showPurchaseError ? (
+              <ErrorState
+                title={i18n.t('paywall.purchaseFailedTitle')}
+                message={purchaseErrorMessage}
+                action={{ label: i18n.t('common.retry'), onPress: () => { void handleSelectPlan(billingPeriod); } }}
+                actionTestID="paywall-purchase-retry"
               />
             ) : null}
 

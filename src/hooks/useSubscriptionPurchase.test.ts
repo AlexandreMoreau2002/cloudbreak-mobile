@@ -14,6 +14,7 @@ const mockUseSubscription = useSubscription as jest.MockedFunction<typeof useSub
 
 describe('useSubscriptionPurchase', () => {
   const purchase = jest.fn().mockResolvedValue(undefined);
+  const waitForProduct = jest.fn().mockResolvedValue(true);
   const requireAccount = jest.fn();
 
   beforeEach(() => {
@@ -25,18 +26,25 @@ describe('useSubscriptionPurchase', () => {
       purchase,
       refresh: jest.fn(),
       restore: jest.fn(),
+      waitForProduct,
       state: { loading: false, error: null },
     } as unknown as ReturnType<typeof useSubscription>);
   });
 
   it('gates anonymous purchases before StoreKit and replays the exact product', async () => {
     mockUseAuth.mockReturnValue({ isAnonymous: true } as ReturnType<typeof useAuth>);
+    let resolveCatalog: (ready: boolean) => void = () => {};
+    waitForProduct.mockImplementationOnce(() => new Promise<boolean>((resolve) => { resolveCatalog = resolve; }));
     const { result } = renderHook(() => useSubscriptionPurchase());
     await act(async () => result.current.selectPlan('monthly'));
     expect(purchase).not.toHaveBeenCalled();
     const action = requireAccount.mock.calls[0][0];
     expect(action).toMatchObject({ kind: 'subscription', productId: 'com.alexandremoreau.cloudbreak.premium.monthly' });
-    await action.retry();
+    const replay = action.retry();
+    expect(waitForProduct).toHaveBeenCalledWith('com.alexandremoreau.cloudbreak.premium.monthly');
+    expect(purchase).not.toHaveBeenCalled();
+    resolveCatalog(true);
+    await replay;
     expect(purchase).toHaveBeenCalledWith('com.alexandremoreau.cloudbreak.premium.monthly');
   });
 
@@ -45,5 +53,27 @@ describe('useSubscriptionPurchase', () => {
     const { result } = renderHook(() => useSubscriptionPurchase());
     await act(async () => result.current.selectPlan('annual'));
     expect(purchase).toHaveBeenCalledWith('com.alexandremoreau.cloudbreak.premium.annual');
+  });
+
+  it('gates restoration for an anonymous visitor instead of calling StoreKit', async () => {
+    const restore = jest.fn().mockResolvedValue(undefined);
+    mockUseSubscription.mockReturnValue({
+      isPremium: false,
+      products: [],
+      purchase,
+      refresh: jest.fn(),
+      restore,
+      waitForProduct,
+      state: { loading: false, error: null },
+    } as unknown as ReturnType<typeof useSubscription>);
+    mockUseAuth.mockReturnValue({ isAnonymous: true } as ReturnType<typeof useAuth>);
+    const { result } = renderHook(() => useSubscriptionPurchase());
+
+    await act(async () => result.current.restore());
+
+    expect(restore).not.toHaveBeenCalled();
+    expect(requireAccount.mock.calls[0][0]).toMatchObject({ kind: 'subscription' });
+    await requireAccount.mock.calls[0][0].retry();
+    expect(restore).toHaveBeenCalledTimes(1);
   });
 });

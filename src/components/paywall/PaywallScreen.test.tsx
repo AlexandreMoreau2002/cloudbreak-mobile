@@ -10,7 +10,7 @@ jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ scheme: 'light'
 jest.mock('@/utils/i18n', () => ({
   t: (key: string, options?: Record<string, string>) => {
     const values: Record<string, string> = {
-      'paywall.trialBadge': 'Essai gratuit 7 jours', 'paywall.title': 'Prévisions illimitées', 'paywall.subtitle': 'Toutes vos prévisions', 'paywall.billingMonthly': 'Mensuel', 'paywall.billingAnnual': 'Annuel', 'paywall.billingSavings': '−33%', 'paywall.ctaStart': 'Commencer l’essai gratuit', 'paywall.periodMonth': 'mois', 'paywall.periodYear': 'an', 'paywall.ctaTrialDisclosure': '7 jours gratuits, puis {{price}}/{{period}}. Renouvellement automatique sauf annulation.', 'paywall.ctaRenewalDisclosure': '{{price}}/{{period}}. Renouvellement automatique sauf annulation.', 'paywall.ctaRestore': 'Restaurer un achat', 'paywall.dismiss': 'Continuer sans abonnement', 'paywall.noCommitment': 'Sans engagement', 'paywall.storeUnavailableTitle': 'Abonnements indisponibles', 'paywall.storeUnavailableMessage': 'Impossible de charger les offres Apple.', 'common.retry': 'Réessayer', 'common.loading': 'Chargement…', 'legal.privacy': 'Confidentialité', 'legal.cgu': 'CGU',
+      'paywall.trialBadge': 'Essai gratuit 7 jours', 'paywall.title': 'Prévisions illimitées', 'paywall.subtitle': 'Toutes vos prévisions', 'paywall.billingMonthly': 'Mensuel', 'paywall.billingAnnual': 'Annuel', 'paywall.billingSavings': '−33%', 'paywall.ctaStart': 'Commencer l’essai gratuit', 'paywall.periodMonth': 'mois', 'paywall.periodYear': 'an', 'paywall.ctaTrialDisclosure': '7 jours gratuits, puis {{price}}/{{period}}. Renouvellement automatique sauf annulation.', 'paywall.ctaRenewalDisclosure': '{{price}}/{{period}}. Renouvellement automatique sauf annulation.', 'paywall.ctaRestore': 'Restaurer un achat', 'paywall.dismiss': 'Continuer sans abonnement', 'paywall.noCommitment': 'Sans engagement', 'paywall.storeUnavailableTitle': 'Abonnements indisponibles', 'paywall.storeUnavailableMessage': 'Impossible de charger les offres Apple.', 'paywall.purchaseFailedTitle': 'Achat non finalisé', 'paywall.purchaseFailedMessage': 'L’achat n’a pas abouti.', 'paywall.verificationFailedMessage': 'Validation indisponible.', 'common.retry': 'Réessayer', 'common.loading': 'Chargement…', 'legal.privacy': 'Confidentialité', 'legal.cgu': 'CGU',
     };
     return Object.entries(options ?? {}).reduce((value, [name, replacement]) => value.replace(`{{${name}}}`, replacement), values[key] ?? key);
   },
@@ -60,5 +60,12 @@ describe('PaywallScreen', () => {
     fireEvent.press(screen.getByTestId('paywall-restore-button'));
     expect(onSelectPlan).toHaveBeenCalledWith('annual');
     expect(onRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['purchase_failed', 'verification_failed'] as const)('shows a recoverable %s state', (error) => {
+    renderPaywall({ error });
+    expect(screen.getByText('Achat non finalisé')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('paywall-purchase-retry'));
+    expect(onSelectPlan).toHaveBeenCalledWith('annual');
   });
 });

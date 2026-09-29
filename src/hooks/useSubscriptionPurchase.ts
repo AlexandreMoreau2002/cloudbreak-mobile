@@ -16,7 +16,7 @@ function billingPeriodForProduct(productId: SubscriptionProductId): BillingPerio
 export function useSubscriptionPurchase() {
   const { isAnonymous } = useAuth();
   const { requireAccount } = useAccountGate();
-  const { isPremium, products, purchase, refresh, restore, state } = useSubscription();
+  const { isPremium, products, purchase, refresh, restore, state, waitForProduct } = useSubscription();
 
   const paywallProducts = useMemo<PaywallProduct[]>(() => products.map((product) => ({
     billingPeriod: billingPeriodForProduct(product.id),
@@ -32,12 +32,26 @@ export function useSubscriptionPurchase() {
         productId,
         // AccountGate explicitly reads a fresh permanent session before it calls
         // this replay. The purchase provider also owns the actual StoreKit call.
-        retry: async () => purchase(productId),
+        retry: async () => {
+          if (await waitForProduct(productId)) await purchase(productId);
+        },
       });
       return;
     }
     await purchase(productId);
-  }, [isAnonymous, purchase, requireAccount]);
+  }, [isAnonymous, purchase, requireAccount, waitForProduct]);
+
+  const restorePurchases = useCallback(async (): Promise<void> => {
+    if (isAnonymous) {
+      requireAccount({
+        kind: 'subscription',
+        productId: PRODUCT_BY_BILLING_PERIOD.annual,
+        retry: restore,
+      });
+      return;
+    }
+    await restore();
+  }, [isAnonymous, requireAccount, restore]);
 
   return {
     error: state.error,
@@ -45,7 +59,7 @@ export function useSubscriptionPurchase() {
     isPremium,
     products: paywallProducts,
     refresh,
-    restore,
+    restore: restorePurchases,
     selectPlan,
   };
 }

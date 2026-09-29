@@ -12,6 +12,7 @@ import {
 } from 'react-native-iap';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/services/supabaseClient';
 import {
   fetchSubscription,
   verifySubscription,
@@ -44,6 +45,7 @@ interface SubscriptionContextValue {
   purchase: (productId: SubscriptionProductId) => Promise<void>;
   restore: () => Promise<void>;
   refresh: () => Promise<void>;
+  waitForProduct: (productId: SubscriptionProductId) => Promise<boolean>;
 }
 
 const FREE_STATE: SubscriptionState = {
@@ -65,7 +67,9 @@ function mapProduct(product: ProductSubscription): StoreKitProduct | null {
     id: product.id as SubscriptionProductId,
     displayPrice: product.displayPrice,
     period,
-    hasFreeTrial: product.introductoryPricePaymentModeIOS === 'free-trial',
+    hasFreeTrial: product.introductoryPricePaymentModeIOS === 'free-trial'
+      && product.introductoryPriceNumberOfPeriodsIOS === '1'
+      && product.introductoryPriceSubscriptionPeriodIOS === 'week',
   };
 }
 
@@ -84,13 +88,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [state, setState] = useState<SubscriptionState>(FREE_STATE);
   const [products, setProducts] = useState<StoreKitProduct[]>([]);
   const sessionRef = useRef(session);
+  const productsRef = useRef<StoreKitProduct[]>([]);
+  const storeInitialisationRef = useRef<Promise<void> | null>(null);
   const isPermanent = Boolean(session && !isAnonymous);
 
   useEffect(() => { sessionRef.current = session; }, [session]);
+  useEffect(() => { productsRef.current = products; }, [products]);
 
   const refresh = useCallback(async (): Promise<void> => {
     const currentSession = sessionRef.current;
-    if (!currentSession || currentSession.user.is_anonymous) {
+    if (!currentSession?.user || currentSession.user.is_anonymous) {
       setState(FREE_STATE);
       return;
     }
@@ -104,8 +111,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const verifyAndFinish = useCallback(async (purchase: Purchase): Promise<void> => {
-    const currentSession = sessionRef.current;
-    if (!currentSession || currentSession.user.is_anonymous || !purchase.purchaseToken) {
+    const { data } = await supabase.auth.getSession();
+    const currentSession = data.session;
+    if (!currentSession?.user || currentSession.user.is_anonymous || !purchase.purchaseToken) {
       setState((current) => ({ ...current, loading: false, error: 'verification_failed' }));
       return;
     }
@@ -119,11 +127,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    if (!isPermanent) {
-      setProducts([]);
-      setState(FREE_STATE);
-      return undefined;
-    }
     let active = true;
     const purchaseSubscription = purchaseUpdatedListener((purchase) => { void verifyAndFinish(purchase); });
     const errorSubscription = purchaseErrorListener((error) => {
@@ -144,20 +147,24 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           const mapped = mapProduct(product as ProductSubscription);
           return mapped ? [mapped] : [];
         }));
-        await refresh();
       } catch {
         if (active) setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
       }
     }
 
-    void initialiseStore();
+    storeInitialisationRef.current = initialiseStore();
     return () => {
       active = false;
       purchaseSubscription.remove();
       errorSubscription.remove();
       void endConnection();
     };
-  }, [isPermanent, refresh, verifyAndFinish]);
+  }, [verifyAndFinish]);
+
+  useEffect(() => {
+    if (isPermanent) void refresh();
+    else setState(FREE_STATE);
+  }, [isPermanent, refresh]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -167,8 +174,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, [refresh]);
 
   const purchase = useCallback(async (productId: SubscriptionProductId): Promise<void> => {
-    const currentSession = sessionRef.current;
-    if (!currentSession || currentSession.user.is_anonymous || !products.some((product) => product.id === productId)) {
+    const { data } = await supabase.auth.getSession();
+    const currentSession = data.session;
+    if (!currentSession?.user || currentSession.user.is_anonymous || !productsRef.current.some((product) => product.id === productId)) {
       setState((current) => ({ ...current, error: 'store_unavailable' }));
       return;
     }
@@ -185,11 +193,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         setState((current) => ({ ...current, loading: false }));
       }
     }
-  }, [products]);
+  }, []);
 
   const restore = useCallback(async (): Promise<void> => {
-    const currentSession = sessionRef.current;
-    if (!currentSession || currentSession.user.is_anonymous) return;
+    const { data } = await supabase.auth.getSession();
+    const currentSession = data.session;
+    if (!currentSession?.user || currentSession.user.is_anonymous) return;
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
       const entitlements = await getAvailablePurchases({ onlyIncludeActiveItemsIOS: true });
@@ -200,16 +209,22 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
   }, [refresh, verifyAndFinish]);
 
+  const waitForProduct = useCallback(async (productId: SubscriptionProductId): Promise<boolean> => {
+    await storeInitialisationRef.current;
+    return productsRef.current.some((product) => product.id === productId);
+  }, []);
+
   const value = useMemo(() => ({
     state,
     products,
     purchase,
     restore,
     refresh,
+    waitForProduct,
     isPremium: state.plan === 'premium'
       && (state.status === 'trial' || state.status === 'active')
       && hasFutureExpiry(state.expires_at),
-  }), [products, purchase, refresh, restore, state]);
+  }), [products, purchase, refresh, restore, state, waitForProduct]);
 
   return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;
 }

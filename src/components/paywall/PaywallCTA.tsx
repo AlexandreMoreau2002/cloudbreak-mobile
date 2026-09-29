@@ -1,9 +1,9 @@
 import i18n from '@/utils/i18n';
-import { Colors } from '@/constants/colors';
-import { track } from '@/services/analytics';
-import { Typography } from '@/constants/typography';
-import { Radius, Spacing } from '@/constants/spacing';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Colors } from '@/constants/colors';
+import { Radius, Spacing } from '@/constants/spacing';
+import { Typography } from '@/constants/typography';
+import { track } from '@/services/analytics';
 import type { PaywallCTAProps } from './types';
 
 export function PaywallCTA({ billingPeriod, product, isLoading, onSelectPlan, onRestore, colors }: PaywallCTAProps) {
@@ -13,7 +13,7 @@ export function PaywallCTA({ billingPeriod, product, isLoading, onSelectPlan, on
     : product ? i18n.t('paywall.ctaRenewalDisclosure', { price: product.displayPrice, period: i18n.t(`paywall.period${billingPeriod === 'monthly' ? 'Month' : 'Year'}`) }) : '';
 
   async function restorePurchases(): Promise<void> {
-  track('restore_purchases_clicked');
+    track('restore_purchases_clicked');
     await onRestore();
   }
 
