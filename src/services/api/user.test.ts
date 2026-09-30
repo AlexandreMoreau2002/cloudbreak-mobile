@@ -1,7 +1,6 @@
 import {
   addFavorite,
   deleteAccount,
-  fetchUserSubscription,
   updateNotificationPreferences,
   updatePushToken,
   provisionUser,
@@ -10,7 +9,6 @@ import {
   updateUserPreferences,
 } from '@/services/api/user';
 import { apiFetch } from '@/services/fetchService';
-import { MOCK_SUBSCRIPTION } from '@/services/mockData/user';
 
 const mockDevConfigState = { MOCK_API: false, DEBUG: false };
 
@@ -31,30 +29,6 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockDevConfigState.MOCK_API = false;
   mockDevConfigState.DEBUG = false;
-});
-
-describe('fetchUserSubscription', () => {
-  it('appelle GET /api/v1/user/subscription', async () => {
-    mockApiFetch.mockResolvedValueOnce({ plan: 'free', status: 'active' });
-    await fetchUserSubscription(TOKEN);
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/user/subscription', TOKEN);
-  });
-
-  it('retourne la souscription mock en mode MOCK_API', async () => {
-    mockDevConfigState.MOCK_API = true;
-    await expect(fetchUserSubscription(TOKEN)).resolves.toEqual(MOCK_SUBSCRIPTION);
-  });
-
-  it('log fetchUserSubscription en mode debug', async () => {
-    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
-    mockDevConfigState.MOCK_API = true;
-    mockDevConfigState.DEBUG = true;
-
-    await fetchUserSubscription(TOKEN);
-
-    expect(consoleSpy).toHaveBeenCalledWith('[api/user] MOCK fetchUserSubscription');
-    consoleSpy.mockRestore();
-  });
 });
 
 describe('updateNotificationPreferences', () => {

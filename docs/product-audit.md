@@ -36,7 +36,7 @@ _Dernière mise à jour : 2026-09-29_
 | Traduction des codes score i18n via normalizeScoreResponse() (refacto i18n) | ✅ |
 | Tests dédiés `cloud-layer-viz/*` + mocks peaks/user/types | ✅ |
 | Paywall freemium — modal slide-up déclenché sur QUOTA_EXCEEDED (story 4.2) | ✅ |
-| Toggle mensuel/annuel + badge essai gratuit + CTA + dismiss (story 4.2) | ✅ |
+| Paywall Premium StoreKit 2 — produits mensuel/annuel, prix localisé Apple, achat/restauration et essai conditionnel de 7 jours (story 4.3) | 🟡 Implémenté sur branche ; appareil Sandbox / PR à valider |
 | ErrorState — composant générique erreur (icône, titre, message, CTA primaire + secondaire) (story 7.3) | ✅ |
 | LoadingSpinner — ActivityIndicator centré générique (story 7.3) | ✅ |
 | FavoritesSkeleton — skeleton animé pour la liste favoris (story 7.3) | ✅ |
@@ -64,7 +64,7 @@ _Dernière mise à jour : 2026-09-29_
 
 - Compteur de consultations restantes avant quota (AC3 story 4.2 — à planifier)
 - Photo optionnelle après validation + calcul du taux de précision (story 6.2)
-- StoreKit 2 — intégration achat In-App réel (epic 4, story 4.3), désormais débloquable côté credentials
+- Validation Sandbox/App Store Connect de StoreKit 2 sur appareil réel (story 4.3)
 - Notifications push (epic 5), désormais débloquables côté credentials mais non implémentées
 - Universal Links et validation native réelle de Sign in with Apple
 - Métadonnées et localisation anglaise de la fiche App Store (« Cloudbreak – Sea of Clouds »)

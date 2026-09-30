@@ -1,10 +1,12 @@
 import i18n from '@/utils/i18n';
+import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { PaywallScreen } from '@/components/paywall';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePaywall, PaywallProvider } from '@/contexts/PaywallContext';
+import { useSubscriptionPurchase } from '@/hooks/useSubscriptionPurchase';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
@@ -14,7 +16,24 @@ function TabIcon({ name, color }: { name: FeatherName; color: string }) {
 
 function GlobalPaywall() {
   const { paywallVisible, hidePaywall } = usePaywall();
-  return <PaywallScreen visible={paywallVisible} onDismiss={hidePaywall} />;
+  const subscriptionPurchase = useSubscriptionPurchase();
+
+  useEffect(() => {
+    if (paywallVisible && subscriptionPurchase.isPremium) hidePaywall();
+  }, [hidePaywall, paywallVisible, subscriptionPurchase.isPremium]);
+
+  return (
+    <PaywallScreen
+      visible={paywallVisible}
+      onDismiss={hidePaywall}
+      products={subscriptionPurchase.products}
+      isLoading={subscriptionPurchase.isLoading}
+      error={subscriptionPurchase.error}
+      onSelectPlan={subscriptionPurchase.selectPlan}
+      onRestore={subscriptionPurchase.restore}
+      onRetryProducts={subscriptionPurchase.refresh}
+    />
+  );
 }
 
 export default function TabsLayout() {

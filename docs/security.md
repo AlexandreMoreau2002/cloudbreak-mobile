@@ -1,5 +1,18 @@
 # Security — Mobile
 
+## 2026-09-29 Story 4.3 — Achat Premium StoreKit 2
+
+### 🔵 INFO
+
+- **[SubscriptionContext]** Le client ne considère jamais un achat comme Premium sur la seule réponse StoreKit : son JWS part au backend, et `finishTransaction` n'est appelé qu'après la validation serveur. Une erreur de vérification laisse un état récupérable sans droit local.
+- **[Compte permanent]** `appAccountToken` reçoit l'UUID Supabase uniquement au lancement du paiement après conversion du visiteur. Le replay du mur compte relit une session fraîche ; aucun token anonyme capturé avant navigation n'est réutilisé.
+- **[Affichage]** Le prix et l'essai viennent du produit StoreKit chargé. Le badge n'affirme pas d'essai gratuit lorsque l'offre Apple est absente/non éligible. Les erreurs natives ne sont pas affichées ni journalisées telles quelles.
+- **[Restauration]** Seuls les droits actifs StoreKit sont envoyés au serveur. La liaison Apple ID → compte Cloudbreak est décidée côté serveur ; l'app ne peut pas déplacer une lignée d'achat.
+
+### Verdict
+
+SECURE SOUS RÉSERVE DE LA VALIDATION SANDBOX — aucun secret Apple n'est embarqué dans l'app. Le test réel achat/restauration et notification backend reste requis avant release.
+
 ## 2026-09-29 — Signal d'installation pour quota invité
 
 ### 🔵 INFO

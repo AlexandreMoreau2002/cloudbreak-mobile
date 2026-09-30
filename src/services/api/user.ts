@@ -1,13 +1,12 @@
 /**
- * api/user — appels profil utilisateur, abonnement, favoris, notifications.
+ * api/user — appels profil utilisateur, favoris et notifications.
  *
  * Usage :
- *   import { fetchUserSubscription, addFavorite } from '@/services/api/user';
+ *   import { addFavorite } from '@/services/api/user';
  */
 import { MOCK_API, DEBUG } from '@/constants/devConfig';
 import { apiFetch, _delay } from '@/services/fetchService';
-import { MOCK_SUBSCRIPTION } from '@/services/mockData/user';
-import type { FavoriteResponse, MockSubscription, NotificationPreferences } from '@/services/mockData/types';
+import type { FavoriteResponse, NotificationPreferences } from '@/services/mockData/types';
 
 export interface UserProfile {
   supabase_user_id: string;
@@ -71,15 +70,6 @@ export async function updateUserPreferences(
     method: 'PATCH',
     body: { newsletter_opt_in: newsletterOptIn },
   });
-}
-
-export async function fetchUserSubscription(token: string): Promise<MockSubscription> {
-  if (MOCK_API) {
-    if (DEBUG) console.debug('[api/user] MOCK fetchUserSubscription');
-    await _delay(150);
-    return MOCK_SUBSCRIPTION;
-  }
-  return apiFetch<MockSubscription>('/api/v1/user/subscription', token);
 }
 
 export async function updateNotificationPreferences(
