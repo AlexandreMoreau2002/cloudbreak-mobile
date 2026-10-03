@@ -8,11 +8,14 @@ Les règles globales (architecture, git flow, modèle de données) sont dans le 
 ## Commandes
 
 ```bash
-# Première fois ou après ajout de module natif
-npx expo run:ios        # compile le build natif + lance Metro
+# Première fois ou après ajout de module natif : build natif + install sur le simulateur
+npm run ios
 
-# Fois suivantes (build déjà installé sur le simulateur)
-npm start               # Metro uniquement
+# Développement quotidien sur le simulateur (app déjà installée)
+npm run start           # puis taper i dans Metro pour ouvrir le simulateur
+
+# Développement quotidien sur un iPhone avec Cloudbreak déjà installée
+npm run start -- --dev-client  # Metro + QR pour la development build installée
 
 npm run validate        # tsc + lint + test --coverage + build:check — obligatoire avant commit
 npm run lint            # ESLint
@@ -22,6 +25,9 @@ npm test -- --watch     # mode watch
 npm test -- --coverage  # avec couverture
 npm run build:check     # expo export (vérifie que le bundle compile)
 ```
+
+Une build EAS reste exceptionnelle : première installation sur un iPhone ou changement de
+dépendance/configuration native. Workflow complet (simulateur, iPhone, backend) : `docs/dev-ios-workflow.md`.
 
 > Ne pas utiliser Expo Go — l'app a des modules natifs incompatibles.
 
@@ -51,7 +57,8 @@ killall -9 com.apple.CoreSimulator.CoreSimulatorService
 ```
 
 - utiliser cette séquence avant d'investiguer un bug Expo/React Native si le souci ressemble à un simulateur bloqué
-- après ce reset, relancer proprement avec `npx expo run:ios` ou `npm start` selon le cas
+- après ce reset, relancer `npm run start`, puis taper `i` dans Metro, ou lancer
+  `npm run start -- --dev-client` pour l'iPhone
 
 ---
 
