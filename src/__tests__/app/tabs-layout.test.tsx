@@ -41,6 +41,18 @@ jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ locale: 'fr', toggleLocale: jest.fn() }),
 }));
 
+jest.mock('@/hooks/useSubscriptionPurchase', () => ({
+  useSubscriptionPurchase: () => ({
+    error: null,
+    isLoading: false,
+    isPremium: false,
+    products: [],
+    refresh: jest.fn(),
+    restore: jest.fn(),
+    selectPlan: jest.fn(),
+  }),
+}));
+
 describe('TabsLayout', () => {
   it('s\'affiche sans erreur et couvre TabIcon', () => {
     const { toJSON } = render(<TabsLayout />);

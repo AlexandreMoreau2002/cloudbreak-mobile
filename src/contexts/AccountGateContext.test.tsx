@@ -164,6 +164,39 @@ describe('AccountGateContext', () => {
     expect(result.current.pendingAction).toBeNull();
   });
 
+  it('rejoue exactement une fois l’achat demandé après conversion permanente', async () => {
+    const retry = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+    act(() => result.current.requireAccount({
+      kind: 'subscription',
+      productId: 'com.alexandremoreau.cloudbreak.premium.annual',
+      retry,
+    }));
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'fresh-token', user: { id: 'account', is_anonymous: false } } },
+    });
+
+    await act(async () => result.current.finishAccountCreation());
+
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/search');
+  });
+
+  it('n’achète pas si le parcours compte est annulé', async () => {
+    const retry = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useAccountGate(), { wrapper });
+    act(() => result.current.requireAccount({
+      kind: 'subscription',
+      productId: 'com.alexandremoreau.cloudbreak.premium.monthly',
+      retry,
+    }));
+
+    await act(async () => result.current.cancelAccountFlow());
+
+    expect(retry).not.toHaveBeenCalled();
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/search');
+  });
+
   it('ne rejoue pas le quota sans session permanente fraîche', async () => {
     const retry = jest.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() => useAccountGate(), { wrapper });
