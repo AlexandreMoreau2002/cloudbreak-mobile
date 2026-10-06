@@ -182,6 +182,7 @@ export default {
     devSandbox: 'DEV · Sandbox CloudLayerViz',
     devResetPeak: 'DEV · Réinitialiser le sommet sélectionné',
     devReplayOnboarding: "DEV · Rejouer l'onboarding",
+    devResetSession: 'DEV · Réinitialiser la session',
     guest: {
       title: 'Mode invité',
       subtitle: 'Crée un compte pour sauvegarder tes sommets.',
@@ -226,7 +227,7 @@ export default {
     subtitle: 'Accédez à toutes vos prévisions, sans limite quotidienne.',
     billingMonthly: 'Mensuel',
     billingAnnual: 'Annuel',
-    billingSavings: '−33%',
+    billingSavings: '−25%',
     ctaStart: 'Commencer l\'essai gratuit',
     periodMonth: 'mois',
     periodYear: 'an',

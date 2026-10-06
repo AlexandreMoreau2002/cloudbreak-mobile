@@ -182,6 +182,7 @@ export default {
     devSandbox: 'DEV · CloudLayerViz Sandbox',
     devResetPeak: 'DEV · Reset selected summit',
     devReplayOnboarding: 'DEV · Replay onboarding',
+    devResetSession: 'DEV · Reset session',
     guest: {
       title: 'Guest mode',
       subtitle: 'Create an account to save your summits.',
@@ -226,7 +227,7 @@ export default {
     subtitle: 'Access all your forecasts with no daily limit.',
     billingMonthly: 'Monthly',
     billingAnnual: 'Annual',
-    billingSavings: '−33%',
+    billingSavings: '−25%',
     ctaStart: 'Start free trial',
     periodMonth: 'month',
     periodYear: 'year',

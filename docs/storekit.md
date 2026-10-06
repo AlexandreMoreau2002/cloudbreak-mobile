@@ -18,7 +18,7 @@ StoreKit 2 gère l'intégralité des paiements dans Cloudbreak. **Pas de Stripe,
 Produit défini dans App Store Connect. Chargé au runtime via son identifiant :
 
 ```swift
-let products = try await Product.products(for: ["app.cloudbreak.pro.monthly", "app.cloudbreak.pro.annual"])
+let products = try await Product.products(for: ["com.alexandremoreau.cloudbreak.premium.monthly", "com.alexandremoreau.cloudbreak.premium.annual"])
 ```
 
 Contient le prix localisé, la description, la durée d'abonnement. Ne représente pas un achat — c'est juste la fiche produit.
@@ -131,10 +131,10 @@ Même logique que l'achat — le code de vérification est mutualisé.
 
 | Product ID | Période | Prix |
 |---|---|---|
-| `app.cloudbreak.pro.monthly` | Mensuel | 5 € |
-| `app.cloudbreak.pro.annual` | Annuel | 45 € |
+| `com.alexandremoreau.cloudbreak.premium.monthly` | Mensuel | 4,99 € |
+| `com.alexandremoreau.cloudbreak.premium.annual` | Annuel | 44,99 € |
 
-Les deux correspondent au plan `"pro"` en DB — même niveau d'accès, même colonne `subscriptions.plan`. La différence n'est que la durée et le prix.
+Les deux correspondent au plan `"premium"` en DB — même niveau d'accès, même colonne `subscriptions.plan`. La différence n'est que la durée et le prix.
 
 ---
 
@@ -183,7 +183,7 @@ WHERE user_id = {user_id}
 
 **Abonnements auto-renouvelables** → Apple gère le renouvellement. L'app doit vérifier `currentEntitlements` au démarrage pour détecter un renouvellement survenu hors ligne.
 
-**Prix et devises** → `product.displayPrice` est automatiquement localisé par StoreKit selon la locale de l'App Store de l'utilisateur. Ne jamais hardcoder "5€".
+**Prix et devises** → `product.displayPrice` est automatiquement localisé par StoreKit selon la locale de l'App Store de l'utilisateur. Ne jamais hardcoder un prix (ni "4,99 €", ni "44,99 €").
 
 ---
 

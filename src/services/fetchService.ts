@@ -73,6 +73,7 @@ export async function apiFetch<T>(
   }
 
   let response: Response;
+  const startedAt = Date.now();
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
     if (controller.signal.aborted) throw abortError();
@@ -96,10 +97,20 @@ export async function apiFetch<T>(
     // externe (signal fourni par l'appelant) — ne pas réordonner sans revérifier cette garantie.
   } catch (cause) {
     if (typeof cause === 'object' && cause !== null && (cause as { code?: string }).code === 'NETWORK_TIMEOUT') {
+      if (DEBUG) {
+        console.debug('[fetchService] timeout', { method, url: url.toString(), ms: Date.now() - startedAt });
+      }
       throw cause;
     }
     if (cause instanceof Error && cause.name === 'AbortError') throw cause;
-    if (DEBUG) console.debug('[fetchService] network unreachable', { url: url.toString(), cause });
+    if (DEBUG) {
+      console.debug('[fetchService] network unreachable', {
+        method,
+        url: url.toString(),
+        ms: Date.now() - startedAt,
+        cause,
+      });
+    }
     const err = new Error('Impossible de joindre le serveur') as Error & { code: string };
     err.code = 'NETWORK_UNREACHABLE';
     throw err;
@@ -108,10 +119,22 @@ export async function apiFetch<T>(
     options?.signal?.removeEventListener('abort', onExternalAbort);
   }
 
+  if (DEBUG) {
+    console.debug('[fetchService] response', {
+      method,
+      path,
+      status: response.status,
+      ms: Date.now() - startedAt,
+    });
+  }
+
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     const code: string | undefined = body?.code ?? (typeof body?.detail === 'object' ? body?.detail?.code : undefined);
     const detail: string = (typeof body?.detail === 'string' ? body.detail : body?.detail?.detail) ?? `HTTP ${response.status}`;
+    if (DEBUG) {
+      console.debug('[fetchService] http error', { method, path, status: response.status, code, detail });
+    }
     const err = new Error(detail);
     (err as Error & { code?: string; httpStatus: number }).httpStatus = response.status;
     if (code) (err as Error & { code: string }).code = code;

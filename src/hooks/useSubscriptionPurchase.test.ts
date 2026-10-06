@@ -22,7 +22,7 @@ describe('useSubscriptionPurchase', () => {
     mockUseAccountGate.mockReturnValue({ requireAccount } as unknown as ReturnType<typeof useAccountGate>);
     mockUseSubscription.mockReturnValue({
       isPremium: false,
-      products: [{ id: 'com.alexandremoreau.cloudbreak.premium.monthly', displayPrice: '4,99 $', period: 'month', hasFreeTrial: true }],
+      products: [{ id: 'com.alexandremoreau.cloudbreak.premium.monthly', displayPrice: '4,99 €', period: 'month', hasFreeTrial: true }],
       purchase,
       refresh: jest.fn(),
       restore: jest.fn(),

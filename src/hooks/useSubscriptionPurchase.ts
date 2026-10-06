@@ -1,4 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { DEBUG } from '@/constants/devConfig';
 import { useAccountGate } from '@/contexts/AccountGateContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription, type SubscriptionProductId } from '@/contexts/SubscriptionContext';
@@ -23,6 +24,10 @@ export function useSubscriptionPurchase() {
     displayPrice: product.displayPrice,
     hasFreeTrial: product.hasFreeTrial,
   })), [products]);
+
+  useEffect(() => {
+    if (DEBUG) console.debug('[paywall] products received', { count: paywallProducts.length, prices: paywallProducts.map((product) => `${product.billingPeriod}:${product.displayPrice}`), isLoading: state.loading, error: state.error });
+  }, [paywallProducts, state.loading, state.error]);
 
   const selectPlan = useCallback(async (billingPeriod: BillingPeriod): Promise<void> => {
     const productId = PRODUCT_BY_BILLING_PERIOD[billingPeriod];
