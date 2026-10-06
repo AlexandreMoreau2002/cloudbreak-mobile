@@ -159,13 +159,13 @@ Le receipt est un JWS (JSON Web Signature) signé par Apple avec un certificat E
 
 ```sql
 UPDATE subscriptions
-SET plan = 'pro', status = 'active', expires_at = {expires_at}
+SET plan = 'premium', status = 'active', expires_at = {expires_at}
 WHERE user_id = {user_id}
 ```
 
 ### Ce qui ne se passe pas
 
-- Pas de webhook Apple — l'app push le receipt, le backend ne poll pas
+- L'app envoie la transaction au backend (`POST /api/v1/user/subscription/verify`) ; le backend ne poll pas Apple. Apple prévient aussi le backend par notifications serveur V2 (`POST /api/v1/webhooks/apple`, signature JWS) pour les renouvellements, expirations et remboursements app fermée : implémenté et testé côté backend, mais la livraison réelle par Apple n'est pas encore prouvée (voir `backend/docs/apple-server-notifications.md`)
 - Pas de Stripe, pas de clé Stripe côté backend
 - Le renouvellement automatique est géré par Apple — l'app vérifie `currentEntitlements` au démarrage
 
