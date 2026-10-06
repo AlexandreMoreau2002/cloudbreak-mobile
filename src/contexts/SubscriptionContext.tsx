@@ -11,6 +11,7 @@ import {
   requestPurchase,
 } from 'react-native-iap';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/services/supabaseClient';
 import {
@@ -140,14 +141,25 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     async function initialiseStore(): Promise<void> {
       try {
         const connected = await initConnection();
+        if (DEBUG) console.debug('[subscription] initConnection', { connected });
         if (!connected || !active) throw new Error('StoreKit unavailable');
+        if (DEBUG) console.debug('[subscription] fetchProducts call', { skus: [...PRODUCT_IDS] });
         const nativeProducts = await fetchProducts({ skus: [...PRODUCT_IDS], type: 'subs' });
+        if (DEBUG) console.debug('[subscription] fetchProducts raw', { count: nativeProducts?.length ?? 0, isArray: Array.isArray(nativeProducts) });
+        if (DEBUG) (nativeProducts ?? []).forEach((product) => console.debug('[subscription] product raw', {
+          id: product.id,
+          platform: (product as ProductSubscription).platform,
+          displayPrice: (product as ProductSubscription).displayPrice,
+        }));
         if (!active) return;
-        setProducts((nativeProducts ?? []).flatMap((product) => {
+        const mappedProducts = (nativeProducts ?? []).flatMap((product) => {
           const mapped = mapProduct(product as ProductSubscription);
           return mapped ? [mapped] : [];
-        }));
-      } catch {
+        });
+        if (DEBUG) console.debug('[subscription] products mapped', { count: mappedProducts.length, ids: mappedProducts.map((product) => product.id) });
+        setProducts(mappedProducts);
+      } catch (error) {
+        if (DEBUG) console.debug('[subscription] store unavailable', { message: error instanceof Error ? error.message : String(error) });
         if (active) setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
       }
     }

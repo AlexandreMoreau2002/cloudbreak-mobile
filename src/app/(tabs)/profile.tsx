@@ -274,6 +274,16 @@ export default function ProfileScreen() {
               {i18n.t('profile.devReplayOnboarding')}
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: '#C25C4A' }]}
+            onPress={() => void signOutToAnonymous()}
+            activeOpacity={0.7}
+            testID="dev-reset-session"
+          >
+            <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
+              {i18n.t('profile.devResetSession')}
+            </Text>
+          </TouchableOpacity>
         </>
       )}
     </ScrollView>

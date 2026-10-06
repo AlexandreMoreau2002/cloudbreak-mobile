@@ -10,15 +10,15 @@ jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ scheme: 'light'
 jest.mock('@/utils/i18n', () => ({
   t: (key: string, options?: Record<string, string>) => {
     const values: Record<string, string> = {
-      'paywall.trialBadge': 'Essai gratuit 7 jours', 'paywall.title': 'Prévisions illimitées', 'paywall.subtitle': 'Toutes vos prévisions', 'paywall.billingMonthly': 'Mensuel', 'paywall.billingAnnual': 'Annuel', 'paywall.billingSavings': '−33%', 'paywall.ctaStart': 'Commencer l’essai gratuit', 'paywall.periodMonth': 'mois', 'paywall.periodYear': 'an', 'paywall.ctaTrialDisclosure': '7 jours gratuits, puis {{price}}/{{period}}. Renouvellement automatique sauf annulation.', 'paywall.ctaRenewalDisclosure': '{{price}}/{{period}}. Renouvellement automatique sauf annulation.', 'paywall.ctaRestore': 'Restaurer un achat', 'paywall.dismiss': 'Continuer sans abonnement', 'paywall.noCommitment': 'Sans engagement', 'paywall.storeUnavailableTitle': 'Abonnements indisponibles', 'paywall.storeUnavailableMessage': 'Impossible de charger les offres Apple.', 'paywall.purchaseFailedTitle': 'Achat non finalisé', 'paywall.purchaseFailedMessage': 'L’achat n’a pas abouti.', 'paywall.verificationFailedMessage': 'Validation indisponible.', 'common.retry': 'Réessayer', 'common.loading': 'Chargement…', 'legal.privacy': 'Confidentialité', 'legal.cgu': 'CGU',
+      'paywall.trialBadge': 'Essai gratuit 7 jours', 'paywall.title': 'Prévisions illimitées', 'paywall.subtitle': 'Toutes vos prévisions', 'paywall.billingMonthly': 'Mensuel', 'paywall.billingAnnual': 'Annuel', 'paywall.billingSavings': '−25%', 'paywall.ctaStart': 'Commencer l’essai gratuit', 'paywall.periodMonth': 'mois', 'paywall.periodYear': 'an', 'paywall.ctaTrialDisclosure': '7 jours gratuits, puis {{price}}/{{period}}. Renouvellement automatique sauf annulation.', 'paywall.ctaRenewalDisclosure': '{{price}}/{{period}}. Renouvellement automatique sauf annulation.', 'paywall.ctaRestore': 'Restaurer un achat', 'paywall.dismiss': 'Continuer sans abonnement', 'paywall.noCommitment': 'Sans engagement', 'paywall.storeUnavailableTitle': 'Abonnements indisponibles', 'paywall.storeUnavailableMessage': 'Impossible de charger les offres Apple.', 'paywall.purchaseFailedTitle': 'Achat non finalisé', 'paywall.purchaseFailedMessage': 'L’achat n’a pas abouti.', 'paywall.verificationFailedMessage': 'Validation indisponible.', 'common.retry': 'Réessayer', 'common.loading': 'Chargement…', 'legal.privacy': 'Confidentialité', 'legal.cgu': 'CGU',
     };
     return Object.entries(options ?? {}).reduce((value, [name, replacement]) => value.replace(`{{${name}}}`, replacement), values[key] ?? key);
   },
 }));
 
 const products: PaywallProduct[] = [
-  { billingPeriod: 'monthly', displayPrice: '4,99 $', hasFreeTrial: true },
-  { billingPeriod: 'annual', displayPrice: '39,99 $', hasFreeTrial: true },
+  { billingPeriod: 'monthly', displayPrice: '4,99 €', hasFreeTrial: true },
+  { billingPeriod: 'annual', displayPrice: '44,99 €', hasFreeTrial: true },
 ];
 const onDismiss = jest.fn();
 const onSelectPlan = jest.fn().mockResolvedValue(undefined);
@@ -34,17 +34,17 @@ describe('PaywallScreen', () => {
 
   it('uses the StoreKit localised price for the selected plan', () => {
     renderPaywall();
-    expect(screen.getByTestId('paywall-annual-price')).toHaveTextContent('39,99 $');
-    expect(screen.getByTestId('paywall-cta-trial-end-note')).toHaveTextContent('7 jours gratuits, puis 39,99 $/an. Renouvellement automatique sauf annulation.');
+    expect(screen.getByTestId('paywall-annual-price')).toHaveTextContent('44,99 €');
+    expect(screen.getByTestId('paywall-cta-trial-end-note')).toHaveTextContent('7 jours gratuits, puis 44,99 €/an. Renouvellement automatique sauf annulation.');
     fireEvent.press(screen.getByTestId('paywall-billing-monthly'));
-    expect(screen.getByTestId('paywall-monthly-price')).toHaveTextContent('4,99 $');
-    expect(screen.getByTestId('paywall-cta-trial-end-note')).toHaveTextContent('7 jours gratuits, puis 4,99 $/mois. Renouvellement automatique sauf annulation.');
+    expect(screen.getByTestId('paywall-monthly-price')).toHaveTextContent('4,99 €');
+    expect(screen.getByTestId('paywall-cta-trial-end-note')).toHaveTextContent('7 jours gratuits, puis 4,99 €/mois. Renouvellement automatique sauf annulation.');
   });
 
   it('only shows the seven-day badge and disclosure for an eligible StoreKit offer', () => {
-    renderPaywall({ products: [{ billingPeriod: 'annual', displayPrice: '39,99 $', hasFreeTrial: false }] });
+    renderPaywall({ products: [{ billingPeriod: 'annual', displayPrice: '44,99 €', hasFreeTrial: false }] });
     expect(screen.queryByText('Essai gratuit 7 jours')).toBeNull();
-    expect(screen.getByTestId('paywall-cta-trial-end-note')).toHaveTextContent('39,99 $/an. Renouvellement automatique sauf annulation.');
+    expect(screen.getByTestId('paywall-cta-trial-end-note')).toHaveTextContent('44,99 €/an. Renouvellement automatique sauf annulation.');
   });
 
   it('disables purchase and offers a retry when StoreKit does not load the selected product', () => {
