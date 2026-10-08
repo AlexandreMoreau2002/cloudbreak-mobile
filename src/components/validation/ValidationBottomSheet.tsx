@@ -4,7 +4,7 @@
  * Mêmes patterns d'animation que PaywallScreen (Modal + Animated, pas de
  * librairie externe). Un seul composant, contenu conditionné par `step`.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
@@ -42,8 +42,8 @@ export function ValidationBottomSheet({
 }: ValidationBottomSheetProps) {
   const { colors, scheme } = useTheme();
   const isDark = scheme === 'dark';
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const sheetTranslateY = useRef(new Animated.Value(600)).current;
+  const overlayOpacity = useState(() => new Animated.Value(0))[0];
+  const sheetTranslateY = useState(() => new Animated.Value(600))[0];
 
   useEffect(() => {
     if (visible && step) {

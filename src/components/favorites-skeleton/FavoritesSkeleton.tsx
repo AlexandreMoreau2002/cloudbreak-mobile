@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Radius, Spacing } from '@/constants/spacing';
 import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
@@ -14,7 +14,7 @@ function SkeletonBlock({
   color: string;
   style?: ViewStyle;
 }) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
+  const opacity = useState(() => new Animated.Value(0.3))[0];
 
   useEffect(() => {
     const anim = Animated.loop(

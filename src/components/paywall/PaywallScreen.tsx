@@ -7,7 +7,7 @@
  *   onSelectPlan function — appelé avec 'monthly' ou 'annual' lors de la sélection
  */
 import i18n from '@/utils/i18n';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ErrorState } from '@/components/error-state';
 import { Colors } from '@/constants/colors';
@@ -41,8 +41,8 @@ export function PaywallScreen({
   const sheetBg = isDark ? Colors.dark.surface : Colors.light.surface;
   const dividerColor = isDark ? Colors.dark.border : Colors.light.border;
 
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const sheetTranslateY = useRef(new Animated.Value(600)).current;
+  const overlayOpacity = useState(() => new Animated.Value(0))[0];
+  const sheetTranslateY = useState(() => new Animated.Value(600))[0];
 
   useEffect(() => {
     if (visible) {

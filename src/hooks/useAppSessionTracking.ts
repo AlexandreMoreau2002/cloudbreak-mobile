@@ -13,7 +13,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { track } from '@/services/analytics';
 
 export function useAppSessionTracking(): void {
-  const sessionStartRef = useRef<number>(Date.now());
+  const sessionStartRef = useRef<number>(0);
 
   useEffect(() => {
     track('app_foregrounded');

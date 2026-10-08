@@ -6,7 +6,7 @@
  * via onLayout). Le fond du bloc reste opaque et stable.
  */
 import { Radius } from '@/constants/spacing';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Animated, Easing, StyleSheet, View, type LayoutChangeEvent, type ViewStyle } from 'react-native';
 
@@ -21,7 +21,7 @@ interface SkeletonBlockProps {
 }
 
 export function SkeletonBlock({ width, height, color, style, testID }: SkeletonBlockProps) {
-  const translateX = useRef(new Animated.Value(0)).current;
+  const translateX = useState(() => new Animated.Value(0))[0];
   const [measuredWidth, setMeasuredWidth] = useState(0);
 
   useEffect(() => {
