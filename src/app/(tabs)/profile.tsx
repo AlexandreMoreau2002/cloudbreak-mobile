@@ -55,6 +55,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     nameSavePending.current = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- ferme la modale au changement de session
     setNameModalVisible(false);
   }, [session?.user?.id]);
 
