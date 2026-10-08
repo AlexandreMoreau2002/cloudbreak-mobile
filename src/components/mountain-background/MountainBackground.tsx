@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
  */
 export function MountainBackground({ opacity = 0.12 }: { opacity?: number }) {
   return (
-    <View style={[StyleSheet.absoluteFillObject, { opacity }]} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents="none">
       {/* Montagne arrière-plan (grande, droite) */}
       <View style={styles.mountainBack} />
 

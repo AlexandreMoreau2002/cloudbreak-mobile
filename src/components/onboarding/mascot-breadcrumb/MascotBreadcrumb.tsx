@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   stopFill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: STOP / 2,
   },
   mascotWrap: {

@@ -45,4 +45,4 @@ export function AuthBackdrop() {
   );
 }
 
-const styles = StyleSheet.create({ canvas: { ...StyleSheet.absoluteFillObject, height: 460, zIndex: 1 } });
+const styles = StyleSheet.create({ canvas: { ...StyleSheet.absoluteFill, height: 460, zIndex: 1 } });
