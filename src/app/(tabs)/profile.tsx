@@ -1,16 +1,16 @@
 import Constants from 'expo-constants';
+import { useCallback, useState } from 'react';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import i18n from '@/utils/i18n';
 import { track } from '@/services/analytics';
 import { useAuth } from '@/contexts/AuthContext';
-import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useTheme } from '@/contexts/ThemeContext';
-import { ErrorState } from '@/components/error-state';
+import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
+import { ErrorState } from '@/components/error-state';
 import { usePaywall } from '@/contexts/PaywallContext';
 import { useDisplayName } from '@/hooks/useDisplayName';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -22,7 +22,7 @@ import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useNewsletterConsent } from '@/hooks/useNewsletterConsent';
 import { useLocationSettingsLink } from '@/hooks/useLocationSettingsLink';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
-import { DeleteAccountModal, DisplayNameModal, GuestAccountCard, ProBanner, SettingsRow, UserCard } from '@/components/profile';
+import { DeleteAccountModal, GuestAccountCard, ProBanner, SettingsRow, UserCard } from '@/components/profile';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -39,24 +39,10 @@ export default function ProfileScreen() {
   const { optedIn: newsletterOptIn, state: newsletterState, toggle: toggleNewsletter } = useNewsletterConsent();
   const { state: notifState } = useNotificationPreferences();
   const { state: displayNameState, save: saveDisplayName, refresh: refreshDisplayName } = useDisplayName();
-  const [nameModalVisible, setNameModalVisible] = useState(false);
-  const nameSaveGeneration = useRef(0);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState(false);
-
-  useEffect(() => {
-    nameSaveGeneration.current += 1;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- ferme la modale au changement de session
-    setNameModalVisible(false);
-  }, [session?.user?.id]);
-
-  async function handleSaveDisplayName(value: string | null) {
-    const generation = ++nameSaveGeneration.current;
-    const saved = await saveDisplayName(value);
-    if (saved && generation === nameSaveGeneration.current) setNameModalVisible(false);
-  }
 
   useFocusEffect(
     useCallback(() => {
@@ -113,6 +99,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView
+      keyboardShouldPersistTaps="handled"
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
     >
@@ -136,7 +123,14 @@ export default function ProfileScreen() {
           emptyComponent={null}
           errorComponent={<ErrorState title={i18n.t('profile.displayName.error')} action={{ label: i18n.t('common.retry'), onPress: () => void refreshDisplayName() }} actionTestID="display-name-retry" />}
         >
-          <UserCard email={email} displayName={displayNameState.data ?? null} />
+          <UserCard
+            key={session?.user?.id ?? 'no-session'}
+            email={email}
+            displayName={displayNameState.data ?? null}
+            state={displayNameState}
+            onSave={saveDisplayName}
+            disabled={!session}
+          />
         </AsyncStateView>
       )}
 
@@ -229,13 +223,6 @@ export default function ProfileScreen() {
             {i18n.t('profile.sectionAccount')}
           </Text>
           <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            {session && (
-              <SettingsRow
-                icon="person-outline"
-                label={i18n.t('profile.displayName.setting')}
-                onPress={displayNameState.data === undefined ? undefined : () => setNameModalVisible(true)}
-              />
-            )}
             <SettingsRow
               icon="log-out-outline"
               label={i18n.t('profile.signOut')}
@@ -262,16 +249,6 @@ export default function ProfileScreen() {
             />
           </View>
         </>
-      )}
-
-      {nameModalVisible && session && !isAnonymous && (
-        <DisplayNameModal
-          key={session.user.id}
-          displayName={displayNameState.data ?? null}
-          state={displayNameState}
-          onCancel={() => { nameSaveGeneration.current += 1; setNameModalVisible(false); }}
-          onSave={(value) => { void handleSaveDisplayName(value); }}
-        />
       )}
 
       <DeleteAccountModal

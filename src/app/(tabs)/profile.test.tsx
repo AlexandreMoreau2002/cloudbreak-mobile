@@ -172,12 +172,13 @@ describe('ProfileScreen', () => {
     expect(getByText('profile.title')).toBeTruthy();
   });
 
-  it('ouvre l’édition du nom pour un compte permanent et annule sans changer la carte', () => {
+  it('opens inline editing from the identity card with no display-name account setting', () => {
     const screen = render(<ProfileScreen />);
     expect(screen.getByText('Alex')).toBeTruthy();
-    fireEvent.press(screen.getByText('profile.displayName.setting'));
+    expect(screen.queryByText('profile.displayName.setting')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'profile.displayName.edit' }));
     fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
-    fireEvent.press(screen.getByTestId('display-name-cancel'));
+    fireEvent(screen.getByTestId('display-name-input'), 'keyPress', { nativeEvent: { key: 'Escape' } });
     expect(mockSaveDisplayName).not.toHaveBeenCalled();
     expect(screen.getByText('Alex')).toBeTruthy();
     expect(screen.queryByTestId('display-name-input')).toBeNull();
@@ -192,11 +193,11 @@ describe('ProfileScreen', () => {
     expect(screen.queryByText('profile.displayName.setting')).toBeNull();
   });
 
-  it('ferme la modale et affiche le nom confirmé après sauvegarde', async () => {
+  it('closes inline editing and shows the confirmed name after saving', async () => {
     let resolveSave!: (saved: boolean) => void;
     mockSaveDisplayName.mockReturnValueOnce(new Promise((resolve) => { resolveSave = resolve; }));
     const screen = render(<ProfileScreen />);
-    fireEvent.press(screen.getByText('profile.displayName.setting'));
+    fireEvent.press(screen.getByRole('button', { name: 'profile.displayName.edit' }));
     fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
     fireEvent.press(screen.getByTestId('display-name-save'));
     expect(mockSaveDisplayName).toHaveBeenCalledWith('New');
@@ -213,7 +214,7 @@ describe('ProfileScreen', () => {
     let resolveSave!: (saved: boolean) => void;
     mockSaveDisplayName.mockReturnValueOnce(new Promise((resolve) => { resolveSave = resolve; }));
     const screen = render(<ProfileScreen />);
-    fireEvent.press(screen.getByText('profile.displayName.setting'));
+    fireEvent.press(screen.getByRole('button', { name: 'profile.displayName.edit' }));
     fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
     fireEvent.press(screen.getByTestId('display-name-save'));
     mockDisplayNameState = { status: 'success', data: 'Alex' };
@@ -223,18 +224,20 @@ describe('ProfileScreen', () => {
     expect(screen.getByTestId('display-name-input').props.value).toBe('New');
   });
 
-  it('conserve le nom précédent et la saisie après échec de sauvegarde', () => {
+  it('conserve le nom précédent et la saisie après échec de sauvegarde', async () => {
+    mockSaveDisplayName.mockResolvedValueOnce(false);
     const screen = render(<ProfileScreen />);
-    fireEvent.press(screen.getByText('profile.displayName.setting'));
+    fireEvent.press(screen.getByRole('button', { name: 'profile.displayName.edit' }));
     fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
     fireEvent.press(screen.getByTestId('display-name-save'));
     mockDisplayNameState = { status: 'loading', data: 'Alex' };
     screen.rerender(<ProfileScreen />);
     mockDisplayNameState = { status: 'error', data: 'Alex', error: 'raw' };
     screen.rerender(<ProfileScreen />);
+    await waitFor(() => expect(screen.getByTestId('display-name-save')).not.toBeDisabled());
     expect(screen.getByText('profile.displayName.error')).toBeTruthy();
     expect(screen.getByTestId('display-name-input').props.value).toBe('New');
-    fireEvent.press(screen.getByTestId('display-name-cancel'));
+    fireEvent(screen.getByTestId('display-name-input'), 'keyPress', { nativeEvent: { key: 'Escape' } });
     expect(screen.getByText('Alex')).toBeTruthy();
   });
 
