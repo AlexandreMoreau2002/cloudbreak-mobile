@@ -7,10 +7,10 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import i18n from '@/utils/i18n';
 import { track } from '@/services/analytics';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { LEGAL_URLS } from '@/constants/legalUrls';
-import { useLegalLinks } from '@/hooks/useLegalLinks';
+import { useTheme } from '@/contexts/ThemeContext';
 import { ErrorState } from '@/components/error-state';
+import { useLegalLinks } from '@/hooks/useLegalLinks';
 import { usePaywall } from '@/contexts/PaywallContext';
 import { useDisplayName } from '@/hooks/useDisplayName';
 import { useLanguage } from '@/contexts/LanguageContext';
