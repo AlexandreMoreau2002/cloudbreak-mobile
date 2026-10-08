@@ -29,6 +29,12 @@ describe('UserCard', () => {
     expect(getByText('Alex Moreau')).toBeTruthy();
   });
 
+  it('préserve une initiale astrale et un nom de 25 caractères Unicode', () => {
+    const { getByText } = render(<UserCard email="private@test.com" displayName="🌄ABCDEFGHIJKLMNOPQRSTUVWX" />);
+    expect(getByText('🌄')).toBeTruthy();
+    expect(getByText('🌄ABCDEFGHIJKLMNOPQRSTUVWX')).toBeTruthy();
+  });
+
   it('affiche l\'email complet', () => {
     const { getByText } = render(<UserCard email="alex.moreau@test.com" displayName={null} />);
     expect(getByText('alex.moreau@test.com')).toBeTruthy();

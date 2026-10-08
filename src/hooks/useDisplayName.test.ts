@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+
 import { useDisplayName } from '@/hooks/useDisplayName';
 
 const mockFetchMe = jest.fn();
@@ -61,6 +62,32 @@ describe('useDisplayName', () => {
     expect(result.current.state).toEqual({ status: 'success', data: null });
   });
 
+  it('conserve le PATCH en cours quand le JWT du même compte est renouvelé', async () => {
+    mockFetchMe.mockResolvedValue({ display_name: 'Alex' });
+    let resolveSave!: (profile: { display_name: string }) => void;
+    mockUpdateDisplayName.mockReturnValueOnce(new Promise((resolve) => { resolveSave = resolve; }));
+    const { result, rerender } = renderHook(() => useDisplayName());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+
+    let savePromise!: ReturnType<typeof result.current.save>;
+    act(() => { savePromise = result.current.save('Alexandre'); });
+    mockAuthState.session = {
+      access_token: 'refreshed-token',
+      user: { id: 'user-1', is_anonymous: false },
+    };
+    await act(async () => { rerender(undefined); });
+    expect(result.current.state).toEqual({ status: 'loading', data: 'Alex' });
+
+    await act(async () => {
+      resolveSave({ display_name: 'Alexandre' });
+      await savePromise;
+    });
+    expect(result.current.state).toEqual({ status: 'success', data: 'Alexandre' });
+    mockFetchMe.mockResolvedValueOnce({ display_name: 'Alexandre' });
+    await act(async () => { await result.current.refresh(); });
+    expect(mockFetchMe).toHaveBeenLastCalledWith('refreshed-token');
+  });
+
   it('reste idle et évite le réseau pour une session anonyme ou absente', async () => {
     mockAuthState.isAnonymous = true;
     const { result, rerender } = renderHook(() => useDisplayName());
@@ -94,7 +121,7 @@ describe('useDisplayName', () => {
     const { result, rerender } = renderHook(() => useDisplayName());
     await waitFor(() => expect(result.current.state).toEqual({ status: 'success', data: 'Alex' }));
 
-    let savePromise!: Promise<void>;
+    let savePromise!: Promise<boolean>;
     act(() => { savePromise = result.current.save('Alexandre'); });
     mockAuthState.isAnonymous = true;
     mockAuthState.session = null;

@@ -1,6 +1,6 @@
 # Cloudbreak Mobile — Audit produit
 
-_Dernière mise à jour : 2026-09-29_
+_Dernière mise à jour : 2026-10-08_
 
 ---
 
@@ -14,6 +14,7 @@ _Dernière mise à jour : 2026-09-29_
 | Auth Supabase (inscription, connexion, logout) | ✅ |
 | ThemeContext (light/dark) | ✅ |
 | AuthContext + AuthGuard | ✅ |
+| Nom d’usage facultatif dans le Profil (story 2.9), édition/effacement, initialisation Apple, renouvellement JWT et initiales Unicode | 🟡 Tests automatisés verts ; validation iPhone réelle à effectuer |
 | i18n FR/EN + toggle runtime | ✅ |
 | CI GitHub Actions (lint + tsc + jest + build check) | ✅ |
 | Socle EAS iOS — projet Expo lié, profils development/preview/production et credentials Apple App Store / Ad Hoc internes | ✅ |

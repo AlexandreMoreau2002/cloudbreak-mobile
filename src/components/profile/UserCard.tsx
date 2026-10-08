@@ -8,7 +8,7 @@ function getInitials(displayName: string | null): string {
   const parts = displayName.trim().split(/\s+/);
   return parts
     .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? '')
+    .map((p) => Array.from(p)[0]?.toUpperCase() ?? '')
     .join('');
 }
 

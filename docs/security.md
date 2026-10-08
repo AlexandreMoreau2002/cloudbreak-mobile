@@ -10,8 +10,11 @@
   Une réponse Apple sans nom ne modifie jamais le nom existant. Une erreur de cette
   initialisation facultative ne bloque pas la connexion et n’est pas journalisée.
 - L’effacement envoie `null` ; la suppression du compte supprime aussi le nom côté backend.
-- Les réponses périmées du hook sont ignorées après changement de session. La saisie
+- Les réponses périmées du hook sont ignorées après changement de compte ou déconnexion ;
+  le renouvellement du JWT du même compte conserve sa sauvegarde en cours. La saisie
   disparaît au changement de compte ; la validation serveur reste l’autorité.
+- Après un PATCH Apple réussi, un compteur de révision en mémoire déclenche la relecture du
+  profil courant. Ce signal ne contient ni nom, ni token, et n’est ni persisté ni journalisé.
 
 ## 2026-09-29 Story 4.3 — Achat Premium StoreKit 2
 

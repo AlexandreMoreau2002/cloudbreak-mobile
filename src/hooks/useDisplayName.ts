@@ -11,24 +11,32 @@ interface SessionState {
 }
 
 export function useDisplayName() {
-  const { session, isAnonymous } = useAuth();
+  const { session, isAnonymous, profileRevision } = useAuth();
   const token = session?.access_token ?? null;
   const anonymous = isAnonymous || session?.user?.is_anonymous === true;
-  const identity = anonymous || !token ? null : `${session?.user?.id}:${token}`;
+  // A refreshed credential belongs to the same account; it must not cancel its PATCH.
+  const identity = anonymous || !token ? null : session?.user?.id ?? null;
+  const tokenRef = useRef(token);
   const generation = useRef(0);
+  const saving = useRef(false);
   const [snapshot, setSnapshot] = useState<SessionState>({
     identity,
     value: { status: 'idle' },
   });
   const state = snapshot.identity === identity ? snapshot.value : { status: 'idle' } as AsyncState<string | null>;
 
+  useEffect(() => { tokenRef.current = token; }, [token]);
+
   const refresh = useCallback(async () => {
+    const token = tokenRef.current;
     if (!identity || !token) {
       setSnapshot({ identity: null, value: { status: 'idle' } });
       return;
     }
 
-    const requestGeneration = generation.current;
+    // Reads cannot replace a pending write with a pre-commit server snapshot.
+    if (saving.current) return;
+    const requestGeneration = ++generation.current;
     if (DEBUG) console.debug('[useDisplayName] load');
     setSnapshot((previous) => ({
       identity,
@@ -55,27 +63,33 @@ export function useDisplayName() {
         },
       }));
     }
-  }, [identity, token]);
+  }, [identity]);
 
   useEffect(() => {
     generation.current += 1;
-    void refresh();
+    saving.current = false;
     return () => { generation.current += 1; };
-  }, [refresh]);
+  }, [identity]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh, profileRevision]);
 
   const save = useCallback(async (displayName: string | null) => {
-    if (!identity || !token) return;
+    if (!identity || !token || saving.current) return false;
 
     const previous = state.data;
-    const requestGeneration = generation.current;
+    const requestGeneration = ++generation.current;
+    saving.current = true;
     if (DEBUG) console.debug('[useDisplayName] save');
     setSnapshot({ identity, value: { status: 'loading', data: previous } });
     try {
       const profile = await updateDisplayName(token, displayName);
-      if (generation.current !== requestGeneration) return;
+      if (generation.current !== requestGeneration) return false;
       setSnapshot({ identity, value: { status: 'success', data: profile.display_name ?? null } });
+      return true;
     } catch (error) {
-      if (generation.current !== requestGeneration) return;
+      if (generation.current !== requestGeneration) return false;
       if (DEBUG) console.debug('[useDisplayName] save error', {
         category: error instanceof Error ? error.name : 'unknown',
       });
@@ -87,6 +101,9 @@ export function useDisplayName() {
           error: error instanceof Error ? error.message : 'Erreur inconnue',
         },
       });
+      return false;
+    } finally {
+      if (generation.current === requestGeneration) saving.current = false;
     }
   }, [identity, state.data, token]);
 

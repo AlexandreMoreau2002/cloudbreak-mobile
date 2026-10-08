@@ -103,6 +103,7 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
+  profileRevision: number;
   signUp: (email: string, password: string) => Promise<AuthError | null>;
   signIn: (email: string, password: string) => Promise<AuthError | null>;
   ensureAnonymousSession: () => Promise<AuthError | null>;
@@ -147,6 +148,7 @@ function logAuthOperation(stage: AuthOperationStage, outcome: AuthOperationOutco
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [profileRevision, setProfileRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [authServiceUnavailable, setAuthServiceUnavailable] = useState(false);
   const [locationPermission, setLocationPermission] = useState<LocationPermissionStatus>('undetermined');
@@ -309,7 +311,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (displayName !== null) {
         // Apple provides the name only once. This optional profile update must not
         // invalidate a successful login, and its value/error must never be logged.
-        await updateDisplayName(currentSession.access_token, displayName).catch(() => undefined);
+        await updateDisplayName(currentSession.access_token, displayName)
+          .then(() => { setProfileRevision((revision) => revision + 1); })
+          .catch(() => undefined);
       }
       return null;
     } catch (error) {
@@ -553,7 +557,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        session, loading, isAnonymous, authServiceUnavailable, locationPermission,
+        session, loading, isAnonymous, authServiceUnavailable, locationPermission, profileRevision,
         signUp, signIn, signOut, deleteAccount,
         ensureAnonymousSession, requestPasswordReset, completePasswordReset,
         beginEmailUpgrade, completeEmailUpgrade,

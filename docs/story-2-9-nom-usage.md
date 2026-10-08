@@ -24,6 +24,12 @@ L’app l’envoie après avoir établi et provisionné le compte permanent. Si 
 nom, le compte existant n’est pas modifié et la connexion reste valide même si cette mise à jour
 facultative échoue.
 
+Le renouvellement du JWT conserve une sauvegarde déjà en cours pour le même compte. Un
+changement de compte invalide les anciennes réponses ; la modale ne se ferme que lorsque son
+PATCH a réussi. Une initialisation Apple réussie déclenche un nouveau chargement du profil déjà
+monté, via un compteur en mémoire sans donnée personnelle. Les initiales lisent des points de
+code Unicode entiers, y compris les emoji.
+
 ## Fichiers concernés
 
 - `src/app/(tabs)/profile.tsx` et son test : affichage de la carte et ouverture du dialogue.

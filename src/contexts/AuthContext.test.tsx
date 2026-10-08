@@ -3,7 +3,8 @@ import { AuthError } from '@supabase/supabase-js';
 import { Text, TouchableOpacity, Platform } from 'react-native';
 import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
 
-import { deleteAccount, provisionUser, updateDisplayName, updateUserSurvey } from '@/services/api/user';
+import { useDisplayName } from '@/hooks/useDisplayName';
+import { fetchMe, deleteAccount, provisionUser, updateDisplayName, updateUserSurvey } from '@/services/api/user';
 import { AuthProvider, appleDisplayName, isProvisioningError, isRateLimitError, useAuth } from '@/contexts/AuthContext';
 
 // DEBUG dépend maintenant de EXPO_PUBLIC_DEBUG (pas seulement __DEV__) — ce fichier teste
@@ -59,6 +60,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 jest.mock('@/services/api/user', () => ({
+  fetchMe: jest.fn(),
   deleteAccount: jest.fn().mockResolvedValue(undefined),
   provisionUser: jest.fn().mockResolvedValue({}),
   updateUserSurvey: jest.fn().mockResolvedValue({}),
@@ -70,6 +72,7 @@ jest.mock('expo-location', () => ({
 }));
 
 const mockDeleteAccount = deleteAccount as jest.MockedFunction<typeof deleteAccount>;
+const mockFetchMe = fetchMe as jest.MockedFunction<typeof fetchMe>;
 const mockProvisionUser = provisionUser as jest.MockedFunction<typeof provisionUser>;
 const mockUpdateDisplayName = updateDisplayName as jest.MockedFunction<typeof updateDisplayName>;
 const mockUpdateUserSurvey = updateUserSurvey as jest.MockedFunction<typeof updateUserSurvey>;
@@ -1437,6 +1440,38 @@ describe('AuthContext', () => {
       expect(await operation).toBeNull();
     });
     expect(mockUpdateDisplayName).toHaveBeenCalledWith('fresh', 'Alex Moreau');
+  });
+
+  it('rafraîchit le profil déjà monté après le PATCH Apple différé', async () => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    const permanent = { access_token: 'fresh', user: { id: 'u1', is_anonymous: false } };
+    const patch = deferred<Awaited<ReturnType<typeof updateDisplayName>>>();
+    let serverName: string | null = null;
+    mockFetchMe.mockImplementation(async () => ({ display_name: serverName }) as Awaited<ReturnType<typeof fetchMe>>);
+    mockUpdateDisplayName.mockImplementationOnce(async () => {
+      const profile = await patch.promise;
+      serverName = profile.display_name ?? null;
+      return profile;
+    });
+    mockAppleSignInAsync.mockResolvedValueOnce({ identityToken: 'apple-id-token', fullName: { givenName: 'Alex' } });
+    function ProfileConsumer() {
+      const { state } = useDisplayName();
+      return <Text testID="profile-name">{state.data ?? 'neutral'}</Text>;
+    }
+    const screen = render(<AuthProvider><TestConsumer /><ProfileConsumer /></AuthProvider>);
+    await waitFor(() => expect(getAuth().loading).toBe(false));
+    mockGetSession.mockResolvedValue({ data: { session: permanent } });
+    let operation!: ReturnType<ReturnType<typeof useAuth>['signInWithApple']>;
+    await act(async () => { operation = getAuth().signInWithApple('connexion'); });
+    await waitFor(() => expect(mockUpdateDisplayName).toHaveBeenCalled());
+    expect(mockFetchMe).toHaveBeenCalledWith('fresh');
+    expect(screen.getByTestId('profile-name').props.children).toBe('neutral');
+
+    await act(async () => {
+      patch.resolve({ supabase_user_id: 'u1', auth_provider: 'apple', display_name: 'Alex' });
+      expect(await operation).toBeNull();
+    });
+    await waitFor(() => expect(screen.getByTestId('profile-name').props.children).toBe('Alex'));
   });
 
   it.each([undefined, null, { givenName: ' ', familyName: null }])('ne remplace aucun nom existant si Apple renvoie %j', async (fullName) => {

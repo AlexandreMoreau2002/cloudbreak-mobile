@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
 
 import ProfileScreen from '@/app/(tabs)/profile';
 import type { AsyncState } from '@/services/mockData/types';
@@ -192,7 +192,9 @@ describe('ProfileScreen', () => {
     expect(screen.queryByText('profile.displayName.setting')).toBeNull();
   });
 
-  it('ferme la modale et affiche le nom confirmé après sauvegarde', () => {
+  it('ferme la modale et affiche le nom confirmé après sauvegarde', async () => {
+    let resolveSave!: (saved: boolean) => void;
+    mockSaveDisplayName.mockReturnValueOnce(new Promise((resolve) => { resolveSave = resolve; }));
     const screen = render(<ProfileScreen />);
     fireEvent.press(screen.getByText('profile.displayName.setting'));
     fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
@@ -202,8 +204,23 @@ describe('ProfileScreen', () => {
     screen.rerender(<ProfileScreen />);
     mockDisplayNameState = { status: 'success', data: 'New' };
     screen.rerender(<ProfileScreen />);
+    await act(async () => { resolveSave(true); });
     expect(screen.getByText('New')).toBeTruthy();
     expect(screen.queryByTestId('display-name-input')).toBeNull();
+  });
+
+  it('ne ferme pas l’édition sur un GET réussi pendant un PATCH encore en cours', async () => {
+    let resolveSave!: (saved: boolean) => void;
+    mockSaveDisplayName.mockReturnValueOnce(new Promise((resolve) => { resolveSave = resolve; }));
+    const screen = render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('profile.displayName.setting'));
+    fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
+    fireEvent.press(screen.getByTestId('display-name-save'));
+    mockDisplayNameState = { status: 'success', data: 'Alex' };
+    screen.rerender(<ProfileScreen />);
+    expect(screen.getByTestId('display-name-input').props.value).toBe('New');
+    await act(async () => { resolveSave(false); });
+    expect(screen.getByTestId('display-name-input').props.value).toBe('New');
   });
 
   it('conserve le nom précédent et la saisie après échec de sauvegarde', () => {

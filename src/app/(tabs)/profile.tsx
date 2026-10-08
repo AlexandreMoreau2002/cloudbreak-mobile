@@ -40,24 +40,23 @@ export default function ProfileScreen() {
   const { state: notifState } = useNotificationPreferences();
   const { state: displayNameState, save: saveDisplayName, refresh: refreshDisplayName } = useDisplayName();
   const [nameModalVisible, setNameModalVisible] = useState(false);
-  const nameSavePending = useRef(false);
+  const nameSaveGeneration = useRef(0);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState(false);
 
   useEffect(() => {
-    if (nameSavePending.current && displayNameState.status === 'success') {
-      nameSavePending.current = false;
-      setNameModalVisible(false);
-    }
-  }, [displayNameState]);
-
-  useEffect(() => {
-    nameSavePending.current = false;
+    nameSaveGeneration.current += 1;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- ferme la modale au changement de session
     setNameModalVisible(false);
   }, [session?.user?.id]);
+
+  async function handleSaveDisplayName(value: string | null) {
+    const generation = ++nameSaveGeneration.current;
+    const saved = await saveDisplayName(value);
+    if (saved && generation === nameSaveGeneration.current) setNameModalVisible(false);
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -270,8 +269,8 @@ export default function ProfileScreen() {
           key={session.user.id}
           displayName={displayNameState.data ?? null}
           state={displayNameState}
-          onCancel={() => { nameSavePending.current = false; setNameModalVisible(false); }}
-          onSave={(value) => { nameSavePending.current = true; void saveDisplayName(value); }}
+          onCancel={() => { nameSaveGeneration.current += 1; setNameModalVisible(false); }}
+          onSave={(value) => { void handleSaveDisplayName(value); }}
         />
       )}
 
