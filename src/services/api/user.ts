@@ -11,6 +11,7 @@ import type { FavoriteResponse, NotificationPreferences } from '@/services/mockD
 export interface UserProfile {
   supabase_user_id: string;
   auth_provider: string;
+  display_name?: string | null;
   created_at?: string;
   converted_at?: string;
   survey_completed_at?: string | null;
@@ -50,6 +51,7 @@ export interface UserMe {
   id: string;
   is_anonymous: boolean;
   provisioned: boolean;
+  display_name?: string | null;
   survey_completed_at?: string | null;
   survey_skipped_at?: string | null;
   newsletter_opt_in?: boolean | null;
@@ -60,6 +62,15 @@ export interface UserMe {
 
 export async function fetchMe(token: string): Promise<UserMe> {
   return apiFetch<UserMe>('/api/v1/user/me', token);
+}
+
+export async function updateDisplayName(
+  token: string,
+  displayName: string | null,
+): Promise<UserProfile> {
+  return apiFetch<UserProfile>('/api/v1/user/display-name', token, undefined, {
+    method: 'PATCH', body: { display_name: displayName },
+  });
 }
 
 export async function updateUserPreferences(

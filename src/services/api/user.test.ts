@@ -7,6 +7,7 @@ import {
   updateUserSurvey,
   fetchMe,
   updateUserPreferences,
+  updateDisplayName,
 } from '@/services/api/user';
 import { apiFetch } from '@/services/fetchService';
 
@@ -172,6 +173,24 @@ describe('fetchMe', () => {
 
     await expect(fetchMe(TOKEN)).resolves.toEqual(me);
     expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/user/me', TOKEN);
+  });
+});
+
+describe('updateDisplayName', () => {
+  it('envoie le nom puis son effacement en PATCH', async () => {
+    mockApiFetch.mockResolvedValue({ supabase_user_id: 'u1', auth_provider: 'email' });
+
+    await updateDisplayName(TOKEN, 'Alex');
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/v1/user/display-name', TOKEN, undefined,
+      { method: 'PATCH', body: { display_name: 'Alex' } },
+    );
+
+    await updateDisplayName(TOKEN, null);
+    expect(mockApiFetch).toHaveBeenLastCalledWith(
+      '/api/v1/user/display-name', TOKEN, undefined,
+      { method: 'PATCH', body: { display_name: null } },
+    );
   });
 });
 
