@@ -208,7 +208,7 @@ jest.mock('@/hooks/useFavorites', () => ({
 }));
 
 let mockIsFocused = true;
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router/react-navigation', () => ({
   useIsFocused: () => mockIsFocused,
   useFocusEffect: (cb: () => void) => cb(),
 }));
