@@ -1,15 +1,8 @@
 import { useState } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
 import i18n from '@/utils/i18n';
 import { DEBUG } from '@/constants/devConfig';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -86,6 +79,7 @@ export default function AccountScreen() {
     setProvisioningError(false);
     const err = await auth.signInWithApple(mode);
     setLoading(false);
+    if (err === 'cancelled') return;
     if (err) {
       if (isProvisioningError(err.message)) {
         setProvisioningError(true);

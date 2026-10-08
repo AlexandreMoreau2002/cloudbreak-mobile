@@ -1,19 +1,22 @@
-import { useTheme } from '@/contexts/ThemeContext';
 import { StyleSheet, Text, View } from 'react-native';
 
-function getInitials(email: string): string {
-  const parts = email.split('@')[0].split(/[._-]/);
+import i18n from '@/utils/i18n';
+import { useTheme } from '@/contexts/ThemeContext';
+
+function getInitials(displayName: string | null): string {
+  if (!displayName) return '—';
+  const parts = displayName.trim().split(/\s+/);
   return parts
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? '')
     .join('');
 }
 
-type Props = { email: string };
+type Props = { email: string; displayName: string | null };
 
-export function UserCard({ email }: Props) {
+export function UserCard({ email, displayName }: Props) {
   const { colors, typography } = useTheme();
-  const initials = getInitials(email);
+  const initials = getInitials(displayName);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -24,7 +27,7 @@ export function UserCard({ email }: Props) {
       </View>
       <View style={styles.info}>
         <Text style={[styles.name, { color: colors.textPrimary, fontFamily: typography.fontFamily.semiBold }]}>
-          {email.split('@')[0]}
+          {displayName ?? i18n.t('profile.displayName.fallback')}
         </Text>
         <Text style={[styles.email, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
           {email}

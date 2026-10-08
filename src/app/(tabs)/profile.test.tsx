@@ -2,6 +2,14 @@ import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 import ProfileScreen from '@/app/(tabs)/profile';
+import type { AsyncState } from '@/services/mockData/types';
+
+const mockSaveDisplayName = jest.fn();
+const mockRefreshDisplayName = jest.fn();
+let mockDisplayNameState: AsyncState<string | null> = { status: 'success', data: 'Alex' };
+jest.mock('@/hooks/useDisplayName', () => ({
+  useDisplayName: () => ({ state: mockDisplayNameState, save: mockSaveDisplayName, refresh: mockRefreshDisplayName }),
+}));
 
 const mockPush = jest.fn();
 const mockOpenAccount = jest.fn();
@@ -130,12 +138,14 @@ jest.mock('@/contexts/ThemeContext', () => ({
       fontFamily: { regular: 'regular', semiBold: 'semiBold', bold: 'bold' },
       fontSize: { lg: 22, sm: 14 },
     },
+    spacing: { md: 16, sm: 8 },
   }),
 }));
 
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDisplayNameState = { status: 'success', data: 'Alex' };
     mockScheme = 'light';
     mockLocale = 'fr';
     mockSession = { user: { email: 'test@example.com' } };
@@ -160,6 +170,65 @@ describe('ProfileScreen', () => {
   it('s\'affiche sans erreur', () => {
     const { getByText } = render(<ProfileScreen />);
     expect(getByText('profile.title')).toBeTruthy();
+  });
+
+  it('ouvre l’édition du nom pour un compte permanent et annule sans changer la carte', () => {
+    const screen = render(<ProfileScreen />);
+    expect(screen.getByText('Alex')).toBeTruthy();
+    fireEvent.press(screen.getByText('profile.displayName.setting'));
+    fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
+    fireEvent.press(screen.getByTestId('display-name-cancel'));
+    expect(mockSaveDisplayName).not.toHaveBeenCalled();
+    expect(screen.getByText('Alex')).toBeTruthy();
+    expect(screen.queryByTestId('display-name-input')).toBeNull();
+  });
+
+  it('cache l’édition aux invités et aux sessions absentes', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const screen = render(<ProfileScreen />);
+    expect(screen.queryByText('profile.displayName.setting')).toBeNull();
+    mockSession = null;
+    screen.rerender(<ProfileScreen />);
+    expect(screen.queryByText('profile.displayName.setting')).toBeNull();
+  });
+
+  it('ferme la modale et affiche le nom confirmé après sauvegarde', () => {
+    const screen = render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('profile.displayName.setting'));
+    fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
+    fireEvent.press(screen.getByTestId('display-name-save'));
+    expect(mockSaveDisplayName).toHaveBeenCalledWith('New');
+    mockDisplayNameState = { status: 'loading', data: 'Alex' };
+    screen.rerender(<ProfileScreen />);
+    mockDisplayNameState = { status: 'success', data: 'New' };
+    screen.rerender(<ProfileScreen />);
+    expect(screen.getByText('New')).toBeTruthy();
+    expect(screen.queryByTestId('display-name-input')).toBeNull();
+  });
+
+  it('conserve le nom précédent et la saisie après échec de sauvegarde', () => {
+    const screen = render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('profile.displayName.setting'));
+    fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
+    fireEvent.press(screen.getByTestId('display-name-save'));
+    mockDisplayNameState = { status: 'loading', data: 'Alex' };
+    screen.rerender(<ProfileScreen />);
+    mockDisplayNameState = { status: 'error', data: 'Alex', error: 'raw' };
+    screen.rerender(<ProfileScreen />);
+    expect(screen.getByText('profile.displayName.error')).toBeTruthy();
+    expect(screen.getByTestId('display-name-input').props.value).toBe('New');
+    fireEvent.press(screen.getByTestId('display-name-cancel'));
+    expect(screen.getByText('Alex')).toBeTruthy();
+  });
+
+  it('utilise les états partagés au chargement initial et permet de réessayer', () => {
+    mockDisplayNameState = { status: 'loading' };
+    const screen = render(<ProfileScreen />);
+    expect(screen.getByTestId('loading-spinner')).toBeTruthy();
+    mockDisplayNameState = { status: 'error', error: 'raw' };
+    screen.rerender(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('display-name-retry'));
+    expect(mockRefreshDisplayName).toHaveBeenCalledTimes(1);
   });
 
   it('affiche la carte utilisateur avec email', () => {

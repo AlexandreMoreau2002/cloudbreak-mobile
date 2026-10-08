@@ -5,14 +5,10 @@ import { AuthError, Session } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+
 import { DEBUG } from '@/constants/devConfig';
 import { supabase } from '@/services/supabaseClient';
-import {
-  deleteAccount as deleteAccountService,
-  provisionUser,
-  updateUserSurvey,
-  type UserSurvey,
-} from '@/services/api/user';
+import { deleteAccount as deleteAccountService, provisionUser, updateDisplayName, updateUserSurvey, type UserSurvey } from '@/services/api/user';
 
 function isNetworkError(e: unknown): boolean {
   if (!(e instanceof Error)) return false;
@@ -85,7 +81,18 @@ export interface SurveyAnswers {
 }
 
 export type AppleAuthIntent = 'creation' | 'connexion';
+export type AppleAuthResult = AuthError | 'cancelled' | null;
 type AuthEmailLocale = 'fr' | 'en';
+
+export function appleDisplayName(
+  fullName?: Partial<Pick<AppleAuthentication.AppleAuthenticationFullName, 'givenName' | 'familyName'>> | null,
+): string | null {
+  const name = [fullName?.givenName, fullName?.familyName]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ');
+  return name || null;
+}
 
 interface AuthState {
   loading: boolean;
@@ -105,7 +112,7 @@ interface AuthContextValue extends AuthState {
   completeEmailUpgrade: (email: string, password: string, code: string) => Promise<AuthError | null>;
   retryProvisioning: () => Promise<AuthError | null>;
   resendEmailUpgrade: (email: string, locale: AuthEmailLocale) => Promise<AuthError | null>;
-  signInWithApple: (intent: AppleAuthIntent) => Promise<AuthError | null>;
+  signInWithApple: (intent: AppleAuthIntent) => Promise<AppleAuthResult>;
   saveSurvey: (answer: SurveyAnswers) => Promise<AuthError | null>;
   signOutToAnonymous: () => Promise<AuthError | null>;
   signOut: () => Promise<void>;
@@ -287,7 +294,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function provisionCurrentPermanentSession(): Promise<AuthError | null> {
+  async function provisionCurrentPermanentSession(displayName: string | null = null): Promise<AuthError | null> {
     try {
       const { data } = await supabase.auth.getSession();
       const currentSession = data.session;
@@ -297,7 +304,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setSession(currentSession);
       logAuthOperation('email_provision_session', 'success');
-      return provisionPermanentSession(currentSession.access_token, 'email_provision_api');
+      const provisioningError = await provisionPermanentSession(currentSession.access_token, 'email_provision_api');
+      if (provisioningError) return provisioningError;
+      if (displayName !== null) {
+        // Apple provides the name only once. This optional profile update must not
+        // invalidate a successful login, and its value/error must never be logged.
+        await updateDisplayName(currentSession.access_token, displayName).catch(() => undefined);
+      }
+      return null;
     } catch (error) {
       const outcome = isNetworkError(error) ? 'network_error' : 'unexpected_error';
       if (outcome === 'network_error') setAuthServiceUnavailable(true);
@@ -439,7 +453,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function signInWithApple(intent: AppleAuthIntent): Promise<AuthError | null> {
+  async function signInWithApple(intent: AppleAuthIntent): Promise<AppleAuthResult> {
     if (Platform.OS !== 'ios') {
       return new AuthError('Sign in with Apple est indisponible sur cette plateforme');
     }
@@ -459,6 +473,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
+      const displayName = appleDisplayName(credential.fullName);
       if (!credential.identityToken) {
         return new AuthError('Apple n\'a pas retourné de jeton d\'identité');
       }
@@ -476,7 +491,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Auth state callbacks are asynchronous; always read the session after
       // the provider call so provisioning uses the session Supabase actually
       // established (and preserves the anonymous UUID for linkIdentity).
-      return provisionCurrentPermanentSession();
+      return provisionCurrentPermanentSession(displayName);
     } catch (error) {
       if (
         typeof error === 'object'
@@ -484,7 +499,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         && 'code' in error
         && error.code === 'ERR_REQUEST_CANCELED'
       ) {
-        return null;
+        return 'cancelled';
       }
       if (isNetworkError(error)) setAuthServiceUnavailable(true);
       return error instanceof AuthError

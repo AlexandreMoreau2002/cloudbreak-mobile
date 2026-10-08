@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
-import { useCallback, useState } from 'react';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -10,16 +10,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
+import { ErrorState } from '@/components/error-state';
 import { usePaywall } from '@/contexts/PaywallContext';
+import { useDisplayName } from '@/hooks/useDisplayName';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DEV_TOOLS_ENABLED } from '@/constants/devConfig';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
+import { AsyncStateView } from '@/components/async-state-view';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useNewsletterConsent } from '@/hooks/useNewsletterConsent';
 import { useLocationSettingsLink } from '@/hooks/useLocationSettingsLink';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
-import { DeleteAccountModal, GuestAccountCard, ProBanner, SettingsRow, UserCard } from '@/components/profile';
+import { DeleteAccountModal, DisplayNameModal, GuestAccountCard, ProBanner, SettingsRow, UserCard } from '@/components/profile';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -35,10 +38,25 @@ export default function ProfileScreen() {
   const { colors, typography, scheme, toggleScheme } = useTheme();
   const { optedIn: newsletterOptIn, state: newsletterState, toggle: toggleNewsletter } = useNewsletterConsent();
   const { state: notifState } = useNotificationPreferences();
+  const { state: displayNameState, save: saveDisplayName, refresh: refreshDisplayName } = useDisplayName();
+  const [nameModalVisible, setNameModalVisible] = useState(false);
+  const nameSavePending = useRef(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState(false);
+
+  useEffect(() => {
+    if (nameSavePending.current && displayNameState.status === 'success') {
+      nameSavePending.current = false;
+      setNameModalVisible(false);
+    }
+  }, [displayNameState]);
+
+  useEffect(() => {
+    nameSavePending.current = false;
+    setNameModalVisible(false);
+  }, [session?.user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -111,7 +129,15 @@ export default function ProfileScreen() {
           onLogin={() => openAccount('login')}
         />
       ) : (
-        <UserCard email={email} />
+        <AsyncStateView
+          isLoading={displayNameState.status === 'loading' && displayNameState.data === undefined}
+          error={displayNameState.status === 'error' && displayNameState.data === undefined ? displayNameState.error : null}
+          isEmpty={false}
+          emptyComponent={null}
+          errorComponent={<ErrorState title={i18n.t('profile.displayName.error')} action={{ label: i18n.t('common.retry'), onPress: () => void refreshDisplayName() }} actionTestID="display-name-retry" />}
+        >
+          <UserCard email={email} displayName={displayNameState.data ?? null} />
+        </AsyncStateView>
       )}
 
       <ProBanner
@@ -203,6 +229,13 @@ export default function ProfileScreen() {
             {i18n.t('profile.sectionAccount')}
           </Text>
           <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {session && (
+              <SettingsRow
+                icon="person-outline"
+                label={i18n.t('profile.displayName.setting')}
+                onPress={displayNameState.data === undefined ? undefined : () => setNameModalVisible(true)}
+              />
+            )}
             <SettingsRow
               icon="log-out-outline"
               label={i18n.t('profile.signOut')}
@@ -229,6 +262,16 @@ export default function ProfileScreen() {
             />
           </View>
         </>
+      )}
+
+      {nameModalVisible && session && !isAnonymous && (
+        <DisplayNameModal
+          key={session.user.id}
+          displayName={displayNameState.data ?? null}
+          state={displayNameState}
+          onCancel={() => { nameSavePending.current = false; setNameModalVisible(false); }}
+          onSave={(value) => { nameSavePending.current = true; void saveDisplayName(value); }}
+        />
       )}
 
       <DeleteAccountModal

@@ -1,5 +1,18 @@
 # Security — Mobile
 
+## 2026-10-08 Story 2.9 — Nom d’usage
+
+- `display_name` est une donnée personnelle : lecture et modification via l’API
+  authentifiée uniquement, sans stockage local persistant, logs ni analytics.
+- Le profil n’utilise jamais le début de l’adresse e-mail comme nom ou initiales.
+  Le nom absent donne une identité neutre ; l’e-mail reste un texte de contact.
+- Le nom Apple est envoyé uniquement après le provisioning d’une session permanente.
+  Une réponse Apple sans nom ne modifie jamais le nom existant. Une erreur de cette
+  initialisation facultative ne bloque pas la connexion et n’est pas journalisée.
+- L’effacement envoie `null` ; la suppression du compte supprime aussi le nom côté backend.
+- Les réponses périmées du hook sont ignorées après changement de session. La saisie
+  disparaît au changement de compte ; la validation serveur reste l’autorité.
+
 ## 2026-09-29 Story 4.3 — Achat Premium StoreKit 2
 
 ### 🔵 INFO

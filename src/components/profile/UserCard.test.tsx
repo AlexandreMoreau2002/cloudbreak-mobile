@@ -1,6 +1,9 @@
 import React from 'react';
-import { UserCard } from './UserCard';
 import { render } from '@testing-library/react-native';
+
+import { UserCard } from '@/components/profile/UserCard';
+
+jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
 
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
@@ -16,28 +19,30 @@ jest.mock('@/contexts/ThemeContext', () => ({
 }));
 
 describe('UserCard', () => {
-  it('affiche les initiales depuis l\'email', () => {
-    const { getByText } = render(<UserCard email="alex.moreau@test.com" />);
+  it('affiche les initiales depuis le nom choisi', () => {
+    const { getByText } = render(<UserCard email="private@test.com" displayName="Alex Moreau" />);
     expect(getByText('AM')).toBeTruthy();
   });
 
-  it('affiche le nom (partie avant @)', () => {
-    const { getByText } = render(<UserCard email="alex.moreau@test.com" />);
-    expect(getByText('alex.moreau')).toBeTruthy();
+  it('affiche le nom fourni', () => {
+    const { getByText } = render(<UserCard email="private@test.com" displayName="Alex Moreau" />);
+    expect(getByText('Alex Moreau')).toBeTruthy();
   });
 
   it('affiche l\'email complet', () => {
-    const { getByText } = render(<UserCard email="alex.moreau@test.com" />);
+    const { getByText } = render(<UserCard email="alex.moreau@test.com" displayName={null} />);
     expect(getByText('alex.moreau@test.com')).toBeTruthy();
   });
 
-  it('gère un email sans séparateur dans le nom', () => {
-    const { getByText } = render(<UserCard email="alex@test.com" />);
-    expect(getByText('A')).toBeTruthy();
+  it('utilise une identité et un avatar neutres sans dériver de l’email', () => {
+    const { getByText, queryByText } = render(<UserCard email="alex.moreau@test.com" displayName={null} />);
+    expect(getByText('profile.displayName.fallback')).toBeTruthy();
+    expect(queryByText('alex.moreau')).toBeNull();
+    expect(queryByText('AM')).toBeNull();
   });
 
   it('gère un email vide sans crash', () => {
-    const { toJSON } = render(<UserCard email="" />);
+    const { toJSON } = render(<UserCard email="" displayName={null} />);
     expect(toJSON()).toBeTruthy();
   });
 });
