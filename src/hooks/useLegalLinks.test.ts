@@ -13,6 +13,8 @@ jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
 jest.mock('react-native', () => ({
   Alert: { alert: jest.fn() },
   Linking: { openURL: jest.fn() },
+  // expo/winter (SDK 57) résout Platform depuis react-native au chargement paresseux de fetch.
+  Platform: { OS: 'ios', select: (spec: Record<string, unknown>) => spec.ios ?? spec.default },
 }));
 
 describe('useLegalLinks', () => {
