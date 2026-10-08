@@ -86,4 +86,53 @@ describe('useDisplayName', () => {
 
     expect(result.current.state).toEqual({ status: 'error', data: 'Alex', error: 'network' });
   });
+
+  it('efface le nom à la déconnexion et ignore une sauvegarde ancienne', async () => {
+    mockFetchMe.mockResolvedValueOnce({ display_name: 'Alex' });
+    let resolveSave!: (profile: { display_name: string }) => void;
+    mockUpdateDisplayName.mockReturnValueOnce(new Promise((resolve) => { resolveSave = resolve; }));
+    const { result, rerender } = renderHook(() => useDisplayName());
+    await waitFor(() => expect(result.current.state).toEqual({ status: 'success', data: 'Alex' }));
+
+    let savePromise!: Promise<void>;
+    act(() => { savePromise = result.current.save('Alexandre'); });
+    mockAuthState.isAnonymous = true;
+    mockAuthState.session = null;
+    rerender(undefined);
+    expect(result.current.state).toEqual({ status: 'idle' });
+
+    await act(async () => {
+      resolveSave({ display_name: 'Alexandre' });
+      await savePromise;
+    });
+    expect(result.current.state).toEqual({ status: 'idle' });
+  });
+
+  it('ne montre pas le nom de A à B et ignore un ancien chargement de A', async () => {
+    mockFetchMe.mockResolvedValueOnce({ display_name: 'Alice' });
+    let resolveA!: (me: { display_name: string }) => void;
+    let resolveB!: (me: { display_name: string }) => void;
+    mockFetchMe.mockReturnValueOnce(new Promise((resolve) => { resolveA = resolve; }));
+    mockFetchMe.mockReturnValueOnce(new Promise((resolve) => { resolveB = resolve; }));
+    const { result, rerender } = renderHook(() => useDisplayName());
+    await waitFor(() => expect(result.current.state).toEqual({ status: 'success', data: 'Alice' }));
+
+    let refreshA!: Promise<void>;
+    act(() => { refreshA = result.current.refresh(); });
+    mockAuthState.session = {
+      access_token: 'token-b',
+      user: { id: 'user-b', is_anonymous: false },
+    };
+    rerender(undefined);
+    expect(result.current.state.data).toBeUndefined();
+    expect(mockFetchMe).toHaveBeenLastCalledWith('token-b');
+
+    await act(async () => { resolveB({ display_name: 'Bob' }); });
+    expect(result.current.state).toEqual({ status: 'success', data: 'Bob' });
+    await act(async () => {
+      resolveA({ display_name: 'Alice stale' });
+      await refreshA;
+    });
+    expect(result.current.state).toEqual({ status: 'success', data: 'Bob' });
+  });
 });

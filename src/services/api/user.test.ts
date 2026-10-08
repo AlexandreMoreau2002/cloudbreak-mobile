@@ -1,3 +1,4 @@
+import { apiFetch } from '@/services/fetchService';
 import {
   addFavorite,
   deleteAccount,
@@ -9,7 +10,6 @@ import {
   updateUserPreferences,
   updateDisplayName,
 } from '@/services/api/user';
-import { apiFetch } from '@/services/fetchService';
 
 const mockDevConfigState = { MOCK_API: false, DEBUG: false };
 
