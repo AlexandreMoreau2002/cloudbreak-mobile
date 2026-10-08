@@ -82,6 +82,7 @@ export default function HomeScreen() {
 
   // Sommet différent sélectionné → la carte quota doit pouvoir se réafficher pour lui aussi
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
     setQuotaDismissed(false);
   }, [selectedPeak?.id]);
 
@@ -153,6 +154,7 @@ export default function HomeScreen() {
   // sommet sans cache tombe sur le quota (voir handleDismissQuota)
   useEffect(() => {
     if (displayScore && selectedPeak) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
       setLastSuccessfulPeak(selectedPeak);
     }
   }, [displayScore, selectedPeak]);

@@ -21,6 +21,7 @@ export function useOnboardingPeaks() {
 
   useEffect(() => {
     let mounted = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
     setCurated({ status: 'loading' });
     async function loadCurated() {
       try {
@@ -51,6 +52,7 @@ export function useOnboardingPeaks() {
 
   useEffect(() => {
     if (query.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
       setResults((prev) => (prev.status === 'idle' ? prev : { status: 'idle' }));
       return;
     }

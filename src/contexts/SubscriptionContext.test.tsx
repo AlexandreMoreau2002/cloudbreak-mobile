@@ -21,6 +21,7 @@ let onPurchaseError: ((error: Iap.PurchaseError) => void) | undefined;
 let latest: ReturnType<typeof useSubscription> | undefined;
 
 function Probe() {
+  // eslint-disable-next-line react-hooks/globals -- capture volontaire de la valeur du hook dans un helper de test
   latest = useSubscription();
   return <Text>{latest.state.status}</Text>;
 }

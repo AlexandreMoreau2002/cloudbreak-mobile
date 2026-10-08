@@ -235,6 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(newSession);
     });
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
     void refreshLocationPermission();
 
     return () => {

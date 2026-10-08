@@ -40,6 +40,7 @@ export function useWeekScores(
   useEffect(() => {
     if (!peakId || !token) {
       if (DEBUG) console.debug('[useWeekScores] idle — peakId or token missing', { peakId, token: !!token });
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
       setWeekScores(null);
       return;
     }
