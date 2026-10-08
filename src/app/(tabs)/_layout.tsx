@@ -1,6 +1,7 @@
 import i18n from '@/utils/i18n';
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
+import type { ColorValue } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { PaywallScreen } from '@/components/paywall';
@@ -10,7 +11,7 @@ import { useSubscriptionPurchase } from '@/hooks/useSubscriptionPurchase';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
-function TabIcon({ name, color }: { name: FeatherName; color: string }) {
+function TabIcon({ name, color }: { name: FeatherName; color: ColorValue }) {
   return <Feather name={name} size={22} color={color} />;
 }
 

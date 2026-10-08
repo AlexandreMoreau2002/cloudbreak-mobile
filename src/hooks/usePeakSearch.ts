@@ -23,6 +23,7 @@ export function usePeakSearch() {
 
   useEffect(() => {
     if (query.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
       setState((prev) => (prev.status === 'idle' ? prev : { status: 'idle' }));
       return;
     }

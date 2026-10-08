@@ -23,7 +23,7 @@
  */
 import { useEffect } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Path, Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import Animated, {
   Easing,
@@ -61,7 +61,7 @@ function scoreAccent(score: number): string {
  * Style animé « pendule » : une valeur 0→1→0 (withRepeat reverse) mappée sur un
  * déplacement translateX/translateY. `halfMs` = demi-cycle (durée pleine / 2).
  */
-function useDriftStyle(dx: number, dy: number, halfMs: number): ViewStyle {
+function useDriftStyle(dx: number, dy: number, halfMs: number) {
   const t = useSharedValue(0);
   useEffect(() => {
     t.value = withRepeat(

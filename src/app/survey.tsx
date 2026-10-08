@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -18,7 +18,7 @@ export default function SurveyScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCreatedBadge, setShowCreatedBadge] = useState(true);
-  const badgeOpacity = useRef(new Animated.Value(1)).current;
+  const badgeOpacity = useState(() => new Animated.Value(1))[0];
 
   useEffect(() => {
     const timer = setTimeout(() => {

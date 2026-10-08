@@ -10,6 +10,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-web-browser',
     'expo-apple-authentication',
     'expo-secure-store',
+    './plugins/withIosSceneLifecycle',
     [
       'expo-location',
       {

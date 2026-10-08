@@ -4,8 +4,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useIsFocused } from 'expo-router/react-navigation';
 import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { track } from '@/services/analytics';
@@ -82,6 +82,7 @@ export default function HomeScreen() {
 
   // Sommet différent sélectionné → la carte quota doit pouvoir se réafficher pour lui aussi
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
     setQuotaDismissed(false);
   }, [selectedPeak?.id]);
 
@@ -153,6 +154,7 @@ export default function HomeScreen() {
   // sommet sans cache tombe sur le quota (voir handleDismissQuota)
   useEffect(() => {
     if (displayScore && selectedPeak) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
       setLastSuccessfulPeak(selectedPeak);
     }
   }, [displayScore, selectedPeak]);

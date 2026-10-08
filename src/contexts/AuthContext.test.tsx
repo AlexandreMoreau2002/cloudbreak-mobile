@@ -99,6 +99,7 @@ function getAuth(): ReturnType<typeof useAuth> {
 }
 
 function TestConsumer() {
+  // eslint-disable-next-line react-hooks/globals -- capture volontaire de la valeur du hook dans un helper de test
   currentAuth = useAuth();
   const {
     session, loading, signIn, signUp, signOut,

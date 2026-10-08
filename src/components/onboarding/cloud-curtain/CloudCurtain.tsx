@@ -170,8 +170,10 @@ export function CloudCurtain({ onSwap, onDone }: CloudCurtainProps) {
   // pas au démontage.
   const onSwapRef = useRef(onSwap);
   const onDoneRef = useRef(onDone);
-  onSwapRef.current = onSwap;
-  onDoneRef.current = onDone;
+  useEffect(() => {
+    onSwapRef.current = onSwap;
+    onDoneRef.current = onDone;
+  });
 
   useEffect(() => {
     const swapTimer = setTimeout(() => {
@@ -292,12 +294,12 @@ export function CloudCurtain({ onSwap, onDone }: CloudCurtainProps) {
 
 const styles = StyleSheet.create({
   host: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 100,
     overflow: 'hidden',
   },
   curtain: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   svg: {
     flex: 1,

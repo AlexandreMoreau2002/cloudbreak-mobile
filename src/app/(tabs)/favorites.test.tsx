@@ -10,7 +10,7 @@ let mockState: { status: string; data?: unknown[]; error?: string } = {
   data: [],
 };
 
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router/react-navigation', () => ({
   useFocusEffect: (cb: () => void) => cb(),
 }));
 

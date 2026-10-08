@@ -30,6 +30,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<LanguageContextValue>(() => {
+    // eslint-disable-next-line react-hooks/immutability -- i18n.locale doit être synchronisé pendant le rendu pour que les enfants lisent la bonne langue
     i18n.locale = locale;
     return { locale, toggleLocale };
   }, [locale, toggleLocale]);
