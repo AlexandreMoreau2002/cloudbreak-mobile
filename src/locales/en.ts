@@ -147,6 +147,18 @@ export default {
     altitude: 'm',
   },
   profile: {
+    displayName: {
+      add: 'Add a display name',
+      edit: 'Edit display name',
+      label: 'Display name',
+      hint: 'Display name · editable anytime',
+      count: '%{count}/%{max}',
+      save: 'Confirm',
+      cancel: 'Cancel',
+      validation: 'The name must not exceed 24 characters.',
+      invalidChars: 'This name contains a forbidden character (line break, control character…).',
+      error: 'Unable to update your name. Try again.',
+    },
     eyebrow: 'PROFILE',
     comingSoon: 'Profile — coming soon',
     signOut: 'Sign out',

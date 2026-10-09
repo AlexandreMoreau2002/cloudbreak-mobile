@@ -5,11 +5,14 @@ import { AuthError, Session } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+
 import { DEBUG } from '@/constants/devConfig';
 import { supabase } from '@/services/supabaseClient';
 import {
   deleteAccount as deleteAccountService,
+  fetchMe,
   provisionUser,
+  updateDisplayName,
   updateUserSurvey,
   type UserSurvey,
 } from '@/services/api/user';
@@ -85,7 +88,28 @@ export interface SurveyAnswers {
 }
 
 export type AppleAuthIntent = 'creation' | 'connexion';
+export type AppleAuthResult = AuthError | 'cancelled' | null;
 type AuthEmailLocale = 'fr' | 'en';
+
+const DISPLAY_NAME_MAX = 24;
+// Contrôles, séparateurs de ligne, non assignés et surcharges bidirectionnelles : refusés par le serveur.
+const DISPLAY_NAME_FORBIDDEN = /[\p{Cc}\p{Co}\p{Cn}\p{Zl}\p{Zp}\u202A-\u202E\u2066-\u2069]/gu;
+
+function cleanNamePart(part?: string | null): string {
+  return (part ?? '').replace(DISPLAY_NAME_FORBIDDEN, '').replace(/\s+/g, ' ').trim();
+}
+
+export function appleDisplayName(
+  fullName?: Partial<Pick<AppleAuthentication.AppleAuthenticationFullName, 'givenName' | 'familyName'>> | null,
+): string | null {
+  const givenName = cleanNamePart(fullName?.givenName);
+  const complete = [givenName, cleanNamePart(fullName?.familyName)].filter(Boolean).join(' ');
+  // Un nom plus long que la limite retombe sur le prénom seul, tronqué si besoin.
+  const name = Array.from(complete).length <= DISPLAY_NAME_MAX
+    ? complete
+    : Array.from(givenName || complete).slice(0, DISPLAY_NAME_MAX).join('').trim();
+  return name || null;
+}
 
 interface AuthState {
   loading: boolean;
@@ -96,6 +120,7 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
+  profileRevision: number;
   signUp: (email: string, password: string) => Promise<AuthError | null>;
   signIn: (email: string, password: string) => Promise<AuthError | null>;
   ensureAnonymousSession: () => Promise<AuthError | null>;
@@ -105,7 +130,7 @@ interface AuthContextValue extends AuthState {
   completeEmailUpgrade: (email: string, password: string, code: string) => Promise<AuthError | null>;
   retryProvisioning: () => Promise<AuthError | null>;
   resendEmailUpgrade: (email: string, locale: AuthEmailLocale) => Promise<AuthError | null>;
-  signInWithApple: (intent: AppleAuthIntent) => Promise<AuthError | null>;
+  signInWithApple: (intent: AppleAuthIntent) => Promise<AppleAuthResult>;
   saveSurvey: (answer: SurveyAnswers) => Promise<AuthError | null>;
   signOutToAnonymous: () => Promise<AuthError | null>;
   signOut: () => Promise<void>;
@@ -140,6 +165,7 @@ function logAuthOperation(stage: AuthOperationStage, outcome: AuthOperationOutco
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [profileRevision, setProfileRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [authServiceUnavailable, setAuthServiceUnavailable] = useState(false);
   const [locationPermission, setLocationPermission] = useState<LocationPermissionStatus>('undetermined');
@@ -287,7 +313,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function provisionCurrentPermanentSession(): Promise<AuthError | null> {
+  async function provisionCurrentPermanentSession(displayName: string | null = null): Promise<AuthError | null> {
     try {
       const { data } = await supabase.auth.getSession();
       const currentSession = data.session;
@@ -297,7 +323,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setSession(currentSession);
       logAuthOperation('email_provision_session', 'success');
-      return provisionPermanentSession(currentSession.access_token, 'email_provision_api');
+      const provisioningError = await provisionPermanentSession(currentSession.access_token, 'email_provision_api');
+      if (provisioningError) return provisioningError;
+      if (displayName !== null) {
+        // Apple provides the name only once. This optional profile update must not
+        // invalidate a successful login, and its value/error must never be logged.
+        // A name already chosen by the user is never replaced by the Apple one.
+        try {
+          const me = await fetchMe(currentSession.access_token);
+          if (!me?.display_name) {
+            await updateDisplayName(currentSession.access_token, displayName);
+            setProfileRevision((revision) => revision + 1);
+          }
+        } catch {
+          // Optional step: the login stays successful.
+        }
+      }
+      return null;
     } catch (error) {
       const outcome = isNetworkError(error) ? 'network_error' : 'unexpected_error';
       if (outcome === 'network_error') setAuthServiceUnavailable(true);
@@ -439,7 +481,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function signInWithApple(intent: AppleAuthIntent): Promise<AuthError | null> {
+  async function signInWithApple(intent: AppleAuthIntent): Promise<AppleAuthResult> {
     if (Platform.OS !== 'ios') {
       return new AuthError('Sign in with Apple est indisponible sur cette plateforme');
     }
@@ -459,6 +501,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
+      const displayName = appleDisplayName(credential.fullName);
       if (!credential.identityToken) {
         return new AuthError('Apple n\'a pas retourné de jeton d\'identité');
       }
@@ -476,7 +519,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Auth state callbacks are asynchronous; always read the session after
       // the provider call so provisioning uses the session Supabase actually
       // established (and preserves the anonymous UUID for linkIdentity).
-      return provisionCurrentPermanentSession();
+      return provisionCurrentPermanentSession(displayName);
     } catch (error) {
       if (
         typeof error === 'object'
@@ -484,7 +527,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         && 'code' in error
         && error.code === 'ERR_REQUEST_CANCELED'
       ) {
-        return null;
+        return 'cancelled';
       }
       if (isNetworkError(error)) setAuthServiceUnavailable(true);
       return error instanceof AuthError
@@ -538,7 +581,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        session, loading, isAnonymous, authServiceUnavailable, locationPermission,
+        session, loading, isAnonymous, authServiceUnavailable, locationPermission, profileRevision,
         signUp, signIn, signOut, deleteAccount,
         ensureAnonymousSession, requestPasswordReset, completePasswordReset,
         beginEmailUpgrade, completeEmailUpgrade,

@@ -9,10 +9,12 @@
  *   const { state, optedIn, toggle } = useNewsletterConsent();
  */
 import { useCallback, useEffect, useState } from 'react';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { DEBUG, MOCK_API } from '@/constants/devConfig';
 import type { AsyncState } from '@/services/mockData/types';
 import { fetchMe, updateUserPreferences } from '@/services/api/user';
+import { debugDataRefresh, type DataRefreshReason } from '@/services/dataRefreshDebug';
 
 export function useNewsletterConsent() {
   const { session, isAnonymous } = useAuth();
@@ -21,7 +23,7 @@ export function useNewsletterConsent() {
   const [state, setState] = useState<AsyncState<boolean>>({ status: 'idle' });
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (reason: DataRefreshReason) => {
     if (anonymous || !token) {
       setState({ status: 'idle' });
       return;
@@ -30,7 +32,7 @@ export function useNewsletterConsent() {
       setState({ status: 'success', data: false });
       return;
     }
-    if (DEBUG) console.debug('[useNewsletterConsent] load');
+    debugDataRefresh('newsletter', reason);
     setState({ status: 'loading' });
     try {
       const me = await fetchMe(token);
@@ -44,7 +46,7 @@ export function useNewsletterConsent() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
-    load();
+    load('mount-or-session');
   }, [load]);
 
   const toggle = useCallback(async () => {
@@ -69,6 +71,7 @@ export function useNewsletterConsent() {
   }, [state, saving, token]);
 
   const optedIn = state.status === 'success' ? state.data : false;
+  const refresh = useCallback(() => load('manual'), [load]);
 
-  return { state, optedIn, saving, toggle, refresh: load };
+  return { state, optedIn, saving, toggle, refresh };
 }

@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+
 import { useNewsletterConsent } from '@/hooks/useNewsletterConsent';
 
 const mockFetchMe = jest.fn();
@@ -28,6 +29,7 @@ jest.mock('@/constants/devConfig', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockDevConfigState.MOCK_API = false;
+  mockDevConfigState.DEBUG = false;
   mockAuthState.session = {
     access_token: 'mock-token',
     user: { id: 'user-1', is_anonymous: false },
@@ -36,6 +38,22 @@ beforeEach(() => {
 });
 
 describe('useNewsletterConsent', () => {
+  it('trace le montage et le refresh manuel sans données du profil', async () => {
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    mockDevConfigState.DEBUG = true;
+    mockFetchMe.mockResolvedValue({ newsletter_opt_in: true, email: 'private@example.com' });
+    const { result } = renderHook(() => useNewsletterConsent());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    await act(async () => { await result.current.refresh(); });
+
+    expect(debugSpy.mock.calls.filter(([label]) => label === '[data-refresh]')).toEqual([
+      ['[data-refresh]', { source: 'newsletter', reason: 'mount-or-session', context: undefined }],
+      ['[data-refresh]', { source: 'newsletter', reason: 'manual', context: undefined }],
+    ]);
+    expect(JSON.stringify(debugSpy.mock.calls)).not.toMatch(/mock-token|private@example.com/);
+    debugSpy.mockRestore();
+  });
+
   it('charge le consentement courant depuis /me', async () => {
     mockFetchMe.mockResolvedValueOnce({ newsletter_opt_in: true });
     const { result } = renderHook(() => useNewsletterConsent());

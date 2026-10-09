@@ -147,6 +147,18 @@ export default {
     altitude: 'm',
   },
   profile: {
+    displayName: {
+      add: 'Ajouter un nom d’usage',
+      edit: 'Modifier le nom d’usage',
+      label: 'Nom d’usage',
+      hint: 'Nom d’usage · modifiable à tout moment',
+      count: '%{count}/%{max}',
+      save: 'Valider',
+      cancel: 'Annuler',
+      validation: 'Le nom ne doit pas dépasser 24 caractères.',
+      invalidChars: 'Ce nom contient un caractère non autorisé (retour à la ligne, caractère de contrôle…).',
+      error: 'Impossible de mettre à jour le nom. Réessaie.',
+    },
     eyebrow: 'PROFIL',
     comingSoon: 'Profil — à venir',
     signOut: 'Se déconnecter',

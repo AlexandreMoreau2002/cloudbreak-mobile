@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+
 import AccountScreen from '@/app/account';
 import { AuthBackdrop } from '@/components/account/AuthBackdrop';
 
@@ -116,6 +117,18 @@ describe('AccountScreen route contracts', () => {
     fireEvent.press(getByTestId('apple'));
     await waitFor(() => expect(mockApple).not.toHaveBeenCalled());
     Platform.OS = original;
+  });
+
+  it.each(['creation', 'connexion'])('reste silencieusement sur le formulaire après annulation Apple en %s', async (mode) => {
+    mockParams = { mode: mode === 'connexion' ? 'login' : 'creation' };
+    mockApple.mockResolvedValueOnce('cancelled');
+    const screen = render(<AccountScreen />);
+    await act(async () => { fireEvent.press(screen.getByTestId('apple')); });
+    expect(mockApple).toHaveBeenCalledWith(mode);
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockFinish).not.toHaveBeenCalled();
+    expect(screen.queryByText('account.errorNetwork')).toBeNull();
   });
 
   it('sends email creation to verification while retaining credentials in memory', async () => {

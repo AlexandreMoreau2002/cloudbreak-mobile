@@ -2,8 +2,10 @@ import React from 'react';
 import { AuthError } from '@supabase/supabase-js';
 import { Text, TouchableOpacity, Platform } from 'react-native';
 import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
-import { AuthProvider, isProvisioningError, isRateLimitError, useAuth } from '@/contexts/AuthContext';
-import { deleteAccount, provisionUser, updateUserSurvey } from '@/services/api/user';
+
+import { useDisplayName } from '@/hooks/useDisplayName';
+import { fetchMe, deleteAccount, provisionUser, updateDisplayName, updateUserSurvey } from '@/services/api/user';
+import { AuthProvider, appleDisplayName, isProvisioningError, isRateLimitError, useAuth } from '@/contexts/AuthContext';
 
 // DEBUG dépend maintenant de EXPO_PUBLIC_DEBUG (pas seulement __DEV__) — ce fichier teste
 // le contenu des logs console.debug, donc on force DEBUG à true indépendamment de l'env de test.
@@ -58,9 +60,11 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 jest.mock('@/services/api/user', () => ({
+  fetchMe: jest.fn(),
   deleteAccount: jest.fn().mockResolvedValue(undefined),
   provisionUser: jest.fn().mockResolvedValue({}),
   updateUserSurvey: jest.fn().mockResolvedValue({}),
+  updateDisplayName: jest.fn().mockResolvedValue({}),
 }));
 
 jest.mock('expo-location', () => ({
@@ -68,7 +72,9 @@ jest.mock('expo-location', () => ({
 }));
 
 const mockDeleteAccount = deleteAccount as jest.MockedFunction<typeof deleteAccount>;
+const mockFetchMe = fetchMe as jest.MockedFunction<typeof fetchMe>;
 const mockProvisionUser = provisionUser as jest.MockedFunction<typeof provisionUser>;
+const mockUpdateDisplayName = updateDisplayName as jest.MockedFunction<typeof updateDisplayName>;
 const mockUpdateUserSurvey = updateUserSurvey as jest.MockedFunction<typeof updateUserSurvey>;
 
 jest.mock('@/services/supabaseClient', () => ({
@@ -126,6 +132,7 @@ describe('AuthContext', () => {
   beforeEach(() => {
     currentAuth = null;
     jest.clearAllMocks();
+    mockFetchMe.mockReset();
     mockGetSession.mockResolvedValue({ data: { session: null } });
     mockGetUser.mockResolvedValue({ data: { user: { id: 'validated-user' } }, error: null });
     mockSignOut.mockResolvedValue(undefined);
@@ -144,6 +151,7 @@ describe('AuthContext', () => {
     mockDigestStringAsync.mockResolvedValue('hashed-apple-nonce');
     mockDeleteAccount.mockResolvedValue(undefined);
     mockProvisionUser.mockResolvedValue({} as never);
+    mockUpdateDisplayName.mockResolvedValue({} as never);
     mockUpdateUserSurvey.mockResolvedValue({} as never);
     mockAsyncStorageClear.mockResolvedValue(undefined);
     jest.requireMock('expo-location').getForegroundPermissionsAsync.mockResolvedValue({ status: 'undetermined' });
@@ -1397,7 +1405,7 @@ describe('AuthContext', () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
-    let error: AuthError | null = null;
+    let error: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
     await act(async () => { error = await getAuth().signInWithApple('connexion'); });
 
     expect(error).toBeInstanceOf(AuthError);
@@ -1405,7 +1413,123 @@ describe('AuthContext', () => {
     osSpy.restore();
   });
 
-  it("traite l'annulation Apple comme une sortie sans erreur", async () => {
+  it.each([
+    [undefined, null],
+    [null, null],
+    [{ givenName: null, familyName: null }, null],
+    [{ givenName: '  ', familyName: '' }, null],
+    [{ givenName: ' Alex ', familyName: ' Moreau ' }, 'Alex Moreau'],
+    [{ givenName: ' Alex ', familyName: null }, 'Alex'],
+    [{ givenName: null, familyName: ' Moreau ' }, 'Moreau'],
+    [{ givenName: 'Alexandre-Emmanuel', familyName: 'Moreau-Delacroix' }, 'Alexandre-Emmanuel'],
+    [{ givenName: 'A'.repeat(30), familyName: 'Moreau' }, 'A'.repeat(24)],
+    [{ givenName: 'Alex \u{1F3D4}', familyName: 'Moreau' }, 'Alex \u{1F3D4} Moreau'],
+    [{ givenName: '\u{1F3D4}', familyName: null }, '\u{1F3D4}'],
+    [{ givenName: 'Al\u202eex\n', familyName: 'Mor\u0000eau' }, 'Alex Moreau'],
+    [{ givenName: '\u0000', familyName: null }, null],
+    [{ givenName: 'Éloïse', familyName: "O'Brien" }, "Éloïse O'Brien"],
+  ])('normalise uniquement le nom Apple fourni %j', (fullName, expected) => {
+    expect(appleDisplayName(fullName)).toBe(expected);
+  });
+
+  it('sauvegarde le nom Apple uniquement après le provisioning réussi avec le jeton frais', async () => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'fresh', user: { id: 'u1', is_anonymous: false } } } });
+    mockAppleSignInAsync.mockResolvedValueOnce({ identityToken: 'apple-id-token', fullName: { givenName: ' Alex ', familyName: ' Moreau ' } });
+    const provision = deferred<Awaited<ReturnType<typeof provisionUser>>>();
+    mockProvisionUser.mockReturnValueOnce(provision.promise);
+    render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getAuth().loading).toBe(false));
+    let operation!: ReturnType<ReturnType<typeof useAuth>['signInWithApple']>;
+    await act(async () => { operation = getAuth().signInWithApple('connexion'); });
+    expect(mockUpdateDisplayName).not.toHaveBeenCalled();
+    await act(async () => {
+      provision.resolve({ supabase_user_id: 'u1', auth_provider: 'apple' });
+      expect(await operation).toBeNull();
+    });
+    expect(mockUpdateDisplayName).toHaveBeenCalledWith('fresh', 'Alex Moreau');
+  });
+
+  it('rafraîchit le profil déjà monté après le PATCH Apple différé', async () => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    const permanent = { access_token: 'fresh', user: { id: 'u1', is_anonymous: false } };
+    const patch = deferred<Awaited<ReturnType<typeof updateDisplayName>>>();
+    let serverName: string | null = null;
+    mockFetchMe.mockImplementation(async () => ({ display_name: serverName }) as Awaited<ReturnType<typeof fetchMe>>);
+    mockUpdateDisplayName.mockImplementationOnce(async () => {
+      const profile = await patch.promise;
+      serverName = profile.display_name ?? null;
+      return profile;
+    });
+    mockAppleSignInAsync.mockResolvedValueOnce({ identityToken: 'apple-id-token', fullName: { givenName: 'Alex' } });
+    function ProfileConsumer() {
+      const { state } = useDisplayName();
+      return <Text testID="profile-name">{state.data ?? 'neutral'}</Text>;
+    }
+    const screen = render(<AuthProvider><TestConsumer /><ProfileConsumer /></AuthProvider>);
+    await waitFor(() => expect(getAuth().loading).toBe(false));
+    mockGetSession.mockResolvedValue({ data: { session: permanent } });
+    let operation!: ReturnType<ReturnType<typeof useAuth>['signInWithApple']>;
+    await act(async () => { operation = getAuth().signInWithApple('connexion'); });
+    await waitFor(() => expect(mockUpdateDisplayName).toHaveBeenCalled());
+    expect(mockFetchMe).toHaveBeenCalledWith('fresh');
+    expect(screen.getByTestId('profile-name').props.children).toBe('neutral');
+
+    await act(async () => {
+      patch.resolve({ supabase_user_id: 'u1', auth_provider: 'apple', display_name: 'Alex' });
+      expect(await operation).toBeNull();
+    });
+    await waitFor(() => expect(screen.getByTestId('profile-name').props.children).toBe('Alex'));
+  });
+
+  it('ne remplace pas un nom déjà saisi par le nom Apple', async () => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'fresh', user: { id: 'u1', is_anonymous: false } } } });
+    mockAppleSignInAsync.mockResolvedValueOnce({ identityToken: 'apple-id-token', fullName: { givenName: 'Alex' } });
+    mockFetchMe.mockResolvedValueOnce({ display_name: 'Choisi' } as Awaited<ReturnType<typeof fetchMe>>);
+    render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getAuth().loading).toBe(false));
+    await act(async () => { expect(await getAuth().signInWithApple('connexion')).toBeNull(); });
+    expect(mockFetchMe).toHaveBeenCalledWith('fresh');
+    expect(mockUpdateDisplayName).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, null, { givenName: ' ', familyName: null }])('ne remplace aucun nom existant si Apple renvoie %j', async (fullName) => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'fresh', user: { id: 'u1', is_anonymous: false } } } });
+    mockAppleSignInAsync.mockResolvedValueOnce({ identityToken: 'apple-id-token', fullName });
+    mockProvisionUser.mockResolvedValueOnce({ supabase_user_id: 'u1', auth_provider: 'apple', display_name: 'Existing' });
+    render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getAuth().loading).toBe(false));
+    await act(async () => { expect(await getAuth().signInWithApple('connexion')).toBeNull(); });
+    expect(mockUpdateDisplayName).not.toHaveBeenCalled();
+  });
+
+  it('ne sauvegarde pas le nom Apple après échec de provisioning', async () => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'fresh', user: { id: 'u1', is_anonymous: false } } } });
+    mockAppleSignInAsync.mockResolvedValueOnce({ identityToken: 'apple-id-token', fullName: { givenName: 'Alex' } });
+    mockProvisionUser.mockRejectedValueOnce(new Error('failed'));
+    render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getAuth().loading).toBe(false));
+    await act(async () => { expect(await getAuth().signInWithApple('connexion')).toBeInstanceOf(AuthError); });
+    expect(mockUpdateDisplayName).not.toHaveBeenCalled();
+  });
+
+  it('garde la connexion réussie si le nom Apple facultatif ne peut être enregistré, sans journaliser le nom', async () => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    const debug = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'fresh', user: { id: 'u1', is_anonymous: false } } } });
+    mockAppleSignInAsync.mockResolvedValueOnce({ identityToken: 'apple-id-token', fullName: { givenName: 'Private Name' } });
+    mockUpdateDisplayName.mockRejectedValueOnce(new Error('Private Name rejected'));
+    render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getAuth().loading).toBe(false));
+    await act(async () => { expect(await getAuth().signInWithApple('connexion')).toBeNull(); });
+    expect(mockUpdateDisplayName).toHaveBeenCalledWith('fresh', 'Private Name');
+    expect(JSON.stringify(debug.mock.calls)).not.toContain('Private Name');
+  });
+
+  it("distingue l'annulation Apple d’un succès pour empêcher la navigation", async () => {
     const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
     mockAppleSignInAsync.mockRejectedValueOnce(
       Object.assign(new Error('The user canceled'), { code: 'ERR_REQUEST_CANCELED' })
@@ -1413,12 +1537,13 @@ describe('AuthContext', () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
-    let error: AuthError | null = new AuthError('not replaced');
+    let error: unknown = new AuthError('not replaced');
     await act(async () => {
       error = await getAuth().signInWithApple('connexion');
     });
 
-    expect(error).toBeNull();
+    expect(error).toBe('cancelled');
+    expect(mockUpdateDisplayName).not.toHaveBeenCalled();
     expect(mockLinkIdentity).not.toHaveBeenCalled();
     expect(mockSignInWithIdToken).not.toHaveBeenCalled();
     osSpy.restore();
@@ -1430,7 +1555,7 @@ describe('AuthContext', () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
-    let error: AuthError | null = null;
+    let error: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
     await act(async () => {
       error = await getAuth().signInWithApple('connexion');
     });
@@ -1446,7 +1571,7 @@ describe('AuthContext', () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
-    let error: AuthError | null = null;
+    let error: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
     await act(async () => {
       error = await getAuth().signInWithApple('connexion');
     });
@@ -1463,7 +1588,7 @@ describe('AuthContext', () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
-    let error: AuthError | null = null;
+    let error: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
     await act(async () => {
       error = await getAuth().signInWithApple('connexion');
     });
@@ -1477,7 +1602,7 @@ describe('AuthContext', () => {
     const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
 
-    let error: AuthError | null = null;
+    let error: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
     await act(async () => {
       error = await getAuth().signInWithApple('connexion');
     });

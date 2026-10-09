@@ -14,10 +14,12 @@
  *   const { state, toggle } = useNotificationPreferences();
  */
 import { useCallback, useEffect, useState } from 'react';
+
 import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMe, updateNotificationPreferences } from '@/services/api/user';
 import type { AsyncState, NotificationPreferences } from '@/services/mockData/types';
+import { debugDataRefresh, type DataRefreshReason } from '@/services/dataRefreshDebug';
 
 type PrefKey = keyof NotificationPreferences;
 
@@ -27,12 +29,12 @@ export function useNotificationPreferences() {
   const anonymous = isAnonymous || session?.user?.is_anonymous === true;
   const [state, setState] = useState<AsyncState<NotificationPreferences>>({ status: 'idle' });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (reason: DataRefreshReason) => {
     if (anonymous || !token) {
       setState({ status: 'idle' });
       return;
     }
-    if (DEBUG) console.debug('[useNotificationPreferences] load');
+    debugDataRefresh('notifications', reason);
     setState({ status: 'loading' });
     try {
       const me = await fetchMe(token);
@@ -53,7 +55,7 @@ export function useNotificationPreferences() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
-    void load();
+    void load('mount-or-session');
   }, [load]);
 
   const toggle = useCallback(
@@ -74,5 +76,7 @@ export function useNotificationPreferences() {
     [state, token],
   );
 
-  return { state, toggle, refresh: load };
+  const refresh = useCallback(() => load('manual'), [load]);
+
+  return { state, toggle, refresh };
 }

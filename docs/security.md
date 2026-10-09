@@ -1,5 +1,24 @@
 # Security — Mobile
 
+## 2026-10-08 Story 2.9 — Nom d’usage
+
+- `display_name` est une donnée personnelle : lecture et modification via l’API
+  authentifiée uniquement, sans stockage local persistant, logs ni analytics.
+- Le nom absent affiche un placeholder localisé ; l’avatar utilise seulement la première lettre
+  de l’e-mail déjà visible sur la carte. L’adresse n’est pas transformée en nom d’usage.
+- Le nom Apple est envoyé uniquement après le provisioning d’une session permanente.
+  Une réponse Apple sans nom ne modifie jamais le nom existant. Une erreur de cette
+  initialisation facultative ne bloque pas la connexion et n’est pas journalisée.
+- L’effacement envoie `null` ; la suppression du compte supprime aussi le nom côté backend.
+- La saisie inline valide au maximum 24 points de code Unicode après trim. La sauvegarde
+  échouée conserve le brouillon en mémoire ; Échap, le geste de retour ou le changement de
+  compte l’abandonnent. Les événements blur/✓ partagent un garde de requête synchrone.
+- Les réponses périmées du hook sont ignorées après changement de compte ou déconnexion ;
+  le renouvellement du JWT du même compte conserve sa sauvegarde en cours. La saisie
+  disparaît au changement de compte ; la validation serveur reste l’autorité.
+- Après un PATCH Apple réussi, un compteur de révision en mémoire déclenche la relecture du
+  profil courant. Ce signal ne contient ni nom, ni token, et n’est ni persisté ni journalisé.
+
 ## 2026-09-29 Story 4.3 — Achat Premium StoreKit 2
 
 ### 🔵 INFO

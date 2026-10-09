@@ -1,11 +1,15 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMe, updateNotificationPreferences } from '@/services/api/user';
-import { useNotificationPreferences } from './useNotificationPreferences';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/services/api/user');
-jest.mock('@/constants/devConfig', () => ({ DEBUG: false, MOCK_API: false }));
+const mockDevConfig = { DEBUG: false };
+jest.mock('@/constants/devConfig', () => ({
+  get DEBUG() { return mockDevConfig.DEBUG; },
+}));
 
 const mockUseAuth = useAuth as jest.Mock;
 const mockFetchMe = fetchMe as jest.Mock;
@@ -14,10 +18,30 @@ const mockUpdate = updateNotificationPreferences as jest.Mock;
 describe('useNotificationPreferences', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDevConfig.DEBUG = false;
     mockUseAuth.mockReturnValue({
       session: { access_token: 'tok', user: { id: 'u1' } },
       isAnonymous: false,
     });
+  });
+
+  it('trace le montage et le refresh manuel sans données personnelles', async () => {
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    mockDevConfig.DEBUG = true;
+    mockFetchMe.mockResolvedValue({
+      notif_favorites: true, notif_regional: true, notif_terrain: true,
+      display_name: 'Private name', email: 'private@example.com',
+    });
+    const { result } = renderHook(() => useNotificationPreferences());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    await act(async () => { await result.current.refresh(); });
+
+    expect(debugSpy.mock.calls.filter(([label]) => label === '[data-refresh]')).toEqual([
+      ['[data-refresh]', { source: 'notifications', reason: 'mount-or-session', context: undefined }],
+      ['[data-refresh]', { source: 'notifications', reason: 'manual', context: undefined }],
+    ]);
+    expect(JSON.stringify(debugSpy.mock.calls)).not.toMatch(/Private name|private@example.com|"tok"/);
+    debugSpy.mockRestore();
   });
 
   it('charge les préférences depuis GET /me au montage', async () => {

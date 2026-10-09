@@ -10,11 +10,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LEGAL_URLS } from '@/constants/legalUrls';
 import { useLegalLinks } from '@/hooks/useLegalLinks';
+import { ErrorState } from '@/components/error-state';
 import { usePaywall } from '@/contexts/PaywallContext';
+import { useDisplayName } from '@/hooks/useDisplayName';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DEV_TOOLS_ENABLED } from '@/constants/devConfig';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
+import { AsyncStateView } from '@/components/async-state-view';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { useNewsletterConsent } from '@/hooks/useNewsletterConsent';
 import { useLocationSettingsLink } from '@/hooks/useLocationSettingsLink';
@@ -35,6 +38,7 @@ export default function ProfileScreen() {
   const { colors, typography, scheme, toggleScheme } = useTheme();
   const { optedIn: newsletterOptIn, state: newsletterState, toggle: toggleNewsletter } = useNewsletterConsent();
   const { state: notifState } = useNotificationPreferences();
+  const { state: displayNameState, save: saveDisplayName, refresh: refreshDisplayName } = useDisplayName();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -95,6 +99,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView
+      keyboardShouldPersistTaps="handled"
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
     >
@@ -111,7 +116,22 @@ export default function ProfileScreen() {
           onLogin={() => openAccount('login')}
         />
       ) : (
-        <UserCard email={email} />
+        <AsyncStateView
+          isLoading={displayNameState.status === 'loading' && displayNameState.data === undefined}
+          error={displayNameState.status === 'error' && displayNameState.data === undefined ? displayNameState.error : null}
+          isEmpty={false}
+          emptyComponent={null}
+          errorComponent={<ErrorState title={i18n.t('profile.displayName.error')} action={{ label: i18n.t('common.retry'), onPress: () => void refreshDisplayName() }} actionTestID="display-name-retry" />}
+        >
+          <UserCard
+            key={session?.user?.id ?? 'no-session'}
+            email={email}
+            displayName={displayNameState.data ?? null}
+            state={displayNameState}
+            onSave={saveDisplayName}
+            disabled={!session}
+          />
+        </AsyncStateView>
       )}
 
       <ProBanner

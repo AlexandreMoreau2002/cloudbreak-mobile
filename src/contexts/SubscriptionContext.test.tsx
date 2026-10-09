@@ -1,14 +1,19 @@
-import { AppState, Text } from 'react-native';
 import * as Iap from 'react-native-iap';
+import { AppState, Text } from 'react-native';
 import { act, render, waitFor } from '@testing-library/react-native';
-import { SubscriptionProvider, useSubscription } from '@/contexts/SubscriptionContext';
+
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchSubscription, verifySubscription } from '@/services/api/subscription';
 import { supabase } from '@/services/supabaseClient';
+import { fetchSubscription, verifySubscription } from '@/services/api/subscription';
+import { SubscriptionProvider, useSubscription } from '@/contexts/SubscriptionContext';
 
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/services/api/subscription', () => ({ fetchSubscription: jest.fn(), verifySubscription: jest.fn() }));
 jest.mock('@/services/supabaseClient', () => ({ supabase: { auth: { getSession: jest.fn() } } }));
+const mockDevConfig = { DEBUG: false };
+jest.mock('@/constants/devConfig', () => ({
+  get DEBUG() { return mockDevConfig.DEBUG; },
+}));
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockFetchSubscription = fetchSubscription as jest.MockedFunction<typeof fetchSubscription>;
@@ -69,6 +74,7 @@ function setup(permanent = true): void {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockDevConfig.DEBUG = false;
   latest = undefined;
   onPurchase = undefined;
   onPurchaseError = undefined;
@@ -78,6 +84,24 @@ beforeEach(() => {
 function renderProvider() { return render(<SubscriptionProvider><Probe /></SubscriptionProvider>); }
 
 describe('SubscriptionProvider', () => {
+  it('trace le montage, le retour au premier plan et le refresh manuel', async () => {
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    mockDevConfig.DEBUG = true;
+    renderProvider();
+    await waitFor(() => expect(latest?.products).toHaveLength(2));
+    act(() => { (AppState.addEventListener as jest.Mock).mock.calls[0][1]('active'); });
+    await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(2));
+    await act(async () => { await latest?.refresh(); });
+
+    expect(debugSpy.mock.calls.filter(([label]) => label === '[data-refresh]')).toEqual([
+      ['[data-refresh]', { source: 'subscription', reason: 'mount-or-session', context: undefined }],
+      ['[data-refresh]', { source: 'subscription', reason: 'foreground', context: undefined }],
+      ['[data-refresh]', { source: 'subscription', reason: 'manual', context: undefined }],
+    ]);
+    expect(JSON.stringify(debugSpy.mock.calls)).not.toMatch(/"token"|account-id|signed-jws/);
+    debugSpy.mockRestore();
+  });
+
   it('exposes a free state by default and loads both configured products once', async () => {
     renderProvider();
     await waitFor(() => expect(latest?.products).toHaveLength(2));

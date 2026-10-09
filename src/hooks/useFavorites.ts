@@ -11,11 +11,13 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { DEBUG, MOCK_API } from '@/constants/devConfig';
 import { useAccountGate } from '@/contexts/AccountGateContext';
 import type { AsyncState, Peak } from '@/services/mockData/types';
 import { addFavorite as apiAddFavorite } from '@/services/api/user';
+import { debugDataRefresh, type DataRefreshReason } from '@/services/dataRefreshDebug';
 import { fetchFavorites, removeFavorite as apiRemoveFavorite } from '@/services/api/peaks';
 
 const CACHE_VERSION = 'v1';
@@ -62,7 +64,7 @@ export function useFavorites() {
     }
   }, []);
 
-  const listFavorites = useCallback(async () => {
+  const listFavorites = useCallback(async (reason: DataRefreshReason) => {
     if (isAnonymous || session?.user.is_anonymous) {
       setState({ status: 'success', data: [] });
       setFromCache(false);
@@ -92,6 +94,7 @@ export function useFavorites() {
     }
 
     try {
+      debugDataRefresh('favorites', reason);
       const favorites = await fetchFavorites(token);
       const peaks = favorites.map((f) => f.peak);
       if (DEBUG) console.debug('[useFavorites] listFavorites success', { count: peaks.length });
@@ -121,7 +124,7 @@ export function useFavorites() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
-    listFavorites();
+    listFavorites('mount-or-session');
   }, [listFavorites]);
 
   const addFavorite = useCallback(async (peakId: string) => {
@@ -133,7 +136,7 @@ export function useFavorites() {
     if (DEBUG) console.debug('[useFavorites] addFavorite', { peakId });
     try {
       await apiAddFavorite(token, peakId);
-      await listFavorites();
+      await listFavorites('mutation');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur inconnue';
       if (DEBUG) console.debug('[useFavorites] addFavorite error', { message });
@@ -146,12 +149,14 @@ export function useFavorites() {
     if (DEBUG) console.debug('[useFavorites] removeFavorite', { peakId });
     try {
       await apiRemoveFavorite(token, peakId);
-      await listFavorites();
+      await listFavorites('mutation');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur inconnue';
       if (DEBUG) console.debug('[useFavorites] removeFavorite error', { message });
     }
   }, [token, isAnonymous, session?.user.is_anonymous, listFavorites]);
 
-  return { state, addFavorite, removeFavorite, refresh: listFavorites, fromCache, cachedAt };
+  const refresh = useCallback(() => listFavorites('manual'), [listFavorites]);
+
+  return { state, addFavorite, removeFavorite, refresh, fromCache, cachedAt };
 }
