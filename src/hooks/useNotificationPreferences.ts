@@ -17,11 +17,11 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
+import { setTerrainPref } from '@/utils/terrainWatch';
+import { syncTerrainGeofences } from '@/services/terrainGeofence';
 import { fetchMe, updateNotificationPreferences } from '@/services/api/user';
 import type { AsyncState, NotificationPreferences } from '@/services/mockData/types';
 import { debugDataRefresh, type DataRefreshReason } from '@/services/dataRefreshDebug';
-import { setTerrainPref } from '@/utils/terrainWatch';
-import { syncTerrainGeofences } from '@/services/terrainGeofence';
 
 type PrefKey = keyof NotificationPreferences;
 

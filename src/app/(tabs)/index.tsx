@@ -20,6 +20,7 @@ import { ErrorState } from '@/components/error-state';
 import { PeakHeader } from '@/components/peak-header';
 import { EmptyState } from '@/components/empty-state';
 import { usePaywall } from '@/contexts/PaywallContext';
+import { useTerrainPref } from '@/hooks/useTerrainPref';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HomeSkeleton } from '@/components/home-skeleton';
 import { OfflineBanner } from '@/components/offline-banner';
@@ -29,11 +30,10 @@ import { ValidationBottomSheet } from '@/components/validation';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { localizeScoreResponse } from '@/services/mockData/score';
 import { useTerrainValidation } from '@/hooks/useTerrainValidation';
-import { useTerrainPref } from '@/hooks/useTerrainPref';
 import { useTerrainAutoDetect } from '@/hooks/useTerrainAutoDetect';
-import { usePendingTerrainOpen } from '@/hooks/usePendingTerrainOpen';
 import { ConditionsSection } from '@/components/conditions-section';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
+import { usePendingTerrainOpen } from '@/hooks/usePendingTerrainOpen';
 
 const SEARCH_ROUTE = '/(tabs)/search' as Href;
 
