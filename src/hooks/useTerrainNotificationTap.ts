@@ -15,7 +15,7 @@ import * as Notifications from 'expo-notifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPeakBySlug } from '@/services/api/peaks';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
-import { setPendingTerrainOpen } from '@/utils/terrainWatch';
+import { consumePendingTerrainOpen, setPendingTerrainOpen } from '@/utils/terrainWatch';
 
 const TABS_ROUTE = '/(tabs)' as Href;
 
@@ -40,7 +40,8 @@ export function useTerrainNotificationTap(): void {
       try {
         setSelectedPeak(await fetchPeakBySlug(token, slug));
       } catch {
-        // sommet introuvable / réseau coupé : on ouvre quand même l'accueil
+        // sommet introuvable / réseau coupé : pas de sheet orphelin, mais on ouvre l'accueil
+        await consumePendingTerrainOpen(slug);
       }
       router.replace(TABS_ROUTE);
     }

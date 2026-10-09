@@ -4,7 +4,7 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { fetchPeakBySlug } from '@/services/api/peaks';
-import { setPendingTerrainOpen } from '@/utils/terrainWatch';
+import { consumePendingTerrainOpen, setPendingTerrainOpen } from '@/utils/terrainWatch';
 import { useTerrainNotificationTap } from '@/hooks/useTerrainNotificationTap';
 
 const mockReplace = jest.fn();
@@ -13,7 +13,10 @@ jest.mock('expo-notifications', () => ({ useLastNotificationResponse: jest.fn() 
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/contexts/SelectedPeakContext', () => ({ useSelectedPeak: jest.fn() }));
 jest.mock('@/services/api/peaks', () => ({ fetchPeakBySlug: jest.fn() }));
-jest.mock('@/utils/terrainWatch', () => ({ setPendingTerrainOpen: jest.fn() }));
+jest.mock('@/utils/terrainWatch', () => ({
+  consumePendingTerrainOpen: jest.fn(),
+  setPendingTerrainOpen: jest.fn(),
+}));
 
 const useResponse = Notifications.useLastNotificationResponse as jest.Mock;
 const mockSetSelectedPeak = jest.fn();
@@ -44,6 +47,7 @@ it("ouvre quand même l'accueil si le sommet est introuvable", async () => {
   renderHook(() => useTerrainNotificationTap());
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)'));
   expect(mockSetSelectedPeak).not.toHaveBeenCalled();
+  expect(consumePendingTerrainOpen).toHaveBeenCalledWith('mont-blanc');
 });
 
 it('attend la session avant de traiter la notification', async () => {
