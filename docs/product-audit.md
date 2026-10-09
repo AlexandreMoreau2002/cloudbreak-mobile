@@ -61,13 +61,14 @@ _Dernière mise à jour : 2026-10-08_
 | Préférences de notifications (Profil → Notifications, 3 toggles indépendants, story 2.2) | ✅ |
 | Profil réaligné sur la maquette du 2026-09-15 (sections, danger rows, footer version) | ✅ |
 | Signal d'installation invité persistant dans Keychain/SecureStore, transmis uniquement aux scores authentifiés (mitigation quota) | ✅ |
+| Infrastructure push — enregistrement du token Expo Push (`usePushToken`, `POST /api/v1/user/push-token`) et libération au logout (`DELETE`), comptes permanents uniquement, permission jamais redemandée (story 5.1) | 🟡 Code présent, réception réelle d'une notification à valider sur appareil |
 
 ## Ce qui n'existe pas encore
 
 - Compteur de consultations restantes avant quota (AC3 story 4.2 — à planifier)
 - Photo optionnelle après validation + calcul du taux de précision (story 6.2)
 - Validation Sandbox/App Store Connect de StoreKit 2 sur appareil réel (story 4.3)
-- Notifications push (epic 5), désormais débloquables côté credentials mais non implémentées
+- Envoi et réception de notifications push (epic 5) : l'infrastructure token existe (story 5.1), pas les déclencheurs ni le handler de réception
 - Validation native réelle de Sign in with Apple
 - Universal Links : code fait (story 3.6), déploiement/validation iPhone en attente
 - Métadonnées et localisation anglaise de la fiche App Store (« Cloudbreak – Sea of Clouds »)
