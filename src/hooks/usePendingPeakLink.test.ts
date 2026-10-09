@@ -105,4 +105,26 @@ describe('usePendingPeakLink', () => {
     );
     expect(mockClearPending).toHaveBeenCalled();
   });
+
+  it("traite un rejet qui n'est pas une Error comme une erreur générique", async () => {
+    mockFetchPeakBySlug.mockRejectedValue('boom');
+    renderHook(() => usePendingPeakLink());
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        i18n.t('deepLink.errorTitle'),
+        i18n.t('common.networkHint'),
+      ),
+    );
+  });
+
+  it("ne lance pas deux consommations en parallèle quand l'écran change pendant le chargement", async () => {
+    let release: (slug: string | null) => void = () => undefined;
+    mockGetPending.mockReturnValueOnce(new Promise<string | null>((resolve) => { release = resolve; }));
+    const { rerender } = renderHook(() => usePendingPeakLink());
+    mockSegments.value = ['account'];
+    rerender({});
+    release('mont-blanc');
+    await waitFor(() => expect(mockSetSelectedPeak).toHaveBeenCalledTimes(1));
+    expect(mockGetPending).toHaveBeenCalledTimes(1);
+  });
 });
