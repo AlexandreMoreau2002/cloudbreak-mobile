@@ -6,6 +6,7 @@ import { Alert } from 'react-native';
 import { useSegments } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import i18n from '@/utils/i18n';
+import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPeakBySlug } from '@/services/api/peaks';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -36,10 +37,12 @@ export function usePendingPeakLink(): void {
       try {
         const slug = await getPendingPeakSlug();
         if (!slug) return;
+        if (DEBUG) console.debug('[usePendingPeakLink] consuming pending slug', { slug });
         await clearPendingPeakSlug();
         const peak = await fetchPeakBySlug(token, slug);
         setSelectedPeak(peak);
       } catch (error) {
+        if (DEBUG) console.debug('[usePendingPeakLink] error', { notFound: isNotFound(error) });
         if (isNotFound(error)) {
           Alert.alert(i18n.t('deepLink.notFoundTitle'), i18n.t('deepLink.notFoundMessage'));
         } else {

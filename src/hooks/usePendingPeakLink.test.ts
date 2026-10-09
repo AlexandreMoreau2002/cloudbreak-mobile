@@ -11,6 +11,11 @@ const mockClearPending = jest.fn();
 const mockAuth = { session: { access_token: 'mock-token' } as { access_token: string } | null };
 const mockOnboarding = { completed: true };
 const mockSegments: { value: string[] } = { value: ['(tabs)'] };
+const mockDevConfig = { DEBUG: false };
+
+jest.mock('@/constants/devConfig', () => ({
+  get DEBUG() { return mockDevConfig.DEBUG; },
+}));
 
 jest.mock('expo-router', () => ({ useSegments: () => mockSegments.value }));
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => mockAuth }));
@@ -33,6 +38,7 @@ beforeEach(() => {
   mockAuth.session = { access_token: 'mock-token' };
   mockOnboarding.completed = true;
   mockSegments.value = ['(tabs)'];
+  mockDevConfig.DEBUG = false;
   mockGetPending.mockResolvedValue('mont-blanc');
   mockFetchPeakBySlug.mockResolvedValue(PEAK);
   jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
@@ -126,5 +132,23 @@ describe('usePendingPeakLink', () => {
     release('mont-blanc');
     await waitFor(() => expect(mockSetSelectedPeak).toHaveBeenCalledTimes(1));
     expect(mockGetPending).toHaveBeenCalledTimes(1);
+  });
+
+  it('trace la consommation et les erreurs quand DEBUG est actif', async () => {
+    mockDevConfig.DEBUG = true;
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    renderHook(() => usePendingPeakLink());
+    await waitFor(() => expect(mockSetSelectedPeak).toHaveBeenCalledWith(PEAK));
+    expect(debugSpy).toHaveBeenCalledWith(
+      '[usePendingPeakLink] consuming pending slug',
+      expect.anything(),
+    );
+
+    mockFetchPeakBySlug.mockRejectedValue(new Error('boom'));
+    renderHook(() => usePendingPeakLink());
+    await waitFor(() =>
+      expect(debugSpy).toHaveBeenCalledWith('[usePendingPeakLink] error', { notFound: false }),
+    );
+    debugSpy.mockRestore();
   });
 });
