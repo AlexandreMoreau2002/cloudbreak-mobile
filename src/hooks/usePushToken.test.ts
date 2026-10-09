@@ -1,5 +1,5 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
+import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { usePushToken } from '@/hooks/usePushToken';
@@ -71,5 +71,29 @@ describe('usePushToken', () => {
     expect(() => renderHook(() => usePushToken())).not.toThrow();
     await new Promise((r) => setTimeout(r, 0));
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('renvoie le token pour une nouvelle session après déconnexion', async () => {
+    const { rerender } = renderHook(() => usePushToken());
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+
+    auth({ session: null });
+    rerender({});
+    await new Promise((r) => setTimeout(r, 0));
+
+    auth({ session: { access_token: 'jwt-2', user: { is_anonymous: false } } });
+    rerender({});
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(2));
+    expect(mockUpdate).toHaveBeenLastCalledWith('jwt-2', 'ExponentPushToken[abc]');
+  });
+
+  it('renvoie le token quand le JWT est renouvelé (POST backend idempotent)', async () => {
+    const { rerender } = renderHook(() => usePushToken());
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+
+    auth({ session: { access_token: 'jwt-refreshed', user: { is_anonymous: false } } });
+    rerender({});
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(2));
+    expect(mockUpdate).toHaveBeenLastCalledWith('jwt-refreshed', 'ExponentPushToken[abc]');
   });
 });
