@@ -31,6 +31,9 @@ it('mémorise le sommet sélectionné puis synchronise le geofencing', async () 
   renderHook(() => useTerrainGeofence());
   await waitFor(() => expect(syncTerrainGeofences).toHaveBeenCalledWith(true));
   expect(rememberWatchedPeak).toHaveBeenCalledWith(peak);
+  expect((rememberWatchedPeak as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+    (syncTerrainGeofences as jest.Mock).mock.invocationCallOrder[0],
+  );
 });
 
 it("synchronise sans mémoriser quand aucun sommet n'est sélectionné", async () => {
@@ -67,6 +70,18 @@ describe('préférence serveur', () => {
     expect((setTerrainPref as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
       (syncTerrainGeofences as jest.Mock).mock.invocationCallOrder[0],
     );
+  });
+
+  it('ne rappelle fetchMe qu\'une fois quand le sommet change plusieurs fois', async () => {
+    (useAuth as jest.Mock).mockReturnValue(permanent);
+    (fetchMe as jest.Mock).mockResolvedValue({ notif_terrain: true });
+    const { rerender } = renderHook(() => useTerrainGeofence());
+    for (const n of [2, 3, 4]) {
+      (useSelectedPeak as jest.Mock).mockReturnValue({ selectedPeak: { ...peak, id: `p${n}` } });
+      rerender({});
+    }
+    await waitFor(() => expect(rememberWatchedPeak).toHaveBeenCalledTimes(4));
+    expect(fetchMe).toHaveBeenCalledTimes(1);
   });
 
   it('retombe sur true si notif_terrain est absent', async () => {
