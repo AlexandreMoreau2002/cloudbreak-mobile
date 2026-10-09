@@ -8,6 +8,9 @@ import { ErrorState } from '@/components/error-state';
 import type { AsyncState } from '@/services/mockData/types';
 import { LoadingSpinner } from '@/components/loading-spinner';
 
+// Lettres (accents compris), chiffres, espace, tiret et apostrophe — identique au serveur.
+const DISPLAY_NAME_PATTERN = /^[\p{L}0-9 '’-]*$/u;
+
 function getInitials(displayName: string | null, email: string): string {
   if (!displayName?.trim()) return Array.from(email)[0]?.toUpperCase() ?? '—';
   const parts = displayName.trim().split(/\s+/);
@@ -36,7 +39,9 @@ export function UserCard({ email, displayName, state, onSave, disabled = false }
   const generation = useRef(0);
   const normalized = draft.trim();
   const count = Array.from(normalized).length;
-  const valid = count <= 24;
+  const tooLong = count > 24;
+  const badChars = !DISPLAY_NAME_PATTERN.test(normalized);
+  const valid = !tooLong && !badChars;
   const busy = saving || state.status === 'loading';
   const initials = getInitials(displayName, email);
 
@@ -160,7 +165,8 @@ export function UserCard({ email, displayName, state, onSave, disabled = false }
           {i18n.t('profile.displayName.hint')}
         </Text>
       )}
-      {editing && !valid && <ErrorState title={i18n.t('profile.displayName.validation')} />}
+      {editing && tooLong && <ErrorState title={i18n.t('profile.displayName.validation')} />}
+      {editing && !tooLong && badChars && <ErrorState title={i18n.t('profile.displayName.invalidChars')} />}
       {editing && (saveFailed || state.status === 'error') && <ErrorState title={i18n.t('profile.displayName.error')} />}
     </View>
   );

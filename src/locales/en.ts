@@ -156,6 +156,7 @@ export default {
       save: 'Confirm',
       cancel: 'Cancel',
       validation: 'The name must not exceed 24 characters.',
+      invalidChars: 'Letters, digits, spaces, - and ’ only.',
       error: 'Unable to update your name. Try again.',
     },
     eyebrow: 'PROFILE',

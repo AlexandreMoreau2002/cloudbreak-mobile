@@ -104,10 +104,10 @@ describe('UserCard', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(null));
   });
 
-  it('accepts exactly 24 Unicode characters on Return', async () => {
+  it('accepts exactly 24 accented letters on Return', async () => {
     const { screen, edit, onSave } = setup();
     edit();
-    const value = '🌄ABCDEFGHIJKLMNOPQRSTUVW';
+    const value = 'Éléonore-ÀÇÜ 75 ABCDEFGH';
     fireEvent.changeText(screen.getByTestId('display-name-input'), value);
     expect(screen.getByText('24/24')).toBeTruthy();
     fireEvent(screen.getByTestId('display-name-input'), 'submitEditing');
@@ -123,6 +123,24 @@ describe('UserCard', () => {
     fireEvent(screen.getByTestId('display-name-input'), 'submitEditing');
     fireEvent(screen.getByTestId('display-name-input'), 'blur');
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it.each(['Alex 🏔', 'Alex_42', 'Alex@home', 'Alex!'])('refuses %s because of its characters', (value) => {
+    const { screen, edit, onSave } = setup();
+    edit();
+    fireEvent.changeText(screen.getByTestId('display-name-input'), value);
+    expect(screen.getByTestId('display-name-save')).toBeDisabled();
+    expect(screen.getByText('profile.displayName.invalidChars')).toBeTruthy();
+    fireEvent(screen.getByTestId('display-name-input'), 'submitEditing');
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it.each(["Jean-Pierre", "O'Brien", 'Léa 75', '69'])('accepts %s', async (value) => {
+    const { screen, edit, onSave } = setup();
+    edit();
+    fireEvent.changeText(screen.getByTestId('display-name-input'), value);
+    fireEvent(screen.getByTestId('display-name-input'), 'submitEditing');
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(value));
   });
 
   it('submits once when blur occurs before pressing the check', async () => {

@@ -132,6 +132,7 @@ describe('AuthContext', () => {
   beforeEach(() => {
     currentAuth = null;
     jest.clearAllMocks();
+    mockFetchMe.mockReset();
     mockGetSession.mockResolvedValue({ data: { session: null } });
     mockGetUser.mockResolvedValue({ data: { user: { id: 'validated-user' } }, error: null });
     mockSignOut.mockResolvedValue(undefined);
@@ -1420,6 +1421,11 @@ describe('AuthContext', () => {
     [{ givenName: ' Alex ', familyName: ' Moreau ' }, 'Alex Moreau'],
     [{ givenName: ' Alex ', familyName: null }, 'Alex'],
     [{ givenName: null, familyName: ' Moreau ' }, 'Moreau'],
+    [{ givenName: 'Alexandre-Emmanuel', familyName: 'Moreau-Delacroix' }, 'Alexandre-Emmanuel'],
+    [{ givenName: 'A'.repeat(30), familyName: 'Moreau' }, 'A'.repeat(24)],
+    [{ givenName: 'Alex 🏔', familyName: 'Moreau' }, 'Alex Moreau'],
+    [{ givenName: '🏔', familyName: null }, null],
+    [{ givenName: 'Éloïse', familyName: "O'Brien" }, "Éloïse O'Brien"],
   ])('normalise uniquement le nom Apple fourni %j', (fullName, expected) => {
     expect(appleDisplayName(fullName)).toBe(expected);
   });
@@ -1472,6 +1478,18 @@ describe('AuthContext', () => {
       expect(await operation).toBeNull();
     });
     await waitFor(() => expect(screen.getByTestId('profile-name').props.children).toBe('Alex'));
+  });
+
+  it('ne remplace pas un nom déjà saisi par le nom Apple', async () => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'fresh', user: { id: 'u1', is_anonymous: false } } } });
+    mockAppleSignInAsync.mockResolvedValueOnce({ identityToken: 'apple-id-token', fullName: { givenName: 'Alex' } });
+    mockFetchMe.mockResolvedValueOnce({ display_name: 'Choisi' } as Awaited<ReturnType<typeof fetchMe>>);
+    render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getAuth().loading).toBe(false));
+    await act(async () => { expect(await getAuth().signInWithApple('connexion')).toBeNull(); });
+    expect(mockFetchMe).toHaveBeenCalledWith('fresh');
+    expect(mockUpdateDisplayName).not.toHaveBeenCalled();
   });
 
   it.each([undefined, null, { givenName: ' ', familyName: null }])('ne remplace aucun nom existant si Apple renvoie %j', async (fullName) => {

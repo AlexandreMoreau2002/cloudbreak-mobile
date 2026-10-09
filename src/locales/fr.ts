@@ -156,6 +156,7 @@ export default {
       save: 'Valider',
       cancel: 'Annuler',
       validation: 'Le nom ne doit pas dépasser 24 caractères.',
+      invalidChars: 'Uniquement des lettres, des chiffres, des espaces, - et ’.',
       error: 'Impossible de mettre à jour le nom. Réessaie.',
     },
     eyebrow: 'PROFIL',
