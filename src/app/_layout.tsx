@@ -17,9 +17,13 @@ import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { AccountGateProvider } from '@/contexts/AccountGateContext';
 import i18n from '@/utils/i18n';
+import { useTerrainGeofence } from '@/hooks/useTerrainGeofence';
+import { defineTerrainGeofenceTask } from '@/services/terrainGeofence';
 import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 
 SplashScreen.preventAutoHideAsync();
+// Au scope module : iOS relance la tâche de geofencing même app tuée.
+defineTerrainGeofenceTask();
 
 const TABS_ROUTE = '/(tabs)' as Href;
 const ONBOARDING_ROUTE = '/onboarding' as Href;
@@ -64,6 +68,7 @@ function AuthGuard() {
 function AppStack() {
   const { locale } = useLanguage();
   useAppSessionTracking();
+  useTerrainGeofence();
 
   return <Stack key={locale} screenOptions={{ headerShown: false }} />;
 }
