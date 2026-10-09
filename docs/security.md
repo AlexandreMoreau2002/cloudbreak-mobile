@@ -306,3 +306,11 @@ SECURE — les coordonnées GPS réelles introduites par cette story ne quittent
 
 ### Verdict
 SECURE — aucune nouvelle surface de données exposée. Ces corrections sont de la robustesse réseau/UX et une garde de configuration, pas des changements de flux d'authentification. Le retry provisioning ne contourne aucune vérification serveur : il rappelle exactement le même provisioning que le chemin nominal. La WARNING 2026-09-11 sur `verify.tsx` est soldée dans cette branche.
+
+## 2026-10-09 Story 5.3 — Notification GPS validation terrain
+
+- **Données stockées (AsyncStorage, non sensibles)** : les 3 derniers sommets consultés (id, slug, nom, coordonnées du sommet, horodatage, 48 h max), l'horodatage de dernière notification par sommet (cooldown 12 h) et une copie locale de la préférence `notif_terrain`. **Aucune position GPS de l'utilisateur n'est enregistrée**, ni envoyée au serveur : la comparaison de proximité est faite par l'OS (geofencing) ou en local.
+- **Permission** : la localisation « Toujours » n'est **jamais demandée** par l'app. Le geofencing en arrière-plan (`expo-location` + `expo-task-manager`) ne démarre que si l'utilisateur l'a lui-même accordée dans les réglages iOS ; sinon seul le mode premier plan fonctionne. La clé `NSLocationAlwaysAndWhenInUseUsageDescription` (`app.json`) ne fait que rendre cette option disponible.
+- **Préférence** : `notif_terrain` désactivée = aucune surveillance (ni premier plan, ni geofencing) ; le geofencing est arrêté dès la bascule.
+- **Notification** : locale uniquement (aucun push serveur), payload `{ type: 'terrain', slug }` sans donnée personnelle.
+- **Texte de justification pour App Store Review** : « Cloudbreak peut te prévenir à ton arrivée au sommet, même quand l'app est fermée, pour confirmer la mer de nuage. La position n'est ni enregistrée ni transmise ; la fonction est facultative et désactivable dans le Profil. »
