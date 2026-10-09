@@ -1,5 +1,6 @@
 import { AppState } from 'react-native';
 import type { Purchase, ProductSubscription } from 'react-native-iap';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   endConnection,
   fetchProducts,
@@ -10,7 +11,6 @@ import {
   purchaseUpdatedListener,
   requestPurchase,
 } from 'react-native-iap';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';

@@ -1,8 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import { fetchMe, updateNotificationPreferences } from '@/services/api/user';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/services/api/user');
