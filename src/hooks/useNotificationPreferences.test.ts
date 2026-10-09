@@ -195,6 +195,7 @@ describe('useNotificationPreferences', () => {
 
     expect(setTerrainPref).not.toHaveBeenCalled();
     expect(syncTerrainGeofences).not.toHaveBeenCalled();
-    expect(result.current.state.status === 'success' && result.current.state.data?.notif_terrain).toBe(true);
+    expect(result.current.state.status).toBe('success');
+    expect(result.current.state.data?.notif_terrain).toBe(true);
   });
 });
