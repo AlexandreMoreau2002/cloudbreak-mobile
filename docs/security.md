@@ -1,5 +1,18 @@
 # Security — Mobile
 
+## 2026-10-09 Story 3.6 — Universal Links
+
+### 🔵 INFO
+- **[pendingPeakLink.ts]** Le slug du sommet est mémorisé dans AsyncStorage sous la clé `pendingPeakSlug`. C'est une donnée non sensible (identifiant public d'un sommet), effacée dès sa consommation par `usePendingPeakLink` ; aucun token, e-mail ni donnée personnelle n'y transite.
+- **[pendingPeakLink.ts / sommet/[slug].tsx]** Le slug provient d'une URL non fiable (lien externe). Il est validé par `isValidPeakSlug` (`^[a-z0-9-]{1,100}$`) avant tout stockage ; un slug invalide est ignoré, jamais écrit ni envoyé à l'API.
+- **[usePendingPeakLink.ts]** Le slug validé n'est utilisé que comme paramètre de `fetchPeakBySlug` (appel authentifié habituel). Les logs debug (`DEBUG` uniquement) ne contiennent aucune donnée personnelle.
+- **[app.json]** `ios.associatedDomains` ne déclare que des domaines `applinks:` ; aucun secret côté app (l'AASA, public, est servi par `ops`). L'entrée `?mode=developer` sur `dev-ops.cloudbreak-app.com` est à retirer avant la production.
+
+### Verdict
+SECURE — entrée externe validée avant stockage, donnée stockée non sensible et éphémère, aucun secret ajouté côté app. Validation réelle sur iPhone en attente du déploiement ops.
+
+---
+
 ## 2026-10-08 Story 2.9 — Nom d’usage
 
 - `display_name` est une donnée personnelle : lecture et modification via l’API

@@ -44,6 +44,8 @@ jest.mock('@expo-google-fonts/josefin-sans', () => ({
   useFonts: (...args: unknown[]) => mockUseFonts(...args),
 }));
 
+jest.mock('@/hooks/usePendingPeakLink', () => ({ usePendingPeakLink: jest.fn() }));
+
 jest.mock('@/contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useAuth: () => mockUseAuth(),

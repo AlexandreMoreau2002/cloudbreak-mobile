@@ -15,6 +15,7 @@ _Dernière mise à jour : 2026-10-08_
 | ThemeContext (light/dark) | ✅ |
 | AuthContext + AuthGuard | ✅ |
 | Nom d’usage facultatif dans le Profil (story 2.9), édition/effacement, initialisation Apple, renouvellement JWT et initiales Unicode | 🟡 Tests automatisés verts ; validation iPhone réelle à effectuer |
+| 2026-10-09 — Universal Links `cloudbreak-app.com/sommet/{slug}` (story 3.6) : `associatedDomains`, route `sommet/[slug]`, slug en attente validé puis consommé après onboarding | 🟡 Tests automatisés verts ; déploiement ops et validation iPhone en attente |
 | i18n FR/EN + toggle runtime | ✅ |
 | CI GitHub Actions (lint + tsc + jest + build check) | ✅ |
 | Socle EAS iOS — projet Expo lié, profils development/preview/production et credentials Apple App Store / Ad Hoc internes | ✅ |
@@ -67,7 +68,8 @@ _Dernière mise à jour : 2026-10-08_
 - Photo optionnelle après validation + calcul du taux de précision (story 6.2)
 - Validation Sandbox/App Store Connect de StoreKit 2 sur appareil réel (story 4.3)
 - Notifications push (epic 5), désormais débloquables côté credentials mais non implémentées
-- Universal Links et validation native réelle de Sign in with Apple
+- Validation native réelle de Sign in with Apple
+- Universal Links : code fait (story 3.6), déploiement/validation iPhone en attente
 - Métadonnées et localisation anglaise de la fiche App Store (« Cloudbreak – Sea of Clouds »)
 - Analytics PostHog réel (compte/SDK/réseau)
 - Déploiement VPS / production (epic 1)
