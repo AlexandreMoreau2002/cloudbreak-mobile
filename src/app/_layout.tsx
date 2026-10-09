@@ -18,6 +18,7 @@ import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext'
 import { AccountGateProvider } from '@/contexts/AccountGateContext';
 import i18n from '@/utils/i18n';
 import { useTerrainGeofence } from '@/hooks/useTerrainGeofence';
+import { useTerrainNotificationTap } from '@/hooks/useTerrainNotificationTap';
 import { defineTerrainGeofenceTask } from '@/services/terrainGeofence';
 import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 
@@ -69,6 +70,7 @@ function AppStack() {
   const { locale } = useLanguage();
   useAppSessionTracking();
   useTerrainGeofence();
+  useTerrainNotificationTap();
 
   return <Stack key={locale} screenOptions={{ headerShown: false }} />;
 }
