@@ -14,9 +14,11 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DEBUG, MOCK_API } from '@/constants/devConfig';
+
 import { fetchScore } from '@/services/api/score';
+import { DEBUG, MOCK_API } from '@/constants/devConfig';
 import { addDays, getTodayISO } from '@/utils/dateUtils';
+import { debugDataRefresh } from '@/services/dataRefreshDebug';
 import type { ScoreResponse } from '@/services/mockData/types';
 import type { DayScore, WeekScores } from '@/hooks/useWeekScores';
 
@@ -177,6 +179,9 @@ export function useWeekData(
     let isQuotaExceeded = false;
 
     if (DEBUG) console.debug('[useWeekData] fetch', { peakId, dates: dates.length });
+    debugDataRefresh('week-data', force ? 'manual' : 'mount-or-session', {
+      requestCount: dates.length * DAY_HOURS.length,
+    });
 
     await Promise.all(
       dates.map(async (date) => {

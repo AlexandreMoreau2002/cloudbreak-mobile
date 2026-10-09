@@ -9,7 +9,13 @@ const mockAuthState = {
     | { access_token: string; user: { id: string; is_anonymous: boolean } }
     | null,
   isAnonymous: false,
+  profileRevision: 0,
 };
+const mockDevConfig = { DEBUG: false };
+
+jest.mock('@/constants/devConfig', () => ({
+  get DEBUG() { return mockDevConfig.DEBUG; },
+}));
 
 jest.mock('@/services/api/user', () => ({
   fetchMe: (...args: unknown[]) => mockFetchMe(...args),
@@ -22,14 +28,94 @@ jest.mock('@/contexts/AuthContext', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFetchMe.mockReset();
+  mockUpdateDisplayName.mockReset();
   mockAuthState.session = {
     access_token: 'mock-token',
     user: { id: 'user-1', is_anonymous: false },
   };
   mockAuthState.isAnonymous = false;
+  mockAuthState.profileRevision = 0;
+  mockDevConfig.DEBUG = false;
 });
 
 describe('useDisplayName', () => {
+  it('trace le montage et le refresh manuel sans données personnelles', async () => {
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    mockDevConfig.DEBUG = true;
+    mockFetchMe.mockResolvedValue({ display_name: 'Private name', email: 'private@example.com' });
+    const { result } = renderHook(() => useDisplayName());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    await act(async () => { await result.current.refresh(); });
+
+    expect(debugSpy.mock.calls.filter(([label]) => label === '[data-refresh]')).toEqual([
+      ['[data-refresh]', { source: 'display-name', reason: 'mount-or-session', context: undefined }],
+      ['[data-refresh]', { source: 'display-name', reason: 'manual', context: undefined }],
+    ]);
+    expect(JSON.stringify(debugSpy.mock.calls)).not.toMatch(/Private name|private@example.com|mock-token/);
+    debugSpy.mockRestore();
+  });
+
+  it.each([false, true])('reprend une seule lecture différée avec le JWT courant après PATCH (échec=%s)', async (failSave) => {
+    mockFetchMe.mockRejectedValueOnce(new Error('expired credential'));
+    let settleSave!: (profile: { display_name: string }) => void;
+    let rejectSave!: (error: Error) => void;
+    mockUpdateDisplayName.mockReturnValueOnce(new Promise((resolve, reject) => {
+      settleSave = resolve;
+      rejectSave = reject;
+    }));
+    const { result, rerender } = renderHook(() => useDisplayName());
+    await waitFor(() => expect(result.current.state.status).toBe('error'));
+
+    let savePromise!: Promise<boolean>;
+    act(() => { savePromise = result.current.save('Alexandre'); });
+    mockAuthState.session = {
+      access_token: 'renewed-token', user: { id: 'user-1', is_anonymous: false },
+    };
+    rerender(undefined);
+    await act(async () => {
+      await result.current.refresh();
+      await result.current.refresh();
+    });
+    expect(mockFetchMe).toHaveBeenCalledTimes(1);
+    expect(result.current.state.status).toBe('loading');
+
+    mockFetchMe.mockResolvedValueOnce({ display_name: 'Server value' });
+    await act(async () => {
+      if (failSave) rejectSave(new Error('expired credential'));
+      else settleSave({ display_name: 'Alexandre' });
+      expect(await savePromise).toBe(!failSave);
+    });
+
+    await waitFor(() => expect(result.current.state).toEqual({ status: 'success', data: 'Server value' }));
+    expect(mockFetchMe).toHaveBeenCalledTimes(2);
+    expect(mockFetchMe).toHaveBeenLastCalledWith('renewed-token');
+  });
+
+  it('diffère le GET déclenché par le renouvellement du JWT pendant PATCH', async () => {
+    mockFetchMe.mockResolvedValueOnce({ display_name: 'Alex' });
+    let resolveSave!: (profile: { display_name: string }) => void;
+    mockUpdateDisplayName.mockReturnValueOnce(new Promise((resolve) => { resolveSave = resolve; }));
+    const { result, rerender } = renderHook(() => useDisplayName());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    let savePromise!: Promise<boolean>;
+    act(() => { savePromise = result.current.save('Alexandre'); });
+    mockAuthState.session = {
+      access_token: 'renewed-token', user: { id: 'user-1', is_anonymous: false },
+    };
+    rerender(undefined);
+    expect(mockFetchMe).toHaveBeenCalledTimes(1);
+    mockFetchMe.mockResolvedValueOnce({ display_name: 'Alexandre' });
+    await act(async () => {
+      resolveSave({ display_name: 'Alexandre' });
+      await savePromise;
+    });
+
+    await waitFor(() => expect(result.current.state).toEqual({ status: 'success', data: 'Alexandre' }));
+    expect(mockFetchMe).toHaveBeenCalledTimes(2);
+    expect(mockFetchMe).toHaveBeenLastCalledWith('renewed-token');
+  });
+
   it('charge le nom courant pour une session permanente', async () => {
     mockFetchMe.mockResolvedValueOnce({ display_name: 'Alex' });
     const { result } = renderHook(() => useDisplayName());
@@ -78,6 +164,7 @@ describe('useDisplayName', () => {
     await act(async () => { rerender(undefined); });
     expect(result.current.state).toEqual({ status: 'loading', data: 'Alex' });
 
+    mockFetchMe.mockResolvedValue({ display_name: 'Alexandre' });
     await act(async () => {
       resolveSave({ display_name: 'Alexandre' });
       await savePromise;

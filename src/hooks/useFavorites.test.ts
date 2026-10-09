@@ -1,6 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+
 import { useFavorites } from '@/hooks/useFavorites';
 
 const mockFetchFavorites = jest.fn();
@@ -60,6 +61,26 @@ const MOCK_FAVORITES = [
 const CACHE_KEY = 'cache:favorites:v1:user-1';
 
 describe('useFavorites', () => {
+  it('trace montage, mutation et refresh manuel avant les lectures réseau', async () => {
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    mockDevConfigState.DEBUG = true;
+    mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
+    mockAddFavorite.mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useFavorites());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    await act(async () => { await result.current.addFavorite('peak-3'); });
+    await act(async () => { await result.current.refresh(); });
+
+    expect(debugSpy.mock.calls.filter(([label]) => label === '[data-refresh]')).toEqual([
+      ['[data-refresh]', { source: 'favorites', reason: 'mount-or-session', context: undefined }],
+      ['[data-refresh]', { source: 'favorites', reason: 'mutation', context: undefined }],
+      ['[data-refresh]', { source: 'favorites', reason: 'manual', context: undefined }],
+    ]);
+    expect(mockFetchFavorites).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(debugSpy.mock.calls)).not.toMatch(/mock-token|user-1/);
+    debugSpy.mockRestore();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthState.session = { access_token: 'mock-token', user: { id: 'user-1' } };

@@ -4,6 +4,7 @@ import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AsyncState } from '@/services/mockData/types';
 import { fetchMe, updateDisplayName } from '@/services/api/user';
+import { debugDataRefresh, type DataRefreshReason } from '@/services/dataRefreshDebug';
 
 interface SessionState {
   identity: string | null;
@@ -19,6 +20,7 @@ export function useDisplayName() {
   const tokenRef = useRef(token);
   const generation = useRef(0);
   const saving = useRef(false);
+  const pendingRefresh = useRef<DataRefreshReason | null>(null);
   const [snapshot, setSnapshot] = useState<SessionState>({
     identity,
     value: { status: 'idle' },
@@ -27,7 +29,7 @@ export function useDisplayName() {
 
   useEffect(() => { tokenRef.current = token; }, [token]);
 
-  const refresh = useCallback(async () => {
+  const load = useCallback(async (reason: DataRefreshReason) => {
     const token = tokenRef.current;
     if (!identity || !token) {
       setSnapshot({ identity: null, value: { status: 'idle' } });
@@ -35,9 +37,12 @@ export function useDisplayName() {
     }
 
     // Reads cannot replace a pending write with a pre-commit server snapshot.
-    if (saving.current) return;
+    if (saving.current) {
+      pendingRefresh.current = reason;
+      return;
+    }
     const requestGeneration = ++generation.current;
-    if (DEBUG) console.debug('[useDisplayName] load');
+    debugDataRefresh('display-name', reason);
     setSnapshot((previous) => ({
       identity,
       value: {
@@ -68,12 +73,15 @@ export function useDisplayName() {
   useEffect(() => {
     generation.current += 1;
     saving.current = false;
+    pendingRefresh.current = null;
     return () => { generation.current += 1; };
   }, [identity]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh, profileRevision]);
+    void load('mount-or-session');
+  }, [load, token, profileRevision]);
+
+  const refresh = useCallback(() => load('manual'), [load]);
 
   const save = useCallback(async (displayName: string | null) => {
     if (!identity || !token || saving.current) return false;
@@ -103,9 +111,14 @@ export function useDisplayName() {
       });
       return false;
     } finally {
-      if (generation.current === requestGeneration) saving.current = false;
+      if (generation.current === requestGeneration) {
+        saving.current = false;
+        const reason = pendingRefresh.current;
+        pendingRefresh.current = null;
+        if (reason) void load(reason);
+      }
     }
-  }, [identity, state.data, token]);
+  }, [identity, state.data, token, load]);
 
   return { state, save, refresh };
 }

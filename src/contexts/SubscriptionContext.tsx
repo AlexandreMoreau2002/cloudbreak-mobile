@@ -11,9 +11,11 @@ import {
   requestPurchase,
 } from 'react-native-iap';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+
 import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/services/supabaseClient';
+import { debugDataRefresh, type DataRefreshReason } from '@/services/dataRefreshDebug';
 import {
   fetchSubscription,
   verifySubscription,
@@ -96,7 +98,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   useEffect(() => { sessionRef.current = session; }, [session]);
   useEffect(() => { productsRef.current = products; }, [products]);
 
-  const refresh = useCallback(async (): Promise<void> => {
+  const load = useCallback(async (reason: DataRefreshReason): Promise<void> => {
     const currentSession = sessionRef.current;
     if (!currentSession?.user || currentSession.user.is_anonymous) {
       setState(FREE_STATE);
@@ -104,12 +106,15 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
+      debugDataRefresh('subscription', reason);
       const subscription = await fetchSubscription(currentSession.access_token);
       setState({ ...subscription, loading: false, error: null });
     } catch {
       setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
     }
   }, []);
+
+  const refresh = useCallback(() => load('manual'), [load]);
 
   const verifyAndFinish = useCallback(async (purchase: Purchase): Promise<void> => {
     const { data } = await supabase.auth.getSession();
@@ -174,17 +179,17 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, [verifyAndFinish]);
 
   useEffect(() => {
-    if (isPermanent) void refresh();
+    if (isPermanent) void load('mount-or-session');
     // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
     else setState(FREE_STATE);
-  }, [isPermanent, refresh]);
+  }, [isPermanent, load]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') void refresh();
+      if (nextState === 'active') void load('foreground');
     });
     return () => subscription.remove();
-  }, [refresh]);
+  }, [load]);
 
   const purchase = useCallback(async (productId: SubscriptionProductId): Promise<void> => {
     const { data } = await supabase.auth.getSession();
@@ -216,11 +221,11 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     try {
       const entitlements = await getAvailablePurchases({ onlyIncludeActiveItemsIOS: true });
       for (const entitlement of entitlements) await verifyAndFinish(entitlement);
-      await refresh();
+      await load('mutation');
     } catch {
       setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
     }
-  }, [refresh, verifyAndFinish]);
+  }, [load, verifyAndFinish]);
 
   const waitForProduct = useCallback(async (productId: SubscriptionProductId): Promise<boolean> => {
     await storeInitialisationRef.current;

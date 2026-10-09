@@ -1,7 +1,8 @@
 import React from 'react';
 import NetInfo from '@react-native-community/netinfo';
-import { act, renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+
 import { fetchScore } from '@/services/api/score';
 import { useWeekData } from '@/hooks/useWeekData';
 
@@ -102,6 +103,35 @@ function runIsolatedWeekDataTestWithDebug(
 }
 
 describe('useWeekData', () => {
+  it('trace une seule ligne par lot réseau avec sa raison et ses 63 requêtes', async () => {
+    await runIsolatedWeekDataTestWithDebug(false, async ({ useWeekData: isolatedUseWeekData }) => {
+      const { result } = renderHook(() => isolatedUseWeekData('peak-1', 'private-token'));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      await act(async () => { await result.current.refresh(); });
+
+      expect(consoleDebugSpy.mock.calls.filter(([label]) => label === '[data-refresh]')).toEqual([
+        ['[data-refresh]', { source: 'week-data', reason: 'mount-or-session', context: { requestCount: 63 } }],
+        ['[data-refresh]', { source: 'week-data', reason: 'manual', context: { requestCount: 63 } }],
+      ]);
+      expect(mockFetchScore).toHaveBeenCalledTimes(126);
+      expect(JSON.stringify(consoleDebugSpy.mock.calls)).not.toContain('private-token');
+    });
+  });
+
+  it('ne trace pas de rafraîchissement réseau lorsque le cache valide est utilisé', async () => {
+    await runIsolatedWeekDataTestWithDebug(false, async ({ useWeekData: isolatedUseWeekData }) => {
+      mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify({
+        byDate: { '2026-03-24': { 6: MOCK_SCORE } }, cachedAt: Date.now(),
+      }));
+      const { result } = renderHook(() => isolatedUseWeekData('peak-1', 'private-token'));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.fromCache).toBe(true);
+      expect(consoleDebugSpy.mock.calls.filter(([label]) => label === '[data-refresh]')).toEqual([]);
+      expect(mockFetchScore).not.toHaveBeenCalled();
+    });
+  });
+
   it('retourne_null_si_peakId_absent', async () => {
     const { result } = renderHook(() => useWeekData(null, 'token'));
     await waitFor(() => expect(result.current.loading).toBe(false));
