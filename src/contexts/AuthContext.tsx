@@ -10,6 +10,7 @@ import { DEBUG } from '@/constants/devConfig';
 import { supabase } from '@/services/supabaseClient';
 import {
   deleteAccount as deleteAccountService,
+  deletePushToken,
   fetchMe,
   provisionUser,
   updateDisplayName,
@@ -550,10 +551,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Renvoie null (et non une promesse) quand il n'y a rien à libérer : le signOut Supabase
+  // reste ainsi déclenché de façon synchrone pour une session absente ou anonyme.
+  function releasePushToken(): Promise<unknown> | null {
+    const accessToken = session?.access_token;
+    if (!accessToken || isAnonymous) return null;
+    // Best-effort : le token doit quitter le compte avant la perte du JWT, mais une panne
+    // réseau ne doit jamais empêcher la déconnexion.
+    return deletePushToken(accessToken).catch(() => null);
+  }
+
   async function signOutToAnonymous(): Promise<AuthError | null> {
     if (DEBUG) console.debug('[AuthContext] signOutToAnonymous → clear session then new guest session');
     // Toujours clore la session courante d'abord : "Se déconnecter" ne doit jamais
     // laisser l'utilisateur bloqué sur son ancien compte si la session invitée échoue.
+    const release = releasePushToken();
+    if (release) await release;
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
     setSession(null);
     const error = await signInAnonymouslyWithLock();
@@ -567,6 +580,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut(): Promise<void> {
+    const release = releasePushToken();
+    if (release) await release;
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
   }
 
