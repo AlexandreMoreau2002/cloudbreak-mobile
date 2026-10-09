@@ -19,7 +19,7 @@ Logout (signOut / signOutToAnonymous)
 
 - Le token Expo Push est envoyé au backend quand l'utilisateur est permanent et que la permission est `granted`.
 - Aucun envoi pour un compte anonyme ou sans session.
-- Le token n'est pas renvoyé pour une même session et un même token ; il l'est pour une nouvelle session ou un JWT renouvelé (POST idempotent).
+- Le token n'est pas renvoyé pour une même session et un même token ; il l'est pour un autre utilisateur ; un renouvellement du JWT ne le renvoie pas.
 - Le token est libéré au logout avant la perte du JWT ; une erreur ne bloque pas la déconnexion.
 - Les erreurs d'obtention ou d'envoi ne bloquent jamais l'app.
 
@@ -35,4 +35,4 @@ Logout (signOut / signOutToAnonymous)
 
 - Comptes permanents uniquement.
 - La permission n'est jamais redemandée par le hook (l'onboarding la demande).
-- Token libéré au logout en best-effort ; pas d'appel dans `deleteAccount` (suppression serveur).
+- Token libéré au logout en best-effort, borné à 2,5 s ; pas d'appel dans `deleteAccount` (suppression serveur).
