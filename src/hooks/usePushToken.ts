@@ -3,7 +3,7 @@
  *
  * Monté une fois à la racine (_layout.tsx). N'agit que pour un compte permanent dont la
  * permission iOS est DÉJÀ accordée (la demande se fait à l'onboarding) : aucune invite ici.
- * Le token n'est renvoyé que s'il change pour la session courante. Jamais bloquant.
+ * Le token n'est renvoyé que s'il change pour l'utilisateur courant (un refresh du JWT ne le renvoie pas). Jamais bloquant.
  *
  * Usage :
  *   usePushToken(); // dans AppStack, sans destructuring
@@ -22,12 +22,19 @@ function resolveProjectId(): string | undefined {
 
 export function usePushToken(): void {
   const { session, isAnonymous } = useAuth();
+  const userId = session?.user?.id ?? null;
+  // Le JWT est renouvelé toutes les heures : on le garde en ref pour ne pas relancer l'effet
+  // (et re-POSTer le token) à chaque refresh, ni risquer de ré-attacher le token au logout.
+  const accessTokenRef = useRef<string | null>(null);
   const accessToken = session?.access_token ?? null;
-  const anonymous = isAnonymous || session?.user?.is_anonymous === true;
   const lastSentRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!accessToken || anonymous) {
+    accessTokenRef.current = accessToken;
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!userId || isAnonymous) {
       lastSentRef.current = null;
       return;
     }
@@ -40,9 +47,10 @@ export function usePushToken(): void {
         const { data: pushToken } = await Notifications.getExpoPushTokenAsync({
           projectId: resolveProjectId(),
         });
-        const key = `${accessToken}:${pushToken}`;
-        if (cancelled || lastSentRef.current === key) return;
-        await updatePushToken(accessToken as string, pushToken);
+        const key = `${userId}:${pushToken}`;
+        const jwt = accessTokenRef.current;
+        if (cancelled || !jwt || lastSentRef.current === key) return;
+        await updatePushToken(jwt, pushToken);
         lastSentRef.current = key;
       } catch (error) {
         // Échec réseau, projectId absent, simulateur : jamais bloquant, réessayé au prochain montage.
@@ -55,5 +63,5 @@ export function usePushToken(): void {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, anonymous]);
+  }, [userId, isAnonymous]);
 }
