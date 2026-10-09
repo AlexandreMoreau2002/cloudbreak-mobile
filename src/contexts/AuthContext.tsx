@@ -8,6 +8,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 
 import { DEBUG } from '@/constants/devConfig';
 import { supabase } from '@/services/supabaseClient';
+import { clearTerrainState } from '@/utils/terrainWatch';
 import {
   deleteAccount as deleteAccountService,
   fetchMe,
@@ -555,6 +556,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Toujours clore la session courante d'abord : "Se déconnecter" ne doit jamais
     // laisser l'utilisateur bloqué sur son ancien compte si la session invitée échoue.
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
+    await clearTerrainState();
     setSession(null);
     const error = await signInAnonymouslyWithLock();
     if (error) return error;
@@ -568,6 +570,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOut(): Promise<void> {
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
+    await clearTerrainState();
   }
 
   async function deleteAccount(): Promise<void> {
@@ -575,6 +578,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!token) throw new Error('Non authentifié');
     await deleteAccountService(token);
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
+    await clearTerrainState();
     await AsyncStorage.clear();
   }
 

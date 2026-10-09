@@ -54,6 +54,11 @@ jest.mock('expo-apple-authentication', () => ({
   AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
 }), { virtual: true });
 
+const mockClearTerrainState = jest.fn().mockResolvedValue(undefined);
+jest.mock('@/utils/terrainWatch', () => ({
+  clearTerrainState: (...args: unknown[]) => mockClearTerrainState(...args),
+}));
+
 jest.mock('@react-native-async-storage/async-storage', () => ({
   get clear() { return mockAsyncStorageClear; },
   get default() { return { clear: mockAsyncStorageClear }; },
@@ -499,6 +504,7 @@ describe('AuthContext', () => {
     await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
     fireEvent.press(getByTestId('signOut'));
     expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+    await waitFor(() => expect(mockClearTerrainState).toHaveBeenCalledTimes(1));
   });
 
   it('signOut ignore les erreurs supabase.auth.signOut', async () => {
@@ -579,6 +585,7 @@ describe('AuthContext', () => {
 
     await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalledWith('token-123'));
     expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(mockClearTerrainState).toHaveBeenCalledTimes(1);
     expect(mockAsyncStorageClear).toHaveBeenCalledTimes(1);
   });
 
@@ -1664,6 +1671,7 @@ describe('AuthContext', () => {
     });
 
     expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(mockClearTerrainState).toHaveBeenCalledTimes(1);
     expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
     expect(getAuth().isAnonymous).toBe(true);
   });

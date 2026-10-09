@@ -1,5 +1,6 @@
 import {
   canNotify,
+  clearTerrainState,
   consumePendingTerrainOpen,
   getTerrainPref,
   getWatchedPeaks,
@@ -88,6 +89,22 @@ describe('ouverture en attente', () => {
     await setPendingTerrainOpen('peak-1');
     expect(await consumePendingTerrainOpen('peak-2')).toBe(false);
     expect(await consumePendingTerrainOpen('peak-1')).toBe(true);
+    expect(await consumePendingTerrainOpen('peak-1')).toBe(false);
+  });
+});
+
+describe('clearTerrainState', () => {
+  it('supprime sommets, cooldowns, préférence et ouverture en attente', async () => {
+    await rememberWatchedPeak(peak(1), 1000);
+    await markNotified('p1', 1000);
+    await setTerrainPref(false);
+    await setPendingTerrainOpen('peak-1');
+
+    await clearTerrainState();
+
+    expect(await getWatchedPeaks(1000)).toEqual([]);
+    expect(await canNotify('p1', 1001)).toBe(true);
+    expect(await getTerrainPref()).toBe(true);
     expect(await consumePendingTerrainOpen('peak-1')).toBe(false);
   });
 });

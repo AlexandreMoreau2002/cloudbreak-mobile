@@ -98,3 +98,16 @@ export async function consumePendingTerrainOpen(slug: string): Promise<boolean> 
   }
   return true;
 }
+
+/** Efface tout l'état terrain local (déconnexion, suppression de compte). Best-effort. */
+export async function clearTerrainState(): Promise<void> {
+  try {
+    await Promise.all(
+      [WATCHED_KEY, NOTIFIED_KEY, PREF_KEY, PENDING_OPEN_KEY].map((key) =>
+        AsyncStorage.removeItem(key),
+      ),
+    );
+  } catch {
+    // best-effort
+  }
+}
