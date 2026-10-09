@@ -9,8 +9,8 @@
  *   usePushToken(); // dans AppStack, sans destructuring
  */
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
 import { useEffect, useRef } from 'react';
+import * as Notifications from 'expo-notifications';
 
 import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';

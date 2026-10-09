@@ -4,8 +4,8 @@ import { Text, TouchableOpacity, Platform } from 'react-native';
 import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
 
 import { useDisplayName } from '@/hooks/useDisplayName';
-import { fetchMe, deleteAccount, deletePushToken, provisionUser, updateDisplayName, updateUserSurvey } from '@/services/api/user';
 import { AuthProvider, appleDisplayName, isProvisioningError, isRateLimitError, useAuth } from '@/contexts/AuthContext';
+import { fetchMe, deleteAccount, deletePushToken, provisionUser, updateDisplayName, updateUserSurvey } from '@/services/api/user';
 
 // DEBUG dépend maintenant de EXPO_PUBLIC_DEBUG (pas seulement __DEV__) — ce fichier teste
 // le contenu des logs console.debug, donc on force DEBUG à true indépendamment de l'env de test.
