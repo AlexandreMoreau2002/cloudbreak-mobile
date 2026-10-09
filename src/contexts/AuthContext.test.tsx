@@ -1423,8 +1423,10 @@ describe('AuthContext', () => {
     [{ givenName: null, familyName: ' Moreau ' }, 'Moreau'],
     [{ givenName: 'Alexandre-Emmanuel', familyName: 'Moreau-Delacroix' }, 'Alexandre-Emmanuel'],
     [{ givenName: 'A'.repeat(30), familyName: 'Moreau' }, 'A'.repeat(24)],
-    [{ givenName: 'Alex 🏔', familyName: 'Moreau' }, 'Alex Moreau'],
-    [{ givenName: '🏔', familyName: null }, null],
+    [{ givenName: 'Alex \u{1F3D4}', familyName: 'Moreau' }, 'Alex \u{1F3D4} Moreau'],
+    [{ givenName: '\u{1F3D4}', familyName: null }, '\u{1F3D4}'],
+    [{ givenName: 'Al\u202eex\n', familyName: 'Mor\u0000eau' }, 'Alex Moreau'],
+    [{ givenName: '\u0000', familyName: null }, null],
     [{ givenName: 'Éloïse', familyName: "O'Brien" }, "Éloïse O'Brien"],
   ])('normalise uniquement le nom Apple fourni %j', (fullName, expected) => {
     expect(appleDisplayName(fullName)).toBe(expected);

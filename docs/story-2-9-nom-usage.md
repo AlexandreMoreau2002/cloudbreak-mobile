@@ -29,14 +29,14 @@ Carte au repos → toucher → saisie inline
 ```
 
 Le hook transmet le changement à l’API avec le JWT. L’app nettoie les espaces et refuse plus
-de 24 caractères ; seuls les lettres (accents compris), chiffres, espaces, tirets et apostrophes
-sont acceptés (même règle que le serveur) ; un champ vide envoie `null` pour effacer le nom. Le backend
+de 24 points de code Unicode ; tout caractère est permis (symboles, émojis…) sauf les contrôles, retours
+à la ligne et surcharges bidirectionnelles (même règle que le serveur) ; un champ vide envoie `null` pour effacer le nom. Le backend
 valide aussi cette limite et renvoie le profil sauvegardé. Un garde synchrone évite une double
 requête quand la perte de focus précède la pression sur ✓.
 Le nom n’est pas enregistré dans le stockage local persistant de l’iPhone.
 
 Lors d’une création Apple, iOS peut fournir le nom une seule fois si la personne le partage.
-L’app ne garde que les caractères autorisés, envoie « prénom nom » s’il tient en 24 caractères,
+L’app retire les caractères interdits, envoie « prénom nom » s’il tient en 24 caractères,
 sinon le prénom seul (tronqué si besoin). Elle l’envoie après avoir établi et provisionné le compte
 permanent, et seulement si le profil n’a pas déjà de nom : un nom choisi n’est jamais remplacé. Si
 Apple ne fournit aucun nom, le compte existant n’est pas modifié et la connexion reste valide même si cette mise à jour
@@ -46,7 +46,7 @@ Le renouvellement du JWT conserve une sauvegarde déjà en cours pour le même c
 changement de compte invalide les anciennes réponses ; l’édition ne se ferme que lorsque son
 PATCH a réussi. Une initialisation Apple réussie déclenche un nouveau chargement du profil déjà
 monté, via un compteur en mémoire sans donnée personnelle. Les initiales lisent des points de
-code Unicode entiers.
+code Unicode entiers, y compris les émojis.
 
 ## Fichiers concernés
 

@@ -8,8 +8,8 @@ import { ErrorState } from '@/components/error-state';
 import type { AsyncState } from '@/services/mockData/types';
 import { LoadingSpinner } from '@/components/loading-spinner';
 
-// Lettres (accents compris), chiffres, espace, tiret et apostrophe — identique au serveur.
-const DISPLAY_NAME_PATTERN = /^[\p{L}0-9 '’-]*$/u;
+// Contrôles, séparateurs de ligne, non assignés et surcharges bidirectionnelles — identique au serveur.
+const DISPLAY_NAME_FORBIDDEN = /[\p{Cc}\p{Co}\p{Cn}\p{Zl}\p{Zp}\u202A-\u202E\u2066-\u2069]/u;
 
 function getInitials(displayName: string | null, email: string): string {
   if (!displayName?.trim()) return Array.from(email)[0]?.toUpperCase() ?? '—';
@@ -40,7 +40,7 @@ export function UserCard({ email, displayName, state, onSave, disabled = false }
   const normalized = draft.trim();
   const count = Array.from(normalized).length;
   const tooLong = count > 24;
-  const badChars = !DISPLAY_NAME_PATTERN.test(normalized);
+  const badChars = DISPLAY_NAME_FORBIDDEN.test(normalized);
   const valid = !tooLong && !badChars;
   const busy = saving || state.status === 'loading';
   const initials = getInitials(displayName, email);

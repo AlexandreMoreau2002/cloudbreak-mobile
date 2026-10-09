@@ -125,7 +125,7 @@ describe('UserCard', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it.each(['Alex 🏔', 'Alex_42', 'Alex@home', 'Alex!'])('refuses %s because of its characters', (value) => {
+  it.each(['Al\nex', 'Al\u0000ex', 'Al\u202eex', 'Al\u2028ex'])('refuses %j because of a forbidden character', (value) => {
     const { screen, edit, onSave } = setup();
     edit();
     fireEvent.changeText(screen.getByTestId('display-name-input'), value);
@@ -135,7 +135,7 @@ describe('UserCard', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it.each(["Jean-Pierre", "O'Brien", 'Léa 75', '69'])('accepts %s', async (value) => {
+  it.each(['Jean-Pierre', "O'Brien", 'Léa 75', '69', 'xX_Alex-42*$Xx', 'Alex \u{1F3D4}\u{1F304}', '<b>Alex</b>'])('accepts %s', async (value) => {
     const { screen, edit, onSave } = setup();
     edit();
     fireEvent.changeText(screen.getByTestId('display-name-input'), value);

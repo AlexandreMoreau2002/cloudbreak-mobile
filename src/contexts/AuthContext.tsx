@@ -92,10 +92,11 @@ export type AppleAuthResult = AuthError | 'cancelled' | null;
 type AuthEmailLocale = 'fr' | 'en';
 
 const DISPLAY_NAME_MAX = 24;
-const DISPLAY_NAME_DISALLOWED = /[^\p{L}0-9 '’-]/gu;
+// Contrôles, séparateurs de ligne, non assignés et surcharges bidirectionnelles : refusés par le serveur.
+const DISPLAY_NAME_FORBIDDEN = /[\p{Cc}\p{Co}\p{Cn}\p{Zl}\p{Zp}\u202A-\u202E\u2066-\u2069]/gu;
 
 function cleanNamePart(part?: string | null): string {
-  return (part ?? '').replace(DISPLAY_NAME_DISALLOWED, '').replace(/\s+/g, ' ').trim();
+  return (part ?? '').replace(DISPLAY_NAME_FORBIDDEN, '').replace(/\s+/g, ' ').trim();
 }
 
 export function appleDisplayName(

@@ -156,7 +156,7 @@ export default {
       save: 'Confirm',
       cancel: 'Cancel',
       validation: 'The name must not exceed 24 characters.',
-      invalidChars: 'Letters, digits, spaces, - and ’ only.',
+      invalidChars: 'This name contains a forbidden character (line break, control character…).',
       error: 'Unable to update your name. Try again.',
     },
     eyebrow: 'PROFILE',
