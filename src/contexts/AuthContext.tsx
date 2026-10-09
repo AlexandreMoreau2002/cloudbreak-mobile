@@ -92,6 +92,8 @@ export type AppleAuthIntent = 'creation' | 'connexion';
 export type AppleAuthResult = AuthError | 'cancelled' | null;
 type AuthEmailLocale = 'fr' | 'en';
 
+// Délai max d'attente du DELETE du push token au logout (hors ligne, le fetch peut durer 10 s).
+const PUSH_TOKEN_RELEASE_TIMEOUT_MS = 2500;
 const DISPLAY_NAME_MAX = 24;
 // Contrôles, séparateurs de ligne, non assignés et surcharges bidirectionnelles : refusés par le serveur.
 const DISPLAY_NAME_FORBIDDEN = /[\p{Cc}\p{Co}\p{Cn}\p{Zl}\p{Zp}\u202A-\u202E\u2066-\u2069]/gu;
@@ -558,7 +560,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!accessToken || isAnonymous) return null;
     // Best-effort : le token doit quitter le compte avant la perte du JWT, mais une panne
     // réseau ne doit jamais empêcher la déconnexion.
-    return deletePushToken(accessToken).catch(() => undefined);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, PUSH_TOKEN_RELEASE_TIMEOUT_MS);
+    });
+    const release = deletePushToken(accessToken).catch(() => undefined);
+    return Promise.race([release, timeout]).finally(() => clearTimeout(timer));
   }
 
   async function signOutToAnonymous(): Promise<AuthError | null> {

@@ -1757,6 +1757,20 @@ describe('AuthContext', () => {
         .toBeLessThan(mockSignOut.mock.invocationCallOrder[0]);
     });
 
+    it('ne bloque pas la déconnexion plus de 2,5 s si le DELETE ne répond jamais', async () => {
+      mockDeletePushToken.mockImplementationOnce(() => new Promise<void>(() => {}));
+      const { getByTestId } = await renderWith(permanentSession);
+      jest.useFakeTimers();
+      try {
+        await act(async () => { fireEvent.press(getByTestId('signOut')); });
+        expect(mockSignOut).not.toHaveBeenCalled();
+        await act(async () => { await jest.advanceTimersByTimeAsync(2500); });
+        expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it("n'appelle pas deletePushToken pour un utilisateur anonyme", async () => {
       const { getByTestId } = await renderWith(anonymousSession);
 
