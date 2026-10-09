@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { usePendingPeakLink } from '@/hooks/usePendingPeakLink';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
+import { usePushToken } from '@/hooks/usePushToken';
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
@@ -64,6 +65,7 @@ function AuthGuard() {
 function AppStack() {
   const { locale } = useLanguage();
   useAppSessionTracking();
+  usePushToken();
 
   return <Stack key={locale} screenOptions={{ headerShown: false }} />;
 }
