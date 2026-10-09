@@ -20,6 +20,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { fetchMe, updateNotificationPreferences } from '@/services/api/user';
 import type { AsyncState, NotificationPreferences } from '@/services/mockData/types';
 import { debugDataRefresh, type DataRefreshReason } from '@/services/dataRefreshDebug';
+import { setTerrainPref } from '@/utils/terrainWatch';
+import { syncTerrainGeofences } from '@/services/terrainGeofence';
 
 type PrefKey = keyof NotificationPreferences;
 
@@ -38,12 +40,14 @@ export function useNotificationPreferences() {
     setState({ status: 'loading' });
     try {
       const me = await fetchMe(token);
+      const terrain = me.notif_terrain ?? true;
+      void setTerrainPref(terrain);
       setState({
         status: 'success',
         data: {
           notif_favorites: me.notif_favorites ?? true,
           notif_regional: me.notif_regional ?? true,
-          notif_terrain: me.notif_terrain ?? true,
+          notif_terrain: terrain,
         },
       });
     } catch (err) {
@@ -67,6 +71,10 @@ export function useNotificationPreferences() {
       setState({ status: 'success', data: next });
       try {
         await updateNotificationPreferences(token, { [key]: next[key] });
+        if (key === 'notif_terrain') {
+          await setTerrainPref(next[key]);
+          void syncTerrainGeofences(next[key]);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erreur inconnue';
         if (DEBUG) console.debug('[useNotificationPreferences] toggle error', { message });
