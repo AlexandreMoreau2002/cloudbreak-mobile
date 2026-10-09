@@ -553,12 +553,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Renvoie null (et non une promesse) quand il n'y a rien à libérer : le signOut Supabase
   // reste ainsi déclenché de façon synchrone pour une session absente ou anonyme.
-  function releasePushToken(): Promise<unknown> | null {
+  function releasePushToken(): Promise<void> | null {
     const accessToken = session?.access_token;
     if (!accessToken || isAnonymous) return null;
     // Best-effort : le token doit quitter le compte avant la perte du JWT, mais une panne
     // réseau ne doit jamais empêcher la déconnexion.
-    return deletePushToken(accessToken).catch(() => null);
+    return deletePushToken(accessToken).catch(() => undefined);
   }
 
   async function signOutToAnonymous(): Promise<AuthError | null> {
