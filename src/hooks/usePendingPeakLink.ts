@@ -25,7 +25,7 @@ export function usePendingPeakLink(): void {
   const { setSelectedPeak } = useSelectedPeak();
   const running = useRef(false);
   const token = session?.access_token ?? null;
-  const area = segments[0];
+  const area: string | undefined = segments[0];
 
   useEffect(() => {
     if (!token || !completed || area === 'onboarding' || area === 'sommet') return;

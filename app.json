@@ -10,6 +10,10 @@
     "ios": {
       "bundleIdentifier": "com.alexandremoreau.cloudbreak",
       "usesAppleSignIn": true,
+      "associatedDomains": [
+        "applinks:cloudbreak-app.com",
+        "applinks:dev-ops.cloudbreak-app.com?mode=developer"
+      ],
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Cloudbreak utilise votre position pour vous proposer les sommets les plus proches.",
         "ITSAppUsesNonExemptEncryption": false

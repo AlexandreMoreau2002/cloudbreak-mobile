@@ -11,6 +11,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
+import { usePendingPeakLink } from '@/hooks/usePendingPeakLink';
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
@@ -30,6 +31,7 @@ function AuthGuard() {
   useLanguage();
   const { completed, hydrated } = useOnboarding();
   const anonymousAttempted = useRef(false);
+  usePendingPeakLink();
 
   useEffect(() => {
     if (loading || !hydrated) return;
