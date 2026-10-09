@@ -346,5 +346,7 @@ export default {
     successTitle: 'Merci !',
     successBody: 'Ta validation aide à affiner les prévisions 🙏',
     close: 'Fermer',
+    notificationTitle: 'Tu es au %{peak} !',
+    notificationBody: 'Mer de nuage visible ? 📸',
   },
 };
