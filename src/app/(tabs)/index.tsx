@@ -29,7 +29,9 @@ import { ValidationBottomSheet } from '@/components/validation';
 import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
 import { localizeScoreResponse } from '@/services/mockData/score';
 import { useTerrainValidation } from '@/hooks/useTerrainValidation';
+import { useTerrainPref } from '@/hooks/useTerrainPref';
 import { useTerrainAutoDetect } from '@/hooks/useTerrainAutoDetect';
+import { usePendingTerrainOpen } from '@/hooks/usePendingTerrainOpen';
 import { ConditionsSection } from '@/components/conditions-section';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
 
@@ -136,6 +138,7 @@ export default function HomeScreen() {
   );
 
   const terrain = useTerrainValidation({ token, locationPermission });
+  const terrainEnabled = useTerrainPref();
 
   // Si la date sélectionnée n'a pas de données (cache périmé / date hors fenêtre),
   // on se rabat sur aujourd'hui
@@ -174,6 +177,13 @@ export default function HomeScreen() {
     locationPermission,
     target: autoDetectTarget,
     onNear: terrain.open,
+    enabled: terrainEnabled,
+  });
+
+  usePendingTerrainOpen({
+    slug: selectedPeak?.slug ?? null,
+    ready: displayScore?.prediction_id != null,
+    onOpen: terrain.open,
   });
 
   function handleValidateTerrain() {
