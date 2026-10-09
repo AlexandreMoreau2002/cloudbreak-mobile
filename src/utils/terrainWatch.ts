@@ -72,7 +72,10 @@ export async function canNotify(peakId: string, now: number = Date.now()): Promi
 
 export async function markNotified(peakId: string, now: number = Date.now()): Promise<void> {
   const notified = await readJson<Record<string, number>>(NOTIFIED_KEY, {});
-  await writeJson(NOTIFIED_KEY, { ...notified, [peakId]: now });
+  const recent = Object.fromEntries(
+    Object.entries(notified).filter(([, at]) => now - at < NOTIFY_COOLDOWN_MS),
+  );
+  await writeJson(NOTIFIED_KEY, { ...recent, [peakId]: now });
 }
 
 export async function getTerrainPref(): Promise<boolean> {

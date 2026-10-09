@@ -74,6 +74,15 @@ describe('cooldown', () => {
   });
 });
 
+describe('purge des cooldowns', () => {
+  it('supprime les entrées plus vieilles que le cooldown à chaque écriture', async () => {
+    await markNotified('old', 0);
+    await markNotified('recent', NOTIFY_COOLDOWN_MS + 10);
+    const stored = JSON.parse(mockStore.get('terrainNotifiedAt') ?? '{}');
+    expect(Object.keys(stored)).toEqual(['recent']);
+  });
+});
+
 describe('préférence terrain', () => {
   it('vaut true par défaut puis reflète la dernière valeur écrite', async () => {
     expect(await getTerrainPref()).toBe(true);
