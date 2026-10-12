@@ -6,6 +6,7 @@
  * premier plan (useTerrainAutoDetect) fonctionne. Rien ici ne lève : la notification terrain
  * n'est jamais critique.
  */
+import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
@@ -30,11 +31,12 @@ type GeofenceBody = TaskManager.TaskManagerTaskBody<{
 
 export async function handleGeofenceEvent({ data, error }: GeofenceBody): Promise<void> {
   if (error || !data || data.eventType !== Location.GeofencingEventType.Enter) return;
+  // Au premier plan, iOS n'affiche pas la notif locale : useTerrainAutoDetect ouvre le sheet.
+  if (AppState.currentState === 'active') return;
   try {
     if (!(await getTerrainPref())) return;
     const peak = (await getWatchedPeaks()).find((p) => p.id === data.region.identifier);
     if (!peak || !(await canNotify(peak.id))) return;
-    await markNotified(peak.id);
     await Notifications.scheduleNotificationAsync({
       content: {
         title: i18n.t('terrain.notificationTitle', { peak: peak.name }),
@@ -43,6 +45,7 @@ export async function handleGeofenceEvent({ data, error }: GeofenceBody): Promis
       },
       trigger: null,
     });
+    await markNotified(peak.id);
   } catch {
     // permission de notification refusée, stockage indisponible : on abandonne en silence
   }

@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
@@ -45,8 +46,13 @@ const peak = {
 };
 const enter = { data: { eventType: 1, region: { identifier: 'p1' } }, error: null };
 
+function setAppState(state: string) {
+  Object.defineProperty(AppState, 'currentState', { value: state, configurable: true, writable: true });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  setAppState('background');
   mocked(watch.getTerrainPref).mockResolvedValue(true);
   mocked(watch.getWatchedPeaks).mockResolvedValue([peak]);
   mocked(watch.canNotify).mockResolvedValue(true);
@@ -92,6 +98,26 @@ describe('handleGeofenceEvent', () => {
   it('ne lève jamais si la notification échoue', async () => {
     mocked(Notifications.scheduleNotificationAsync).mockRejectedValue(new Error('denied'));
     await expect(handleGeofenceEvent(enter as never)).resolves.toBeUndefined();
+  });
+
+  it("ne consomme pas le cooldown si l'envoi de la notification échoue", async () => {
+    mocked(Notifications.scheduleNotificationAsync).mockRejectedValue(new Error('denied'));
+    await handleGeofenceEvent(enter as never);
+    expect(watch.markNotified).not.toHaveBeenCalled();
+  });
+
+  it('marque le cooldown après (et non avant) la programmation réussie', async () => {
+    await handleGeofenceEvent(enter as never);
+    expect(mocked(Notifications.scheduleNotificationAsync).mock.invocationCallOrder[0]).toBeLessThan(
+      mocked(watch.markNotified).mock.invocationCallOrder[0],
+    );
+  });
+
+  it('ignore l\'événement au premier plan (le mode premier plan s\'en charge)', async () => {
+    setAppState('active');
+    await handleGeofenceEvent(enter as never);
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    expect(watch.markNotified).not.toHaveBeenCalled();
   });
 });
 
