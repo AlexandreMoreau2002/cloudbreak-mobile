@@ -6,7 +6,9 @@ import i18n from '@/utils/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SettingsRow } from '@/components/profile';
+import { NotificationPermissionBanner } from '@/components/notification-permission-banner';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
+import { useNotificationPermissionStatus } from '@/hooks/useNotificationPermissionStatus';
 
 type NotificationPreferenceKey = 'notif_favorites' | 'notif_regional' | 'notif_terrain';
 
@@ -16,6 +18,7 @@ export default function NotificationsScreen() {
   const { colors, typography } = useTheme();
   const { locationPermission } = useAuth();
   const { state, toggle } = useNotificationPreferences();
+  const { denied, openSettings } = useNotificationPermissionStatus();
 
   const gpsLocked = locationPermission !== 'granted';
   const data = state.status === 'success' ? state.data : null;
@@ -50,6 +53,8 @@ export default function NotificationsScreen() {
           </Text>
         </View>
       </View>
+
+      {denied ? <NotificationPermissionBanner onOpenSettings={() => void openSettings()} /> : null}
 
       <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <SettingsRow
