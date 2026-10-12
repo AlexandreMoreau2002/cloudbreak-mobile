@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useTerrainNotificationTap } from '@/hooks/useTerrainNotificationTap';
-import { consumePendingTerrainOpen, setPendingTerrainOpen } from '@/utils/terrainWatch';
+import { setPendingTerrainOpen } from '@/utils/terrainWatch';
 
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace }) }));
@@ -10,10 +10,7 @@ jest.mock('expo-notifications', () => ({ useLastNotificationResponse: jest.fn() 
 jest.mock('@/utils/pendingPeakLink', () => ({
   isValidPeakSlug: (slug: string) => /^[a-z0-9-]{1,100}$/.test(slug),
 }));
-jest.mock('@/utils/terrainWatch', () => ({
-  consumePendingTerrainOpen: jest.fn(),
-  setPendingTerrainOpen: jest.fn(),
-}));
+jest.mock('@/utils/terrainWatch', () => ({ setPendingTerrainOpen: jest.fn() }));
 
 const useResponse = Notifications.useLastNotificationResponse as jest.Mock;
 const response = (data: object, identifier = 'n1') => ({
@@ -33,15 +30,6 @@ it("mémorise l'ouverture du sheet puis passe par la route de deep link du somme
   expect((setPendingTerrainOpen as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
     mockReplace.mock.invocationCallOrder[0],
   );
-});
-
-it("efface l'ouverture en attente si la navigation échoue", async () => {
-  mockReplace.mockImplementation(() => {
-    throw new Error('nav');
-  });
-  useResponse.mockReturnValue(response({ type: 'terrain', slug: 'mont-blanc' }));
-  renderHook(() => useTerrainNotificationTap());
-  await waitFor(() => expect(consumePendingTerrainOpen).toHaveBeenCalledWith('mont-blanc'));
 });
 
 it.each([

@@ -19,6 +19,7 @@ const PENDING_OPEN_KEY = 'pendingTerrainOpenSlug';
 export const MAX_WATCHED = 3;
 export const WATCH_TTL_MS = 48 * 60 * 60 * 1000;
 export const NOTIFY_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+export const PENDING_OPEN_TTL_MS = 10 * 60 * 1000;
 
 export interface WatchedPeak {
   id: string;
@@ -86,20 +87,27 @@ export async function setTerrainPref(enabled: boolean): Promise<void> {
   await writeJson(PREF_KEY, enabled);
 }
 
-export async function setPendingTerrainOpen(slug: string): Promise<void> {
-  await writeJson(PENDING_OPEN_KEY, slug);
+export async function setPendingTerrainOpen(slug: string, now: number = Date.now()): Promise<void> {
+  await writeJson(PENDING_OPEN_KEY, { slug, at: now });
 }
 
-/** Retourne true (et efface la demande) si une ouverture est en attente pour ce slug. */
-export async function consumePendingTerrainOpen(slug: string): Promise<boolean> {
-  const pending = await readJson<string | null>(PENDING_OPEN_KEY, null);
-  if (pending !== slug) return false;
+/**
+ * Retourne true (et efface la demande) si une ouverture est en attente pour ce slug et encore
+ * valide (TTL 10 min : si le sommet n'a pas pu être chargé, la demande ne doit pas rouvrir le
+ * sheet des jours plus tard). Une demande expirée est effacée sans être honorée.
+ */
+export async function consumePendingTerrainOpen(
+  slug: string,
+  now: number = Date.now(),
+): Promise<boolean> {
+  const pending = await readJson<{ slug?: string; at?: number } | null>(PENDING_OPEN_KEY, null);
+  if (pending?.slug !== slug) return false;
   try {
     await AsyncStorage.removeItem(PENDING_OPEN_KEY);
   } catch {
     // best-effort
   }
-  return true;
+  return typeof pending.at === 'number' && now - pending.at <= PENDING_OPEN_TTL_MS;
 }
 
 /** Efface tout l'état terrain local (déconnexion, suppression de compte). Best-effort. */

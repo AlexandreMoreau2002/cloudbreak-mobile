@@ -14,7 +14,7 @@ import { useRouter, type Href } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 
 import { isValidPeakSlug } from '@/utils/pendingPeakLink';
-import { consumePendingTerrainOpen, setPendingTerrainOpen } from '@/utils/terrainWatch';
+import { setPendingTerrainOpen } from '@/utils/terrainWatch';
 
 export function useTerrainNotificationTap(): void {
   const router = useRouter();
@@ -32,11 +32,7 @@ export function useTerrainNotificationTap(): void {
 
     async function open() {
       await setPendingTerrainOpen(slug);
-      try {
-        router.replace(`/sommet/${slug}` as Href);
-      } catch {
-        await consumePendingTerrainOpen(slug);
-      }
+      router.replace(`/sommet/${slug}` as Href);
     }
     void open();
   }, [response, router]);

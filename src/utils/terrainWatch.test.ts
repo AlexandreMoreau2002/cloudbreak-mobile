@@ -7,6 +7,7 @@ import {
   markNotified,
   MAX_WATCHED,
   NOTIFY_COOLDOWN_MS,
+  PENDING_OPEN_TTL_MS,
   rememberWatchedPeak,
   setPendingTerrainOpen,
   setTerrainPref,
@@ -98,6 +99,22 @@ describe('ouverture en attente', () => {
     await setPendingTerrainOpen('peak-1');
     expect(await consumePendingTerrainOpen('peak-2')).toBe(false);
     expect(await consumePendingTerrainOpen('peak-1')).toBe(true);
+    expect(await consumePendingTerrainOpen('peak-1')).toBe(false);
+  });
+
+  it('se consomme dans la fenêtre de validité', async () => {
+    await setPendingTerrainOpen('peak-1', 1000);
+    expect(await consumePendingTerrainOpen('peak-1', 1000 + PENDING_OPEN_TTL_MS)).toBe(true);
+  });
+
+  it('refuse et efface une demande expirée (ex. sommet jamais chargé)', async () => {
+    await setPendingTerrainOpen('peak-1', 1000);
+    expect(await consumePendingTerrainOpen('peak-1', 1000 + PENDING_OPEN_TTL_MS + 1)).toBe(false);
+    expect(mockStore.has('pendingTerrainOpenSlug')).toBe(false);
+  });
+
+  it('ignore un ancien format ou un contenu corrompu', async () => {
+    mockStore.set('pendingTerrainOpenSlug', '"peak-1"');
     expect(await consumePendingTerrainOpen('peak-1')).toBe(false);
   });
 });
