@@ -1739,5 +1739,47 @@ describe('AuthContext', () => {
       });
       osSpy.restore();
     });
+
+    it('création Apple : recrée un invité puis rejoue linkIdentity une fois', async () => {
+      mockLinkIdentity
+        .mockResolvedValueOnce({ error: deletedUserError() })
+        .mockResolvedValueOnce({ error: null });
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
+      mockGetSession
+        .mockResolvedValueOnce({ data: { session: guestSession } })
+        .mockResolvedValueOnce({ data: { session: guestSession } })
+        .mockResolvedValue({ data: { session: permanentSession } });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = 'cancelled';
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBeNull();
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(2);
+      expect(mockAppleSignInAsync).toHaveBeenCalledTimes(1);
+      expect(mockProvisionUser).toHaveBeenCalledWith('apple-token');
+      osSpy.restore();
+    });
+
+    it("renvoie l'erreur de réparation si le nouvel invité ne peut pas être créé", async () => {
+      const anonymousError = new AuthError('Anonymous sign-ins are disabled');
+      mockLinkIdentity.mockResolvedValueOnce({ error: deletedUserError() });
+      mockSignInAnonymously.mockResolvedValueOnce({ error: anonymousError });
+      mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBe(anonymousError);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(1);
+      osSpy.restore();
+    });
   });
 });
