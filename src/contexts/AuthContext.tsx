@@ -416,7 +416,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (unavailableError) return unavailableError;
     if (DEBUG) console.debug('[AuthContext] beginEmailUpgrade');
     await syncEmailLocale(locale);
-    return runAuthOperation('email_otp_start', () => supabase.auth.updateUser({ email }));
+    return runAuthOperation(
+      'email_otp_start',
+      () => supabase.auth.updateUser({ email }),
+      () => syncEmailLocale(locale),
+    );
   }
 
   async function requestPasswordReset(

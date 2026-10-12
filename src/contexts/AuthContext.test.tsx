@@ -1832,5 +1832,28 @@ describe('AuthContext', () => {
       expect(mockSignInAnonymously).not.toHaveBeenCalled();
       expect(mockSignOut).not.toHaveBeenCalled();
     });
+
+    it("ajout d'e-mail : recrée un invité, renvoie la locale puis rejoue l'envoi de l'OTP", async () => {
+      mockUpdateUser
+        .mockResolvedValueOnce({ error: deletedUserError() }) // sync locale (avalée)
+        .mockResolvedValueOnce({ error: deletedUserError() }) // envoi de l'OTP
+        .mockResolvedValue({ error: null });
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
+      mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let error: AuthError | null = deletedUserError();
+      await act(async () => { error = await getAuth().beginEmailUpgrade('a@b.com', 'en'); });
+
+      expect(error).toBeNull();
+      expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+      expect(mockUpdateUser.mock.calls).toEqual([
+        [{ data: { locale: 'en' } }],
+        [{ email: 'a@b.com' }],
+        [{ data: { locale: 'en' } }],
+        [{ email: 'a@b.com' }],
+      ]);
+    });
   });
 });
