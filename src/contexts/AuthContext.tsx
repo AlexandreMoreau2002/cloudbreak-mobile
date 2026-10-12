@@ -126,7 +126,6 @@ interface AuthState {
   session: Session | null;
   isAnonymous: boolean;
   authServiceUnavailable: boolean;
-  sessionRecovering: boolean;
   locationPermission: LocationPermissionStatus;
 }
 
@@ -174,12 +173,12 @@ function logAuthOperation(stage: AuthOperationStage, outcome: AuthOperationOutco
   if (DEBUG) console.debug('[AuthContext] auth operation', { stage, outcome });
 }
 
-// Étapes où un invité supprimé côté Supabase peut être remplacé en silence puis l'action rejouée.
-// Les étapes mot de passe / reset visent des comptes permanents : jamais réparées ici.
+// Rattachements d'un invité : un invité supprimé côté Supabase peut être remplacé en silence puis
+// l'action rejouée. Les étapes mot de passe / reset visent des comptes permanents : jamais réparées.
+// La connexion Apple ne peut pas déclencher ce 403 (signInWithIdToken n'envoie pas le JWT de session).
 const SELF_HEALING_STAGES: ReadonlySet<AuthOperationStage> = new Set<AuthOperationStage>([
   'email_otp_start',
   'apple_identity_link',
-  'apple_id_token_sign_in',
 ]);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -187,7 +186,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profileRevision, setProfileRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [authServiceUnavailable, setAuthServiceUnavailable] = useState(false);
-  const [sessionRecovering, setSessionRecovering] = useState(false);
   const [locationPermission, setLocationPermission] = useState<LocationPermissionStatus>('undetermined');
   const anonymousSessionInFlight = useRef<Promise<AuthError | null> | null>(null);
   const sessionGeneration = useRef(0);
@@ -218,32 +216,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Un invité supprimé côté Supabase est remplacé en silence, puis l'action est rejouée UNE fois.
-  // Les rattachements (Apple, e-mail) exigent une session invitée : un compte permanent n'est
-  // jamais transformé en invité ici.
+  // Seuls les rattachements (Apple, e-mail) sont concernés, et seulement depuis une session
+  // invitée : un compte permanent n'est jamais transformé en invité ici.
   async function runAuthOperation(
     stage: AuthOperationStage,
     operation: () => Promise<{ error: AuthError | null }>,
     options: { onRecovered?: () => Promise<void> } = {},
   ): Promise<AuthError | null> {
     const error = await runAuthOperationOnce(stage, operation);
-    const canRecover = SELF_HEALING_STAGES.has(stage)
-      && (stage === 'apple_id_token_sign_in' || isAnonymous);
-    if (!error || !canRecover || !isDeletedUserError(error)) return error;
-
-    setSessionRecovering(true);
+    if (!error || !isAnonymous || !SELF_HEALING_STAGES.has(stage) || !isDeletedUserError(error)) {
+      return error;
+    }
     try {
-      const recoveryError = await recoverDeletedGuestSession(stage);
-      if (recoveryError) return error;
+      if (await replaceWithFreshGuestSession()) return error;
       logAuthOperation(stage, 'session_recovered');
       await options.onRecovered?.();
-      const retryError = await runAuthOperationOnce(stage, operation);
-      // Après une purge sans nouvel invité, un rejeu raté ne doit pas laisser l'app sans session.
-      if (retryError && stage === 'apple_id_token_sign_in') await startFreshGuestSession();
-      return retryError;
+      return await runAuthOperationOnce(stage, operation);
     } catch {
       return error;
-    } finally {
-      setSessionRecovering(false);
     }
   }
 
@@ -604,15 +594,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function clearLocalSession(): Promise<void> {
+  async function signOutLocally(): Promise<void> {
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
+  }
+
+  async function clearLocalSession(): Promise<void> {
+    await signOutLocally();
     setSession(null);
   }
 
-  async function startFreshGuestSession(): Promise<AuthError | null> {
-    // Toujours clore la session courante d'abord : on ne doit jamais laisser
-    // l'utilisateur bloqué sur son ancien compte si la session invitée échoue.
-    await clearLocalSession();
+  // Remplace la session courante par un nouvel invité SANS passer par un état « sans session » :
+  // signInAnonymously écrase la session stockée puis émet SIGNED_IN (aucun SIGNED_OUT intermédiaire).
+  async function replaceWithFreshGuestSession(): Promise<AuthError | null> {
     const error = await signInAnonymouslyWithLock();
     if (error) return error;
     const { data } = await supabase.auth.getSession();
@@ -623,13 +616,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  async function recoverDeletedGuestSession(stage: AuthOperationStage): Promise<AuthError | null> {
-    // La connexion Apple crée elle-même sa session : la purge locale suffit.
-    if (stage === 'apple_id_token_sign_in') {
-      await clearLocalSession();
-      return null;
-    }
-    return startFreshGuestSession();
+  async function startFreshGuestSession(): Promise<AuthError | null> {
+    // Toujours clore la session courante d'abord : on ne doit jamais laisser
+    // l'utilisateur bloqué sur son ancien compte si la session invitée échoue.
+    await clearLocalSession();
+    return replaceWithFreshGuestSession();
   }
 
   async function signOutToAnonymous(): Promise<AuthError | null> {
@@ -638,21 +629,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut(): Promise<void> {
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
+    await signOutLocally();
   }
 
   async function deleteAccount(): Promise<void> {
     const token = session?.access_token;
     if (!token) throw new Error('Non authentifié');
     await deleteAccountService(token);
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
+    await signOutLocally();
     await AsyncStorage.clear();
   }
 
   return (
     <AuthContext.Provider
       value={{
-        session, loading, isAnonymous, authServiceUnavailable, sessionRecovering, locationPermission, profileRevision,
+        session, loading, isAnonymous, authServiceUnavailable, locationPermission, profileRevision,
         signUp, signIn, signOut, deleteAccount,
         ensureAnonymousSession, requestPasswordReset, completePasswordReset,
         beginEmailUpgrade, completeEmailUpgrade,
