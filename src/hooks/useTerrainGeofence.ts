@@ -7,7 +7,7 @@
  * Usage :
  *   useTerrainGeofence(); // dans AppStack, sans destructuring
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { fetchMe } from '@/services/api/user';
@@ -20,10 +20,18 @@ export function useTerrainGeofence(): void {
   const { selectedPeak } = useSelectedPeak();
   const { session, isAnonymous } = useAuth();
   const token = session?.access_token ?? null;
+  const userId = session?.user?.id ?? null;
   const permanent = !!token && !isAnonymous && session?.user?.is_anonymous !== true;
+  // Le jeton est lu via une ref : un refresh du JWT ne doit pas relancer fetchMe.
+  const tokenRef = useRef(token);
 
   useEffect(() => {
-    if (!permanent || !token) return;
+    tokenRef.current = token;
+  });
+
+  useEffect(() => {
+    const currentToken = tokenRef.current;
+    if (!permanent || !currentToken) return;
     async function applyServerPref(accessToken: string) {
       try {
         // Applique la préférence serveur même si le Profil n'a jamais été ouvert ici.
@@ -34,8 +42,8 @@ export function useTerrainGeofence(): void {
         // réseau coupé : on garde la copie locale
       }
     }
-    void applyServerPref(token);
-  }, [permanent, token]);
+    void applyServerPref(currentToken);
+  }, [permanent, userId]);
 
   useEffect(() => {
     async function remember() {

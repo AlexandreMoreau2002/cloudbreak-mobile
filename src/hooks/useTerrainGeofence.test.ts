@@ -58,7 +58,7 @@ it('resynchronise au retour au premier plan (permission changée dans les régla
 });
 
 describe('préférence serveur', () => {
-  const permanent = { session: { access_token: 'tok', user: { is_anonymous: false } }, isAnonymous: false };
+  const permanent = { session: { access_token: 'tok', user: { id: 'u1', is_anonymous: false } }, isAnonymous: false };
 
   it('applique notif_terrain du serveur avant la synchronisation', async () => {
     (useAuth as jest.Mock).mockReturnValue(permanent);
@@ -82,6 +82,34 @@ describe('préférence serveur', () => {
     }
     await waitFor(() => expect(rememberWatchedPeak).toHaveBeenCalledTimes(4));
     expect(fetchMe).toHaveBeenCalledTimes(1);
+  });
+
+  it('ne rappelle pas fetchMe quand le JWT est rafraîchi pour le même utilisateur', async () => {
+    (useAuth as jest.Mock).mockReturnValue(permanent);
+    (fetchMe as jest.Mock).mockResolvedValue({ notif_terrain: true });
+    const { rerender } = renderHook(() => useTerrainGeofence());
+    await waitFor(() => expect(fetchMe).toHaveBeenCalledTimes(1));
+    (useAuth as jest.Mock).mockReturnValue({
+      session: { access_token: 'tok-2', user: { id: 'u1', is_anonymous: false } },
+      isAnonymous: false,
+    });
+    rerender({});
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fetchMe).toHaveBeenCalledTimes(1);
+  });
+
+  it('rappelle fetchMe avec le jeton courant quand l\'utilisateur change', async () => {
+    (useAuth as jest.Mock).mockReturnValue(permanent);
+    (fetchMe as jest.Mock).mockResolvedValue({ notif_terrain: true });
+    const { rerender } = renderHook(() => useTerrainGeofence());
+    await waitFor(() => expect(fetchMe).toHaveBeenCalledTimes(1));
+    (useAuth as jest.Mock).mockReturnValue({
+      session: { access_token: 'tok-b', user: { id: 'u2', is_anonymous: false } },
+      isAnonymous: false,
+    });
+    rerender({});
+    await waitFor(() => expect(fetchMe).toHaveBeenCalledTimes(2));
+    expect(fetchMe).toHaveBeenLastCalledWith('tok-b');
   });
 
   it('retombe sur true si notif_terrain est absent', async () => {
