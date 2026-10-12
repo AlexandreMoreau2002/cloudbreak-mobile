@@ -2,11 +2,14 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMe, updateNotificationPreferences } from '@/services/api/user';
+import { useNotificationPermissionStatus } from '@/hooks/useNotificationPermissionStatus';
 import NotificationsScreen from './notifications';
 
 jest.mock('expo-router', () => ({ useRouter: jest.fn() }));
 jest.mock('@/contexts/AuthContext');
 jest.mock('@/services/api/user');
+jest.mock('@/hooks/useNotificationPermissionStatus');
+jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 jest.mock('@/constants/devConfig', () => ({ DEBUG: false, MOCK_API: false }));
 jest.mock('@/services/supabaseClient', () => ({ supabase: {} }));
 jest.mock('@react-native-async-storage/async-storage', () => ({}));
@@ -15,13 +18,16 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
-    colors: { background: '#fff', surface: '#fff', border: '#ccc', textPrimary: '#111', textSecondary: '#666' },
-    typography: { fontFamily: { regular: 'System', bold: 'System' } },
+    colors: { background: '#fff', surface: '#fff', border: '#ccc', textPrimary: '#111', textSecondary: '#666', accent: '#b28c6e' },
+    typography: { fontFamily: { regular: 'System', bold: 'System' }, fontSize: { sm: 14 }, lineHeight: { normal: 1.5 } },
+    spacing: { sm: 8 },
   }),
 }));
 jest.mock('@/utils/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
 
 const mockBack = jest.fn();
+const mockOpenSettings = jest.fn();
+const mockPermissionStatus = useNotificationPermissionStatus as jest.Mock;
 const mockUseAuth = useAuth as jest.Mock;
 const mockFetchMe = fetchMe as jest.Mock;
 const mockUpdate = updateNotificationPreferences as jest.Mock;
@@ -29,6 +35,7 @@ const mockUpdate = updateNotificationPreferences as jest.Mock;
 describe('NotificationsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPermissionStatus.mockReturnValue({ denied: false, openSettings: mockOpenSettings });
     (useRouter as jest.Mock).mockReturnValue({ back: mockBack });
     mockUseAuth.mockReturnValue({
       session: { access_token: 'tok' },
@@ -78,5 +85,26 @@ describe('NotificationsScreen', () => {
     await waitFor(() => expect(getAllByText('notifications.on')).toHaveLength(2));
     fireEvent.press(getByTestId('notifications-back'));
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('affiche le bandeau quand la permission iOS est refusée', async () => {
+    mockPermissionStatus.mockReturnValue({ denied: true, openSettings: mockOpenSettings });
+    const { getByTestId, getByText } = render(<NotificationsScreen />);
+    await waitFor(() => expect(getByText('notifications.favorites')).toBeTruthy());
+    expect(getByTestId('notification-permission-banner')).toBeTruthy();
+  });
+
+  it('masque le bandeau quand la permission n’est pas refusée', async () => {
+    const { queryByTestId, getByText } = render(<NotificationsScreen />);
+    await waitFor(() => expect(getByText('notifications.favorites')).toBeTruthy());
+    expect(queryByTestId('notification-permission-banner')).toBeNull();
+  });
+
+  it('ouvre les réglages au tap sur le bouton du bandeau', async () => {
+    mockPermissionStatus.mockReturnValue({ denied: true, openSettings: mockOpenSettings });
+    const { getByTestId, getByText } = render(<NotificationsScreen />);
+    await waitFor(() => expect(getByText('notifications.favorites')).toBeTruthy());
+    fireEvent.press(getByTestId('notification-permission-banner-button'));
+    expect(mockOpenSettings).toHaveBeenCalledTimes(1);
   });
 });

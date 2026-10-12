@@ -237,6 +237,11 @@ export default {
     off: 'Désactivé',
     unavailable: 'Indisponible',
     gpsLockedHint: 'La validation terrain GPS demande l’accès à la localisation, désactivé dans Profil → Localisation.',
+    permissionDeniedTitle: 'Notifications désactivées',
+    permissionDeniedMessage: 'Active-les dans les réglages iOS pour recevoir les alertes.',
+    openSettings: 'Ouvrir les réglages',
+    settingsErrorTitle: 'Réglages indisponibles',
+    settingsErrorMessage: 'Impossible d’ouvrir les réglages. Ouvre Réglages → Cloudbreak → Notifications manuellement.',
   },
   paywall: {
     trialBadge: 'Essai gratuit 7 jours',
