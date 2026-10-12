@@ -80,7 +80,7 @@ jest.mock('@/hooks/useAppSessionTracking', () => ({
 
 jest.mock('@/hooks/useTerrainGeofence', () => ({ useTerrainGeofence: jest.fn() }));
 
-jest.mock('@/hooks/useTerrainNotificationTap', () => ({ useTerrainNotificationTap: jest.fn() }));
+jest.mock('@/hooks/useNotificationTap', () => ({ useNotificationTap: jest.fn() }));
 
 describe('RootLayout', () => {
   beforeEach(() => {

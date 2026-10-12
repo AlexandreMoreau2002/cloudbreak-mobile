@@ -16,7 +16,7 @@ import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { usePushToken } from '@/hooks/usePushToken';
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
-import { useTerrainNotificationTap } from '@/hooks/useTerrainNotificationTap';
+import { useNotificationTap } from '@/hooks/useNotificationTap';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { AccountGateProvider } from '@/contexts/AccountGateContext';
 import i18n from '@/utils/i18n';
@@ -69,7 +69,7 @@ function AppStack() {
   useAppSessionTracking();
   usePushToken();
   useTerrainGeofence();
-  useTerrainNotificationTap();
+  useNotificationTap();
 
   return <Stack key={locale} screenOptions={{ headerShown: false }} />;
 }
