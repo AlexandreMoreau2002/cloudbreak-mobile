@@ -5,6 +5,7 @@ import {
   deleteAccount,
   updateNotificationPreferences,
   updatePushToken,
+  deletePushToken,
   provisionUser,
   updateUserSurvey,
   fetchMe,
@@ -67,10 +68,13 @@ describe('updateNotificationPreferences', () => {
 });
 
 describe('updatePushToken', () => {
-  it('appelle /api/v1/user/push-token', async () => {
+  it('envoie le token en POST /api/v1/user/push-token', async () => {
     mockApiFetch.mockResolvedValueOnce(undefined);
-    await updatePushToken(TOKEN, 'push-token-123');
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/user/push-token', TOKEN);
+    await updatePushToken(TOKEN, 'ExponentPushToken[abc]');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/user/push-token', TOKEN, undefined, {
+      method: 'POST',
+      body: { push_token: 'ExponentPushToken[abc]' },
+    });
   });
 
   it('résout sans appel réseau en mode MOCK_API', async () => {
@@ -88,6 +92,22 @@ describe('updatePushToken', () => {
 
     expect(consoleSpy).toHaveBeenCalledWith('[api/user] MOCK updatePushToken');
     consoleSpy.mockRestore();
+  });
+});
+
+describe('deletePushToken', () => {
+  it('appelle DELETE /api/v1/user/push-token', async () => {
+    mockApiFetch.mockResolvedValueOnce(undefined);
+    await deletePushToken(TOKEN);
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/user/push-token', TOKEN, undefined, {
+      method: 'DELETE',
+    });
+  });
+
+  it('résout sans appel réseau en mode MOCK_API', async () => {
+    mockDevConfigState.MOCK_API = true;
+    await expect(deletePushToken(TOKEN)).resolves.toBeUndefined();
+    expect(mockApiFetch).not.toHaveBeenCalled();
   });
 });
 

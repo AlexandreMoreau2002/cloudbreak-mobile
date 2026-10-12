@@ -13,6 +13,7 @@ import { usePendingPeakLink } from '@/hooks/usePendingPeakLink';
 import { useTerrainGeofence } from '@/hooks/useTerrainGeofence';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
+import { usePushToken } from '@/hooks/usePushToken';
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { useTerrainNotificationTap } from '@/hooks/useTerrainNotificationTap';
@@ -66,6 +67,7 @@ function AuthGuard() {
 function AppStack() {
   const { locale } = useLanguage();
   useAppSessionTracking();
+  usePushToken();
   useTerrainGeofence();
   useTerrainNotificationTap();
 

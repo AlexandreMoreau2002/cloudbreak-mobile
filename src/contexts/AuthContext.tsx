@@ -12,6 +12,7 @@ import { clearTerrainState } from '@/utils/terrainWatch';
 import { syncTerrainGeofences } from '@/services/terrainGeofence';
 import {
   deleteAccount as deleteAccountService,
+  deletePushToken,
   fetchMe,
   provisionUser,
   updateDisplayName,
@@ -103,6 +104,8 @@ export type AppleAuthIntent = 'creation' | 'connexion';
 export type AppleAuthResult = AuthError | 'cancelled' | null;
 type AuthEmailLocale = 'fr' | 'en';
 
+// Délai max d'attente du DELETE du push token au logout (hors ligne, le fetch peut durer 10 s).
+const PUSH_TOKEN_RELEASE_TIMEOUT_MS = 2500;
 const DISPLAY_NAME_MAX = 24;
 // Contrôles, séparateurs de ligne, non assignés et surcharges bidirectionnelles : refusés par le serveur.
 const DISPLAY_NAME_FORBIDDEN = /[\p{Cc}\p{Co}\p{Cn}\p{Zl}\p{Zp}\u202A-\u202E\u2066-\u2069]/gu;
@@ -596,6 +599,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Renvoie null (et non une promesse) quand il n'y a rien à libérer : le signOut Supabase
+  // reste ainsi déclenché de façon synchrone pour une session absente ou anonyme.
+  function releasePushToken(): Promise<void> | null {
+    const accessToken = session?.access_token;
+    if (!accessToken || isAnonymous) return null;
+    // Best-effort : le token doit quitter le compte avant la perte du JWT, mais une panne
+    // réseau ne doit jamais empêcher la déconnexion.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, PUSH_TOKEN_RELEASE_TIMEOUT_MS);
+    });
+    const release = deletePushToken(accessToken).catch(() => undefined);
+    return Promise.race([release, timeout]).finally(() => clearTimeout(timer));
+  }
+
   async function signOutLocally(): Promise<void> {
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
     await clearTerrainState();
@@ -629,10 +647,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOutToAnonymous(): Promise<AuthError | null> {
     if (DEBUG) console.debug('[AuthContext] signOutToAnonymous → clear session then new guest session');
+    // Le token push doit quitter le compte avant la perte du JWT (best-effort, borné).
+    const release = releasePushToken();
+    if (release) await release;
     return startFreshGuestSession();
   }
 
   async function signOut(): Promise<void> {
+    const release = releasePushToken();
+    if (release) await release;
     await signOutLocally();
   }
 
