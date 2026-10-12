@@ -1718,4 +1718,291 @@ describe('AuthContext', () => {
     expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(getAuth().isAnonymous).toBe(false);
   });
+  describe('session invitée supprimée côté Supabase', () => {
+    const guestSession = { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } };
+    const permanentSession = { access_token: 'apple-token', user: { id: 'u1', is_anonymous: false } };
+
+    function deletedUserError(): AuthError {
+      return new AuthError('User from sub claim in JWT does not exist', 403, 'user_not_found');
+    }
+
+    // jest.clearAllMocks ne vide pas les files `mockResolvedValueOnce` : un test en échec
+    // ferait échouer les suivants. Le beforeEach du fichier remet les valeurs par défaut.
+    afterEach(() => {
+      mockGetSession.mockReset();
+      mockSignInAnonymously.mockReset();
+      mockSignInWithIdToken.mockReset();
+      mockLinkIdentity.mockReset();
+      mockUpdateUser.mockReset();
+    });
+
+    it("connexion Apple : n'est pas réparée (erreur renvoyée telle quelle, sans purge ni invité)", async () => {
+      const originalError = deletedUserError();
+      mockSignInWithIdToken.mockResolvedValueOnce({ error: originalError });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('connexion'); });
+
+      expect(result).toBe(originalError);
+      expect(mockSignInWithIdToken).toHaveBeenCalledTimes(1);
+      expect(mockSignOut).not.toHaveBeenCalled();
+      expect(mockSignInAnonymously).not.toHaveBeenCalled();
+      osSpy.restore();
+    });
+
+    it.each([
+      ['code user_not_found seul', () => new AuthError('Unknown auth failure', 403, 'user_not_found')],
+      ['message sub claim seul', () => new AuthError('User from sub claim in JWT does not exist', 403)],
+    ])('détecte un invité supprimé avec le %s', async (_label, buildError) => {
+      mockLinkIdentity
+        .mockResolvedValueOnce({ error: buildError() })
+        .mockResolvedValueOnce({ error: null });
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
+      mockGetSession
+        .mockResolvedValueOnce({ data: { session: guestSession } })
+        .mockResolvedValueOnce({ data: { session: guestSession } })
+        .mockResolvedValue({ data: { session: permanentSession } });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = 'cancelled';
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBeNull();
+      expect(mockSignOut).not.toHaveBeenCalled();
+      expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(2);
+      osSpy.restore();
+    });
+
+    it('création Apple : recrée un invité puis rejoue linkIdentity une fois', async () => {
+      mockLinkIdentity
+        .mockResolvedValueOnce({ error: deletedUserError() })
+        .mockResolvedValueOnce({ error: null });
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
+      mockGetSession
+        .mockResolvedValueOnce({ data: { session: guestSession } })
+        .mockResolvedValueOnce({ data: { session: guestSession } })
+        .mockResolvedValue({ data: { session: permanentSession } });
+      const debug = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = 'cancelled';
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBeNull();
+      expect(mockSignOut).not.toHaveBeenCalled();
+      expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(2);
+      expect(mockAppleSignInAsync).toHaveBeenCalledTimes(1);
+      expect(mockProvisionUser).toHaveBeenCalledWith('apple-token');
+      expect(debug).toHaveBeenCalledWith('[AuthContext] auth operation', {
+        stage: 'apple_identity_link', outcome: 'session_recovered',
+      });
+      osSpy.restore();
+    });
+
+    it("la session n'est jamais vidée pendant la réparation", async () => {
+      const replay = deferred<{ error: AuthError | null }>();
+      mockLinkIdentity
+        .mockResolvedValueOnce({ error: deletedUserError() })
+        .mockReturnValueOnce(replay.promise);
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
+      mockGetSession
+        .mockResolvedValueOnce({ data: { session: guestSession } })
+        .mockResolvedValueOnce({ data: { session: guestSession } })
+        .mockResolvedValue({ data: { session: permanentSession } });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let operation!: Promise<unknown>;
+      await act(async () => { operation = getAuth().signInWithApple('creation'); });
+      await waitFor(() => expect(mockLinkIdentity).toHaveBeenCalledTimes(2));
+      expect(getByTestId('session').props.children).toBe('connected');
+      expect(mockSignOut).not.toHaveBeenCalled();
+
+      let result: unknown = 'cancelled';
+      await act(async () => {
+        replay.resolve({ error: null });
+        result = await operation;
+      });
+      expect(result).toBeNull();
+      osSpy.restore();
+    });
+
+    it("renvoie l'erreur d'origine si le nouvel invité ne peut pas être créé", async () => {
+      const originalError = deletedUserError();
+      mockLinkIdentity.mockResolvedValueOnce({ error: originalError });
+      mockSignInAnonymously.mockResolvedValueOnce({ error: new AuthError('Anonymous sign-ins are disabled') });
+      mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBe(originalError);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(1);
+      expect(mockSignOut).not.toHaveBeenCalled();
+      expect(getByTestId('session').props.children).toBe('connected');
+      osSpy.restore();
+    });
+
+    it("renvoie l'erreur d'origine si la réparation lève une exception", async () => {
+      const originalError = deletedUserError();
+      mockLinkIdentity.mockResolvedValueOnce({ error: originalError });
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
+      mockGetSession
+        .mockResolvedValueOnce({ data: { session: guestSession } })
+        .mockRejectedValueOnce(new Error('keychain unavailable'));
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBe(originalError);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(1);
+      osSpy.restore();
+    });
+
+    it('ne répare pas une session permanente sur le rattachement Apple', async () => {
+      const originalError = deletedUserError();
+      mockLinkIdentity.mockResolvedValueOnce({ error: originalError });
+      mockGetSession.mockResolvedValue({ data: { session: permanentSession } });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBe(originalError);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(1);
+      expect(mockSignOut).not.toHaveBeenCalled();
+      expect(mockSignInAnonymously).not.toHaveBeenCalled();
+      osSpy.restore();
+    });
+
+    it('ne rejoue qu’une seule fois : un second 403 est renvoyé tel quel', async () => {
+      const secondError = deletedUserError();
+      mockLinkIdentity
+        .mockResolvedValueOnce({ error: deletedUserError() })
+        .mockResolvedValueOnce({ error: secondError });
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
+      mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBe(secondError);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(2);
+      expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+      osSpy.restore();
+    });
+
+    it("ne répare pas un 403 d'un autre type", async () => {
+      const otherError = new AuthError('Signups not allowed', 403, 'signup_disabled');
+      mockLinkIdentity.mockResolvedValueOnce({ error: otherError });
+      mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBe(otherError);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(1);
+      expect(mockSignInAnonymously).not.toHaveBeenCalled();
+      expect(mockSignOut).not.toHaveBeenCalled();
+      osSpy.restore();
+    });
+
+    it("ne répare pas un 403 bad_jwt « missing sub claim » (motif trop large)", async () => {
+      const badJwt = new AuthError('invalid claim: missing sub claim', 403, 'bad_jwt');
+      mockLinkIdentity.mockResolvedValueOnce({ error: badJwt });
+      mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBe(badJwt);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(1);
+      expect(mockSignInAnonymously).not.toHaveBeenCalled();
+      expect(mockSignOut).not.toHaveBeenCalled();
+      osSpy.restore();
+    });
+
+    it("au démarrage, vide la session quand getUser renvoie le message « sub claim » sans code", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+      mockGetUser.mockResolvedValue({
+        data: { user: null },
+        error: new AuthError('User from sub claim in JWT does not exist', 403),
+      });
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(getByTestId('session').props.children).toBe('disconnected');
+      expect(getAuth().authServiceUnavailable).toBe(false);
+    });
+
+    it('ne transforme jamais une étape mot de passe en invité', async () => {
+      const passwordError = deletedUserError();
+      mockUpdateUser.mockResolvedValueOnce({ error: passwordError });
+      mockGetSession.mockResolvedValue({ data: { session: permanentSession } });
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let error: AuthError | null = null;
+      await act(async () => {
+        error = await getAuth().completePasswordReset('a@b.com', '123456', 'new-password');
+      });
+
+      expect(error).toBe(passwordError);
+      expect(mockUpdateUser).toHaveBeenCalledTimes(1);
+      expect(mockSignInAnonymously).not.toHaveBeenCalled();
+      expect(mockSignOut).not.toHaveBeenCalled();
+    });
+
+    it("ajout d'e-mail : recrée un invité, renvoie la locale puis rejoue l'envoi de l'OTP", async () => {
+      mockUpdateUser
+        .mockResolvedValueOnce({ error: deletedUserError() }) // sync locale (avalée)
+        .mockResolvedValueOnce({ error: deletedUserError() }) // envoi de l'OTP
+        .mockResolvedValue({ error: null });
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
+      mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let error: AuthError | null = deletedUserError();
+      await act(async () => { error = await getAuth().beginEmailUpgrade('a@b.com', 'en'); });
+
+      expect(error).toBeNull();
+      expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
+      expect(mockUpdateUser.mock.calls).toEqual([
+        [{ data: { locale: 'en' } }],
+        [{ email: 'a@b.com' }],
+        [{ data: { locale: 'en' } }],
+        [{ email: 'a@b.com' }],
+      ]);
+    });
+  });
 });

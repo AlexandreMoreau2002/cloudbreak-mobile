@@ -58,6 +58,9 @@ function logPasswordResetResult(error: unknown): void {
   });
 }
 
+// Message exact renvoyé par Supabase quand le JWT appartient à un utilisateur supprimé.
+const DELETED_USER_MESSAGE = 'user from sub claim in jwt does not exist';
+
 const TERMINAL_SESSION_ERROR_CODES = new Set([
   'bad_jwt',
   'invalid_jwt',
@@ -71,6 +74,7 @@ const TERMINAL_SESSION_ERROR_MESSAGES = new Set([
   'invalid jwt',
   'jwt expired',
   'user not found',
+  DELETED_USER_MESSAGE,
 ]);
 
 function isTerminalSessionError(error: unknown): boolean {
@@ -78,6 +82,12 @@ function isTerminalSessionError(error: unknown): boolean {
   const code = error.code?.toLowerCase();
   if (code && TERMINAL_SESSION_ERROR_CODES.has(code)) return true;
   return TERMINAL_SESSION_ERROR_MESSAGES.has(error.message.trim().toLowerCase());
+}
+
+function isDeletedUserError(error: unknown): boolean {
+  if (!(error instanceof AuthError) || error.status !== 403) return false;
+  return error.code?.toLowerCase() === 'user_not_found'
+    || error.message.trim().toLowerCase() === DELETED_USER_MESSAGE;
 }
 
 export type LocationPermissionStatus = 'undetermined' | 'granted' | 'denied';
@@ -158,12 +168,20 @@ type AuthOperationStage =
   | 'apple_identity_link'
   | 'apple_id_token_sign_in';
 
-type AuthOperationOutcome = 'success' | 'auth_error' | 'network_error' | 'unexpected_error';
+type AuthOperationOutcome = 'success' | 'auth_error' | 'network_error' | 'unexpected_error' | 'session_recovered';
 
 function logAuthOperation(stage: AuthOperationStage, outcome: AuthOperationOutcome): void {
   // Intentionally contains no e-mail, OTP, access token or Supabase error message.
   if (DEBUG) console.debug('[AuthContext] auth operation', { stage, outcome });
 }
+
+// Rattachements d'un invité : un invité supprimé côté Supabase peut être remplacé en silence puis
+// l'action rejouée. Les étapes mot de passe / reset visent des comptes permanents : jamais réparées.
+// La connexion Apple ne peut pas déclencher ce 403 (signInWithIdToken n'envoie pas le JWT de session).
+const SELF_HEALING_STAGES: ReadonlySet<AuthOperationStage> = new Set<AuthOperationStage>([
+  'email_otp_start',
+  'apple_identity_link',
+]);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -175,9 +193,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const sessionGeneration = useRef(0);
   const isAnonymous = session?.user.is_anonymous === true;
 
-  async function runAuthOperation(
+  async function runAuthOperationOnce(
     stage: AuthOperationStage,
-    operation: () => Promise<{ error: AuthError | null }>
+    operation: () => Promise<{ error: AuthError | null }>,
   ): Promise<AuthError | null> {
     try {
       const { error } = await operation();
@@ -196,6 +214,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return error instanceof AuthError
         ? error
         : new AuthError('Service d\'authentification indisponible');
+    }
+  }
+
+  // Un invité supprimé côté Supabase est remplacé en silence, puis l'action est rejouée UNE fois.
+  // Seuls les rattachements (Apple, e-mail) sont concernés, et seulement depuis une session
+  // invitée : un compte permanent n'est jamais transformé en invité ici.
+  async function runAuthOperation(
+    stage: AuthOperationStage,
+    operation: () => Promise<{ error: AuthError | null }>,
+    options: { onRecovered?: () => Promise<void> } = {},
+  ): Promise<AuthError | null> {
+    const error = await runAuthOperationOnce(stage, operation);
+    if (!error || !isAnonymous || !SELF_HEALING_STAGES.has(stage) || !isDeletedUserError(error)) {
+      return error;
+    }
+    try {
+      if (await replaceWithFreshGuestSession()) return error;
+      logAuthOperation(stage, 'session_recovered');
+      await options.onRecovered?.();
+      return await runAuthOperationOnce(stage, operation);
+    } catch {
+      return error;
     }
   }
 
@@ -392,7 +432,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (unavailableError) return unavailableError;
     if (DEBUG) console.debug('[AuthContext] beginEmailUpgrade');
     await syncEmailLocale(locale);
-    return runAuthOperation('email_otp_start', () => supabase.auth.updateUser({ email }));
+    return runAuthOperation(
+      'email_otp_start',
+      () => supabase.auth.updateUser({ email }),
+      { onRecovered: () => syncEmailLocale(locale) },
+    );
   }
 
   async function requestPasswordReset(
@@ -552,14 +596,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function signOutToAnonymous(): Promise<AuthError | null> {
-    if (DEBUG) console.debug('[AuthContext] signOutToAnonymous → clear session then new guest session');
-    // Toujours clore la session courante d'abord : "Se déconnecter" ne doit jamais
-    // laisser l'utilisateur bloqué sur son ancien compte si la session invitée échoue.
+  async function signOutLocally(): Promise<void> {
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
     await clearTerrainState();
     await syncTerrainGeofences(false);
+  }
+
+  async function clearLocalSession(): Promise<void> {
+    await signOutLocally();
     setSession(null);
+  }
+
+  // Remplace la session courante par un nouvel invité SANS passer par un état « sans session » :
+  // signInAnonymously écrase la session stockée puis émet SIGNED_IN (aucun SIGNED_OUT intermédiaire).
+  async function replaceWithFreshGuestSession(): Promise<AuthError | null> {
     const error = await signInAnonymouslyWithLock();
     if (error) return error;
     const { data } = await supabase.auth.getSession();
@@ -570,19 +620,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   }
 
+  async function startFreshGuestSession(): Promise<AuthError | null> {
+    // Toujours clore la session courante d'abord : on ne doit jamais laisser
+    // l'utilisateur bloqué sur son ancien compte si la session invitée échoue.
+    await clearLocalSession();
+    return replaceWithFreshGuestSession();
+  }
+
+  async function signOutToAnonymous(): Promise<AuthError | null> {
+    if (DEBUG) console.debug('[AuthContext] signOutToAnonymous → clear session then new guest session');
+    return startFreshGuestSession();
+  }
+
   async function signOut(): Promise<void> {
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
-    await clearTerrainState();
-    await syncTerrainGeofences(false);
+    await signOutLocally();
   }
 
   async function deleteAccount(): Promise<void> {
     const token = session?.access_token;
     if (!token) throw new Error('Non authentifié');
     await deleteAccountService(token);
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
-    await clearTerrainState();
-    await syncTerrainGeofences(false);
+    await signOutLocally();
     await AsyncStorage.clear();
   }
 
