@@ -30,7 +30,7 @@ export function useNotificationTap(): void {
     if (response?.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
     const request = response.notification.request;
     const data = request.content.data;
-    if ((data?.type !== 'terrain' && data?.type !== 'favorite_alert')) return;
+    if (data?.type !== 'terrain' && data?.type !== 'favorite_alert') return;
     if (typeof data.slug !== 'string' || !isValidPeakSlug(data.slug)) return;
     if (handledRef.current === request.identifier) return;
     handledRef.current = request.identifier;
