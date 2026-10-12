@@ -32,6 +32,18 @@ describe('useTerrainAutoDetect', () => {
     expect(mockWatchPosition).not.toHaveBeenCalled();
   });
 
+  it('ne surveille pas la position si enabled est false', () => {
+    renderHook(() =>
+      useTerrainAutoDetect({
+        locationPermission: 'granted',
+        target: { lat: 45.83, lng: 6.86 },
+        onNear: jest.fn(),
+        enabled: false,
+      }),
+    );
+    expect(mockWatchPosition).not.toHaveBeenCalled();
+  });
+
   it('ne surveille pas la position si aucune cible (pas de sommet consulté)', () => {
     renderHook(() =>
       useTerrainAutoDetect({ locationPermission: 'granted', target: null, onNear: jest.fn() }),

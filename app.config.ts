@@ -23,6 +23,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-location',
       {
         locationWhenInUsePermission: 'Pour confirmer ta présence au sommet.',
+        locationAlwaysAndWhenInUsePermission:
+          "Cloudbreak peut te prévenir à ton arrivée au sommet, même quand l'app est fermée, pour confirmer la mer de nuage.",
+        // Ajoute UIBackgroundModes=location : requis par expo-location pour startGeofencingAsync.
+        isIosBackgroundLocationEnabled: true,
       },
     ],
   ],

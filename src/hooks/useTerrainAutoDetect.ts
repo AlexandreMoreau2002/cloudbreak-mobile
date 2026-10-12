@@ -25,6 +25,7 @@ interface UseTerrainAutoDetectArgs {
   locationPermission: LocationPermissionStatus;
   target: TargetCoords | null;
   onNear: () => void;
+  enabled?: boolean;
 }
 
 function toRadians(deg: number): number {
@@ -43,13 +44,18 @@ export function haversineDistanceMeters(a: TargetCoords, b: TargetCoords): numbe
   return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(h));
 }
 
-export function useTerrainAutoDetect({ locationPermission, target, onNear }: UseTerrainAutoDetectArgs) {
+export function useTerrainAutoDetect({
+  locationPermission,
+  target,
+  onNear,
+  enabled = true,
+}: UseTerrainAutoDetectArgs) {
   const hasFiredRef = useRef(false);
 
   useEffect(() => {
     hasFiredRef.current = false;
 
-    if (locationPermission !== 'granted' || !target) {
+    if (!enabled || locationPermission !== 'granted' || !target) {
       return;
     }
 
@@ -82,5 +88,5 @@ export function useTerrainAutoDetect({ locationPermission, target, onNear }: Use
       cancelled = true;
       subscription?.remove();
     };
-  }, [locationPermission, target, onNear]);
+  }, [enabled, locationPermission, target, onNear]);
 }

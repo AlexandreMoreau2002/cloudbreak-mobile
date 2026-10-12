@@ -4,6 +4,7 @@ import { act, render, screen, fireEvent, waitFor } from '@testing-library/react-
 import type { WeekData } from '@/hooks/useWeekData';
 import type { ScoreResponse } from '@/services/mockData/types';
 import HomeScreen, { getShareForecastUrl, shareForecast } from '@/app/(tabs)/index';
+import { useTerrainAutoDetect } from '@/hooks/useTerrainAutoDetect';
 
 // --- Mocks ---
 
@@ -213,6 +214,21 @@ jest.mock('expo-router/react-navigation', () => ({
   useFocusEffect: (cb: () => void) => cb(),
 }));
 
+let mockTerrainEnabled = true;
+jest.mock('@/hooks/useTerrainPref', () => ({
+  useTerrainPref: () => mockTerrainEnabled,
+}));
+
+const mockUsePendingTerrainOpen = jest.fn();
+jest.mock('@/hooks/usePendingTerrainOpen', () => ({
+  usePendingTerrainOpen: (...args: unknown[]) => mockUsePendingTerrainOpen(...args),
+}));
+
+jest.mock('@/hooks/useTerrainAutoDetect', () => {
+  const actual = jest.requireActual('@/hooks/useTerrainAutoDetect');
+  return { ...actual, useTerrainAutoDetect: jest.fn(actual.useTerrainAutoDetect) };
+});
+
 const mockPostTerrainValidation = jest.fn();
 jest.mock('@/services/api/validations', () => ({
   postTerrainValidation: (...args: unknown[]) => mockPostTerrainValidation(...args),
@@ -355,6 +371,7 @@ describe('HomeScreen', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-03-24T08:00:00Z'));
     mockPush.mockReset();
     mockIsFocused = true;
+    mockTerrainEnabled = true;
     mockAccountGateRequireAccount = mockRequireAccount;
     mockSetSelectedDate.mockReset();
     mockSetSelectedHour.mockReset();
@@ -1648,6 +1665,41 @@ describe('HomeScreen', () => {
     fireEvent(refreshControl, 'refresh');
 
     expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it('passe enabled: false à useTerrainAutoDetect quand la préférence terrain est coupée', () => {
+    mockTerrainEnabled = false;
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess();
+
+    render(<HomeScreen />);
+
+    expect(useTerrainAutoDetect).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+  });
+
+  it("branche l'ouverture en attente du sheet terrain sur le sommet et la prévision affichés", () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess({ prediction_id: 'pred-1' });
+
+    render(<HomeScreen />);
+
+    expect(mockUsePendingTerrainOpen).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: 'mont-blanc', ready: true, onOpen: expect.any(Function) }),
+    );
   });
 
   it('ouvre la validation terrain au clic sur le bouton manuel de ScoreCard', async () => {

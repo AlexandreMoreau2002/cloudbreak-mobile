@@ -339,3 +339,14 @@ SECURE — aucune nouvelle surface de données exposée. Ces corrections sont de
 
 ### Verdict
 SECURE — le token push ne quitte l'appareil que vers le backend authentifié, n'est pas persisté localement et est détaché du compte à la déconnexion.
+
+---
+
+## 2026-10-09 Story 5.3 — Notification GPS validation terrain
+
+- **Données stockées (AsyncStorage, non sensibles)** : les 3 derniers sommets consultés (id, slug, nom, coordonnées du sommet, horodatage, 48 h max), l'horodatage de dernière notification par sommet (cooldown 12 h) et une copie locale de la préférence `notif_terrain`. **Aucune position GPS de l'utilisateur n'est enregistrée**, ni envoyée au serveur : la comparaison de proximité est faite par l'OS (geofencing) ou en local.
+- **Permission** : la localisation « Toujours » n'est **jamais demandée** par l'app (aucun `requestBackgroundPermissionsAsync`). Le geofencing en arrière-plan (`expo-location` + `expo-task-manager`) ne démarre que si l'utilisateur l'a lui-même accordée. Attention : sur iOS, l'option « Toujours » peut n'apparaître dans Réglages > Localisation qu'après une demande explicite de l'app ; la clé `NSLocationAlwaysAndWhenInUseUsageDescription` seule ne garantit donc pas que l'option soit proposée. Sans « Toujours », seul le mode premier plan fonctionne (décision produit : ne jamais la demander).
+- **Configuration iOS** (`app.config.ts`, plugin `expo-location`) : `isIosBackgroundLocationEnabled: true` ajoute `UIBackgroundModes = location` (exigé par `startGeofencingAsync`) et `NSLocationAlwaysAndWhenInUseUsageDescription`. Ces deux déclarations doivent être **justifiées à l'App Review** (guideline 2.5.4 : le mode d'arrière-plan `location` doit servir une fonction visible de l'utilisateur).
+- **Préférence** : `notif_terrain` désactivée = aucune surveillance (ni premier plan, ni geofencing) ; le geofencing est arrêté dès la bascule.
+- **Notification** : locale uniquement (aucun push serveur), payload `{ type: 'terrain', slug }` sans donnée personnelle.
+- **Texte de justification pour App Store Review** : « Cloudbreak peut te prévenir à ton arrivée au sommet, même quand l'app est fermée, pour confirmer la mer de nuage. La position n'est ni enregistrée ni transmise ; la fonction est facultative et désactivable dans le Profil. »

@@ -3,9 +3,13 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMe, updateNotificationPreferences } from '@/services/api/user';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
+import { syncTerrainGeofences } from '@/services/terrainGeofence';
+import { setTerrainPref } from '@/utils/terrainWatch';
 
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/services/api/user');
+jest.mock('@/utils/terrainWatch', () => ({ setTerrainPref: jest.fn() }));
+jest.mock('@/services/terrainGeofence', () => ({ syncTerrainGeofences: jest.fn() }));
 const mockDevConfig = { DEBUG: false };
 jest.mock('@/constants/devConfig', () => ({
   get DEBUG() { return mockDevConfig.DEBUG; },
@@ -131,5 +135,67 @@ describe('useNotificationPreferences', () => {
 
     await waitFor(() => expect(result.current.state.status).toBe('error'));
     expect(result.current.state).toEqual({ status: 'error', error: 'network' });
+  });
+
+  it('copie notif_terrain dans le cache local après le chargement', async () => {
+    mockFetchMe.mockResolvedValue({
+      notif_favorites: true, notif_regional: true, notif_terrain: false,
+    });
+    const { result } = renderHook(() => useNotificationPreferences());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    expect(setTerrainPref).toHaveBeenCalledWith(false);
+  });
+
+  it('met à jour le cache local et le geofencing après un toggle terrain réussi', async () => {
+    mockFetchMe.mockResolvedValue({
+      notif_favorites: true, notif_regional: true, notif_terrain: true,
+    });
+    mockUpdate.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useNotificationPreferences());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    jest.clearAllMocks();
+
+    await act(async () => {
+      await result.current.toggle('notif_terrain');
+    });
+
+    expect(setTerrainPref).toHaveBeenCalledWith(false);
+    expect(syncTerrainGeofences).toHaveBeenCalledWith(false);
+  });
+
+  it("ne touche ni le cache ni le geofencing pour une autre clé", async () => {
+    mockFetchMe.mockResolvedValue({
+      notif_favorites: true, notif_regional: true, notif_terrain: true,
+    });
+    mockUpdate.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useNotificationPreferences());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    jest.clearAllMocks();
+
+    await act(async () => {
+      await result.current.toggle('notif_regional');
+    });
+
+    expect(setTerrainPref).not.toHaveBeenCalled();
+    expect(syncTerrainGeofences).not.toHaveBeenCalled();
+  });
+
+  it('ne touche pas le cache si le toggle terrain échoue', async () => {
+    mockFetchMe.mockResolvedValue({
+      notif_favorites: true, notif_regional: true, notif_terrain: true,
+    });
+    mockUpdate.mockRejectedValue(new Error('network'));
+    const { result } = renderHook(() => useNotificationPreferences());
+    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    jest.clearAllMocks();
+
+    await act(async () => {
+      await result.current.toggle('notif_terrain');
+    });
+
+    expect(setTerrainPref).not.toHaveBeenCalled();
+    expect(syncTerrainGeofences).not.toHaveBeenCalled();
+    expect(result.current.state.status).toBe('success');
+    expect(result.current.state.data?.notif_terrain).toBe(true);
   });
 });

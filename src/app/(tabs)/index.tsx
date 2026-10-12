@@ -20,6 +20,7 @@ import { ErrorState } from '@/components/error-state';
 import { PeakHeader } from '@/components/peak-header';
 import { EmptyState } from '@/components/empty-state';
 import { usePaywall } from '@/contexts/PaywallContext';
+import { useTerrainPref } from '@/hooks/useTerrainPref';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HomeSkeleton } from '@/components/home-skeleton';
 import { OfflineBanner } from '@/components/offline-banner';
@@ -32,6 +33,7 @@ import { useTerrainValidation } from '@/hooks/useTerrainValidation';
 import { useTerrainAutoDetect } from '@/hooks/useTerrainAutoDetect';
 import { ConditionsSection } from '@/components/conditions-section';
 import type { Peak, ScoreResponse } from '@/services/mockData/types';
+import { usePendingTerrainOpen } from '@/hooks/usePendingTerrainOpen';
 
 const SEARCH_ROUTE = '/(tabs)/search' as Href;
 
@@ -136,6 +138,7 @@ export default function HomeScreen() {
   );
 
   const terrain = useTerrainValidation({ token, locationPermission });
+  const terrainEnabled = useTerrainPref();
 
   // Si la date sélectionnée n'a pas de données (cache périmé / date hors fenêtre),
   // on se rabat sur aujourd'hui
@@ -174,6 +177,13 @@ export default function HomeScreen() {
     locationPermission,
     target: autoDetectTarget,
     onNear: terrain.open,
+    enabled: terrainEnabled,
+  });
+
+  usePendingTerrainOpen({
+    slug: selectedPeak?.slug ?? null,
+    ready: displayScore?.prediction_id != null,
+    onOpen: terrain.open,
   });
 
   function handleValidateTerrain() {
