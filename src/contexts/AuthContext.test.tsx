@@ -1815,6 +1815,26 @@ describe('AuthContext', () => {
       osSpy.restore();
     });
 
+    it("renvoie l'erreur d'origine et remet sessionRecovering à false si la réparation lève une exception", async () => {
+      const originalError = deletedUserError();
+      mockLinkIdentity.mockResolvedValueOnce({ error: originalError });
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: guestSession }, error: null });
+      mockGetSession
+        .mockResolvedValueOnce({ data: { session: guestSession } })
+        .mockRejectedValueOnce(new Error('keychain unavailable'));
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('creation'); });
+
+      expect(result).toBe(originalError);
+      expect(mockLinkIdentity).toHaveBeenCalledTimes(1);
+      expect(getAuth().sessionRecovering).toBe(false);
+      osSpy.restore();
+    });
+
     it('ne répare pas une session permanente sur le rattachement Apple', async () => {
       const originalError = deletedUserError();
       mockLinkIdentity.mockResolvedValueOnce({ error: originalError });
