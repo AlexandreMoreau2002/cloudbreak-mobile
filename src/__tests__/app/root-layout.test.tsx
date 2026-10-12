@@ -82,8 +82,6 @@ jest.mock('@/hooks/useTerrainGeofence', () => ({ useTerrainGeofence: jest.fn() }
 
 jest.mock('@/hooks/useTerrainNotificationTap', () => ({ useTerrainNotificationTap: jest.fn() }));
 
-jest.mock('@/services/terrainGeofence', () => ({ defineTerrainGeofenceTask: jest.fn() }));
-
 describe('RootLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();

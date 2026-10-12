@@ -14,7 +14,6 @@ import { useTerrainGeofence } from '@/hooks/useTerrainGeofence';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
-import { defineTerrainGeofenceTask } from '@/services/terrainGeofence';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { useTerrainNotificationTap } from '@/hooks/useTerrainNotificationTap';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
@@ -23,8 +22,6 @@ import i18n from '@/utils/i18n';
 import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 
 SplashScreen.preventAutoHideAsync();
-// Au scope module : iOS relance la tâche de geofencing même app tuée.
-defineTerrainGeofenceTask();
 
 const TABS_ROUTE = '/(tabs)' as Href;
 const ONBOARDING_ROUTE = '/onboarding' as Href;
