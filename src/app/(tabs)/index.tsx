@@ -9,6 +9,7 @@ import { useFocusEffect, useIsFocused } from 'expo-router/react-navigation';
 import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { track } from '@/services/analytics';
+import { OPS_BASE_URL } from '@/constants/opsUrl';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWeekData } from '@/hooks/useWeekData';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -35,7 +36,7 @@ import type { Peak, ScoreResponse } from '@/services/mockData/types';
 const SEARCH_ROUTE = '/(tabs)/search' as Href;
 
 export function getShareForecastUrl(slug: string | null): string | null {
-  return slug ? `https://cloudbreak-app.com/sommet/${slug}` : null;
+  return slug ? `${OPS_BASE_URL}/sommet/${slug}` : null;
 }
 
 export async function shareForecast(

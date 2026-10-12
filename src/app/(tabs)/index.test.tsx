@@ -866,11 +866,29 @@ describe('HomeScreen', () => {
 
     await waitFor(() =>
       expect(shareSpy).toHaveBeenCalledWith({
-        message: 'https://cloudbreak-app.com/sommet/mont-blanc',
-        url: 'https://cloudbreak-app.com/sommet/mont-blanc',
+        message: 'https://ops.cloudbreak-app.com/sommet/mont-blanc',
+        url: 'https://ops.cloudbreak-app.com/sommet/mont-blanc',
       }),
     );
     shareSpy.mockRestore();
+  });
+
+  it('construit_le_lien_de_partage_depuis_l_hote_ops_de_l_environnement', () => {
+    const previousBaseUrl = process.env.EXPO_PUBLIC_LEGAL_BASE_URL;
+    process.env.EXPO_PUBLIC_LEGAL_BASE_URL = 'https://dev-ops.cloudbreak-app.com/';
+
+    try {
+      jest.isolateModules(() => {
+        const { getShareForecastUrl: getUrl } = require('@/app/(tabs)/index');
+        expect(getUrl('mont-blanc')).toBe('https://dev-ops.cloudbreak-app.com/sommet/mont-blanc');
+      });
+    } finally {
+      if (previousBaseUrl === undefined) {
+        delete process.env.EXPO_PUBLIC_LEGAL_BASE_URL;
+      } else {
+        process.env.EXPO_PUBLIC_LEGAL_BASE_URL = previousBaseUrl;
+      }
+    }
   });
 
   it('retourne_null_si_le_slug_de_partage_est_absent', () => {
@@ -895,8 +913,8 @@ describe('HomeScreen', () => {
     expect(mockTrack).toHaveBeenCalledWith('forecast_shared', { peak_id: 'peak-1' });
     await waitFor(() =>
       expect(shareSpy).toHaveBeenCalledWith({
-        message: 'https://cloudbreak-app.com/sommet/mont-blanc',
-        url: 'https://cloudbreak-app.com/sommet/mont-blanc',
+        message: 'https://ops.cloudbreak-app.com/sommet/mont-blanc',
+        url: 'https://ops.cloudbreak-app.com/sommet/mont-blanc',
       }),
     );
     shareSpy.mockRestore();
@@ -933,7 +951,7 @@ describe('HomeScreen', () => {
     await shareForecast('mont-blanc');
 
     await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith('Partage indisponible', 'https://cloudbreak-app.com/sommet/mont-blanc'),
+      expect(alertSpy).toHaveBeenCalledWith('Partage indisponible', 'https://ops.cloudbreak-app.com/sommet/mont-blanc'),
     );
     shareSpy.mockRestore();
     alertSpy.mockRestore();

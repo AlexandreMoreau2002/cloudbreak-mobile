@@ -2,7 +2,9 @@
 // EXPO_PUBLIC_LEGAL_BASE_URL pointe vers localhost en dev (npm run dev -- --port 3100
 // dans ops/) et vers https://ops.cloudbreak-app.com en prod (domaine réservé le 2026-08-09,
 // pas encore déployé en prod), voir ops/docs/story-1-legal-pages.md
-const LEGAL_BASE_URL = process.env.EXPO_PUBLIC_LEGAL_BASE_URL ?? 'https://ops.cloudbreak-app.com';
+import { OPS_BASE_URL } from '@/constants/opsUrl';
+
+const LEGAL_BASE_URL = OPS_BASE_URL;
 
 // EXPO_PUBLIC_SUPPORT_EMAIL can override the public support mailbox per environment.
 const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? 'contact@cloudbreak-app.com';
