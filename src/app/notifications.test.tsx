@@ -19,7 +19,7 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({
     colors: { background: '#fff', surface: '#fff', border: '#ccc', textPrimary: '#111', textSecondary: '#666', accent: '#b28c6e' },
-    typography: { fontFamily: { regular: 'System', bold: 'System' }, fontSize: { sm: 14 } },
+    typography: { fontFamily: { regular: 'System', bold: 'System' }, fontSize: { sm: 14 }, lineHeight: { normal: 1.5 } },
     spacing: { sm: 8 },
   }),
 }));

@@ -50,7 +50,7 @@ describe('NotificationPermissionBanner', () => {
 
   it('masque l’icône décorative aux lecteurs d’écran', () => {
     render(<NotificationPermissionBanner onOpenSettings={jest.fn()} />);
-    const icon = screen.getByTestId('banner-icon');
+    const icon = screen.getByTestId('banner-icon', { includeHiddenElements: true });
     expect(icon.props.accessibilityElementsHidden).toBe(true);
     expect(icon.props.importantForAccessibility).toBe('no-hide-descendants');
   });
