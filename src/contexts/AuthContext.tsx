@@ -56,6 +56,9 @@ function logPasswordResetResult(error: unknown): void {
   });
 }
 
+// Message exact renvoyé par Supabase quand le JWT appartient à un utilisateur supprimé.
+const DELETED_USER_MESSAGE = 'user from sub claim in jwt does not exist';
+
 const TERMINAL_SESSION_ERROR_CODES = new Set([
   'bad_jwt',
   'invalid_jwt',
@@ -69,6 +72,7 @@ const TERMINAL_SESSION_ERROR_MESSAGES = new Set([
   'invalid jwt',
   'jwt expired',
   'user not found',
+  DELETED_USER_MESSAGE,
 ]);
 
 function isTerminalSessionError(error: unknown): boolean {
@@ -81,7 +85,7 @@ function isTerminalSessionError(error: unknown): boolean {
 function isDeletedUserError(error: unknown): boolean {
   if (!(error instanceof AuthError) || error.status !== 403) return false;
   return error.code?.toLowerCase() === 'user_not_found'
-    || error.message.toLowerCase().includes('sub claim');
+    || error.message.trim().toLowerCase() === DELETED_USER_MESSAGE;
 }
 
 export type LocationPermissionStatus = 'undetermined' | 'granted' | 'denied';

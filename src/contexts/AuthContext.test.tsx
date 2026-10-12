@@ -1842,6 +1842,37 @@ describe('AuthContext', () => {
       osSpy.restore();
     });
 
+    it("ne répare pas un 403 bad_jwt « missing sub claim » (motif trop large)", async () => {
+      const badJwt = new AuthError('invalid claim: missing sub claim', 403, 'bad_jwt');
+      mockSignInWithIdToken.mockResolvedValueOnce({ error: badJwt });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('connexion'); });
+
+      expect(result).toBe(badJwt);
+      expect(mockSignInWithIdToken).toHaveBeenCalledTimes(1);
+      expect(mockSignOut).not.toHaveBeenCalled();
+      osSpy.restore();
+    });
+
+    it("au démarrage, vide la session quand getUser renvoie le message « sub claim » sans code", async () => {
+      mockGetSession.mockResolvedValue({ data: { session: guestSession } });
+      mockGetUser.mockResolvedValue({
+        data: { user: null },
+        error: new AuthError('User from sub claim in JWT does not exist', 403),
+      });
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(getByTestId('session').props.children).toBe('disconnected');
+      expect(getAuth().authServiceUnavailable).toBe(false);
+    });
+
     it('ne transforme jamais une étape mot de passe en invité', async () => {
       const passwordError = deletedUserError();
       mockUpdateUser.mockResolvedValueOnce({ error: passwordError });
