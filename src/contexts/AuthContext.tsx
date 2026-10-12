@@ -550,12 +550,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function signOutToAnonymous(): Promise<AuthError | null> {
-    if (DEBUG) console.debug('[AuthContext] signOutToAnonymous → clear session then new guest session');
-    // Toujours clore la session courante d'abord : "Se déconnecter" ne doit jamais
-    // laisser l'utilisateur bloqué sur son ancien compte si la session invitée échoue.
+  async function clearLocalSession(): Promise<void> {
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
     setSession(null);
+  }
+
+  async function startFreshGuestSession(): Promise<AuthError | null> {
+    // Toujours clore la session courante d'abord : on ne doit jamais laisser
+    // l'utilisateur bloqué sur son ancien compte si la session invitée échoue.
+    await clearLocalSession();
     const error = await signInAnonymouslyWithLock();
     if (error) return error;
     const { data } = await supabase.auth.getSession();
@@ -564,6 +567,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setSession(data.session);
     return null;
+  }
+
+  async function signOutToAnonymous(): Promise<AuthError | null> {
+    if (DEBUG) console.debug('[AuthContext] signOutToAnonymous → clear session then new guest session');
+    return startFreshGuestSession();
   }
 
   async function signOut(): Promise<void> {
