@@ -1,72 +1,60 @@
 import * as Notifications from 'expo-notifications';
 import { renderHook, waitFor } from '@testing-library/react-native';
 
-import { useAuth } from '@/contexts/AuthContext';
-import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
-import { fetchPeakBySlug } from '@/services/api/peaks';
-import { consumePendingTerrainOpen, setPendingTerrainOpen } from '@/utils/terrainWatch';
 import { useTerrainNotificationTap } from '@/hooks/useTerrainNotificationTap';
+import { consumePendingTerrainOpen, setPendingTerrainOpen } from '@/utils/terrainWatch';
 
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace }) }));
 jest.mock('expo-notifications', () => ({ useLastNotificationResponse: jest.fn() }));
-jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
-jest.mock('@/contexts/SelectedPeakContext', () => ({ useSelectedPeak: jest.fn() }));
-jest.mock('@/services/api/peaks', () => ({ fetchPeakBySlug: jest.fn() }));
+jest.mock('@/utils/pendingPeakLink', () => ({
+  isValidPeakSlug: (slug: string) => /^[a-z0-9-]{1,100}$/.test(slug),
+}));
 jest.mock('@/utils/terrainWatch', () => ({
   consumePendingTerrainOpen: jest.fn(),
   setPendingTerrainOpen: jest.fn(),
 }));
 
 const useResponse = Notifications.useLastNotificationResponse as jest.Mock;
-const mockSetSelectedPeak = jest.fn();
-const peak = { id: 'p1', slug: 'mont-blanc', name: 'Mont Blanc', lat: 1, lng: 2, altitude: 3 };
 const response = (data: object, identifier = 'n1') => ({
   notification: { request: { identifier, content: { data } } },
 });
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (useAuth as jest.Mock).mockReturnValue({ session: { access_token: 'tok' } });
-  (useSelectedPeak as jest.Mock).mockReturnValue({ setSelectedPeak: mockSetSelectedPeak });
-  (fetchPeakBySlug as jest.Mock).mockResolvedValue(peak);
+  mockReplace.mockReset();
 });
 
-it("sélectionne le sommet, mémorise l'ouverture du sheet puis ouvre l'accueil", async () => {
+it("mémorise l'ouverture du sheet puis passe par la route de deep link du sommet", async () => {
   useResponse.mockReturnValue(response({ type: 'terrain', slug: 'mont-blanc' }));
   renderHook(() => useTerrainNotificationTap());
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)'));
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/sommet/mont-blanc'));
   expect(setPendingTerrainOpen).toHaveBeenCalledWith('mont-blanc');
-  expect(fetchPeakBySlug).toHaveBeenCalledWith('tok', 'mont-blanc');
-  expect(mockSetSelectedPeak).toHaveBeenCalledWith(peak);
+  expect((setPendingTerrainOpen as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+    mockReplace.mock.invocationCallOrder[0],
+  );
 });
 
-it("ouvre quand même l'accueil si le sommet est introuvable", async () => {
-  (fetchPeakBySlug as jest.Mock).mockRejectedValue(new Error('network'));
+it("efface l'ouverture en attente si la navigation échoue", async () => {
+  mockReplace.mockImplementation(() => {
+    throw new Error('nav');
+  });
   useResponse.mockReturnValue(response({ type: 'terrain', slug: 'mont-blanc' }));
   renderHook(() => useTerrainNotificationTap());
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)'));
-  expect(mockSetSelectedPeak).not.toHaveBeenCalled();
-  expect(consumePendingTerrainOpen).toHaveBeenCalledWith('mont-blanc');
-});
-
-it('attend la session avant de traiter la notification', async () => {
-  (useAuth as jest.Mock).mockReturnValue({ session: null });
-  useResponse.mockReturnValue(response({ type: 'terrain', slug: 'mont-blanc' }));
-  renderHook(() => useTerrainNotificationTap());
-  await new Promise((r) => setTimeout(r, 0));
-  expect(mockReplace).not.toHaveBeenCalled();
+  await waitFor(() => expect(consumePendingTerrainOpen).toHaveBeenCalledWith('mont-blanc'));
 });
 
 it.each([
   ['aucune réponse', null],
   ['autre type de notification', response({ type: 'other', slug: 'x' })],
   ['slug manquant', response({ type: 'terrain' })],
+  ['slug invalide', response({ type: 'terrain', slug: '../etc' })],
 ])('ignore : %s', async (_l, value) => {
   useResponse.mockReturnValue(value);
   renderHook(() => useTerrainNotificationTap());
   await new Promise((r) => setTimeout(r, 0));
   expect(mockReplace).not.toHaveBeenCalled();
+  expect(setPendingTerrainOpen).not.toHaveBeenCalled();
 });
 
 it('ne traite pas deux fois la même notification', async () => {
