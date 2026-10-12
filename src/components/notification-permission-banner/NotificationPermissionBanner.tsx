@@ -16,8 +16,22 @@ export function NotificationPermissionBanner({ onOpenSettings }: NotificationPer
       style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border, gap: spacing.sm }]}
     >
       <View style={[styles.row, { gap: spacing.sm }]}>
-        <Ionicons name="notifications-off-outline" size={18} color={colors.textPrimary} />
-        <Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold }]}>
+        <Ionicons
+          name="notifications-off-outline"
+          size={18}
+          color={colors.textPrimary}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
+        <Text
+          accessibilityRole="header"
+          style={{
+            color: colors.textPrimary,
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.fontSize.sm,
+            lineHeight: Math.round(typography.fontSize.sm * typography.lineHeight.normal),
+          }}
+        >
           {i18n.t('notifications.permissionDeniedTitle')}
         </Text>
       </View>
@@ -47,7 +61,6 @@ export function NotificationPermissionBanner({ onOpenSettings }: NotificationPer
 const styles = StyleSheet.create({
   container: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14 },
   row: { flexDirection: 'row', alignItems: 'center' },
-  title: { fontSize: 14 },
   button: { alignSelf: 'flex-start', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, minHeight: 44, justifyContent: 'center' },
   buttonLabel: { fontSize: 13 },
 });
