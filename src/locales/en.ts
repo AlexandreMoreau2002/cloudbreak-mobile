@@ -237,6 +237,11 @@ export default {
     off: 'Off',
     unavailable: 'Unavailable',
     gpsLockedHint: 'GPS field validation needs location access, disabled in Profile → Location.',
+    permissionDeniedTitle: 'Notifications turned off',
+    permissionDeniedMessage: 'Turn them on in iOS Settings to receive alerts.',
+    openSettings: 'Open Settings',
+    settingsErrorTitle: 'Settings unavailable',
+    settingsErrorMessage: 'Couldn’t open Settings. Open Settings → Cloudbreak → Notifications manually.',
   },
   paywall: {
     trialBadge: '7-day free trial',
