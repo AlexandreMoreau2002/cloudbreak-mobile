@@ -1,5 +1,22 @@
 # Security — Mobile
 
+## 2026-10-12 Session invitée supprimée côté serveur
+
+### 🔵 INFO
+- **[AuthContext.tsx — isDeletedUserError]** Un 403 Supabase est reconnu comme « invité supprimé » par le code `user_not_found` **ou** par le message exact `User from sub claim in JWT does not exist`. Le motif large « sub claim » est retiré : il capturait aussi `bad_jwt` (« missing sub claim »). Le même message exact est reconnu au démarrage (`getUser()` dans `initializeSession`) : démarrage et exécution détectent le même cas.
+- **[AuthContext.tsx — SELF_HEALING_STAGES]** Seules deux étapes sont réparées : `email_otp_start` (ajout d'e-mail, `updateUser`) et `apple_identity_link` (création de compte Apple, `linkIdentity`), et uniquement si la session courante est anonyme : un compte permanent n'est jamais transformé en invité. La **connexion** Apple (`signInWithIdToken`, étape `apple_id_token_sign_in`) n'est pas concernée : dans `@supabase/auth-js` 2.108.2, `signInWithIdToken` n'envoie pas le JWT de la session (seuls `linkIdentity` et `updateUser` l'envoient), donc un invité supprimé ne peut pas provoquer ce 403 sur la connexion. Les étapes mot de passe et reset ne sont jamais réparées.
+- **[AuthContext.tsx — replaceWithFreshGuestSession]** La réparation **remplace** la session sans jamais la vider : `signInAnonymously` fait un `POST /signup` sans JWT, puis écrase la session stockée et émet `SIGNED_IN` (aucun `SIGNED_OUT` intermédiaire). `session` n'est donc jamais `null` pendant la réparation et `AuthGuard` ne réagit pas : aucun drapeau ni pause n'est nécessaire.
+- **[AuthContext.tsx — rejeu]** L'action est rejouée **une seule fois** par construction : pas de boucle. Pour l'e-mail, la locale est renvoyée sur le nouvel invité (`onRecovered`).
+- **[AuthContext.tsx — erreurs]** Si la création du nouvel invité échoue ou lève une exception, l'erreur d'**origine** de l'action est renvoyée et l'ancienne session (morte) reste en place, comme avant le correctif.
+- **[logAuthOperation]** Le log se limite à `{ stage, outcome }` : jamais de token, d'e-mail ni de message Supabase brut. Un log `auth_error` précède `session_recovered` (attendu).
+- **Stockage** : aucune nouvelle donnée stockée ; la session invitée neuve réutilise le Keychain (`expo-secure-store`) existant.
+- **Stockage** : aucune nouvelle donnée stockée ; la session invitée neuve réutilise le Keychain (`expo-secure-store`) existant.
+
+### Verdict
+SECURE — la réparation ne contourne aucune vérification serveur (Supabase émet lui-même le nouvel invité), est bornée à un rejeu et n'élargit pas la surface de données.
+
+---
+
 ## 2026-10-09 Story 3.6 — Universal Links
 
 ### 🔵 INFO
