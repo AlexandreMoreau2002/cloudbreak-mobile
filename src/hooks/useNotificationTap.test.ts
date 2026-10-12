@@ -6,14 +6,22 @@ import { setPendingTerrainOpen } from '@/utils/terrainWatch';
 
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace }) }));
-jest.mock('expo-notifications', () => ({ useLastNotificationResponse: jest.fn() }));
+jest.mock('expo-notifications', () => ({
+  useLastNotificationResponse: jest.fn(),
+  DEFAULT_ACTION_IDENTIFIER: 'expo.modules.notifications.actions.DEFAULT',
+}));
 jest.mock('@/utils/pendingPeakLink', () => ({
   isValidPeakSlug: (slug: string) => /^[a-z0-9-]{1,100}$/.test(slug),
 }));
 jest.mock('@/utils/terrainWatch', () => ({ setPendingTerrainOpen: jest.fn() }));
 
 const useResponse = Notifications.useLastNotificationResponse as jest.Mock;
-const response = (data: object, identifier = 'n1') => ({
+const response = (
+  data: object,
+  identifier = 'n1',
+  actionIdentifier = Notifications.DEFAULT_ACTION_IDENTIFIER,
+) => ({
+  actionIdentifier,
   notification: { request: { identifier, content: { data } } },
 });
 
@@ -80,4 +88,25 @@ it('ne traite pas deux fois la même notification', async () => {
   rerender({});
   await new Promise((r) => setTimeout(r, 0));
   expect(mockReplace).toHaveBeenCalledTimes(1);
+});
+
+it.each(['terrain', 'favorite_alert'])('ignore une action non par défaut (%s)', async (type) => {
+  useResponse.mockReturnValue(
+    response({ type, slug: 'mont-blanc' }, 'n1', 'expo.modules.notifications.actions.DISMISS'),
+  );
+  renderHook(() => useNotificationTap());
+  await new Promise((r) => setTimeout(r, 0));
+  expect(mockReplace).not.toHaveBeenCalled();
+  expect(setPendingTerrainOpen).not.toHaveBeenCalled();
+});
+
+it('traite une alerte favoris puis une notification terrain aux identifiants différents', async () => {
+  useResponse.mockReturnValue(response({ type: 'favorite_alert', slug: 'a' }, 'f1'));
+  const { rerender } = renderHook(() => useNotificationTap());
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/sommet/a'));
+  useResponse.mockReturnValue(response({ type: 'terrain', slug: 'b' }, 't1'));
+  rerender({});
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/sommet/b'));
+  expect(setPendingTerrainOpen).toHaveBeenCalledWith('b');
+  expect(mockReplace).toHaveBeenCalledTimes(2);
 });
