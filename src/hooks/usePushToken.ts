@@ -9,6 +9,7 @@
  *   usePushToken(); // dans AppStack, sans destructuring
  */
 import Constants from 'expo-constants';
+import { AppState } from 'react-native';
 import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 
@@ -39,8 +40,12 @@ export function usePushToken(): void {
       return;
     }
     let cancelled = false;
+    // Garde « en cours » propre à cette identité : un envoi d'une identité précédente ne bloque pas la suivante.
+    let inFlight = false;
 
     async function register() {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const { status } = await Notifications.getPermissionsAsync();
         if (status !== 'granted') return;
@@ -51,17 +56,28 @@ export function usePushToken(): void {
         const jwt = accessTokenRef.current;
         if (cancelled || !jwt || lastSentRef.current === key) return;
         await updatePushToken(jwt, pushToken);
-        lastSentRef.current = key;
+        // Un POST déjà parti ne peut pas être annulé : on évite au moins de mémoriser la clé
+        // d'une identité qui n'est plus la courante.
+        if (!cancelled) lastSentRef.current = key;
       } catch (error) {
-        // Échec réseau, projectId absent, simulateur : jamais bloquant, réessayé au prochain montage.
+        // Échec réseau, projectId absent, simulateur : jamais bloquant. La clé n'est pas
+        // mémorisée : le prochain retour de l'app au premier plan réessaie.
         /* istanbul ignore next -- diagnostic disponible uniquement dans les builds DEBUG */
         if (DEBUG) console.debug('[usePushToken] registration failed', error);
+      } finally {
+        inFlight = false;
       }
     }
 
     void register();
+    // Couvre la permission accordée après coup (dialogue système, réglages iOS), un démarrage
+    // hors ligne ou un échec réseau : on retente à chaque retour au premier plan.
+    const subscription = AppState.addEventListener('change', (status) => {
+      if (status === 'active') void register();
+    });
     return () => {
       cancelled = true;
+      subscription.remove();
     };
   }, [userId, isAnonymous]);
 }
