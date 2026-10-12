@@ -1,4 +1,5 @@
 import { Alert } from 'react-native';
+import '@/services/notificationHandler';
 import {
   JosefinSans_300Light,
   JosefinSans_400Regular,
