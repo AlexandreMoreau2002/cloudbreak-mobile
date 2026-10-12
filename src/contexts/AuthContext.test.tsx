@@ -11,10 +11,6 @@ import { AuthProvider, appleDisplayName, isProvisioningError, isRateLimitError, 
 // le contenu des logs console.debug, donc on force DEBUG à true indépendamment de l'env de test.
 jest.mock('@/constants/devConfig', () => ({ DEBUG: true }));
 
-// Le premier test du fichier paie le chargement à froid des modules (~1,7 s sans cache) ;
-// sur un runner CI chargé il dépassait les 5 s par défaut de Jest.
-jest.setTimeout(15000);
-
 const mockUnsubscribe = jest.fn();
 const mockGetSession = jest.fn().mockResolvedValue({ data: { session: null } });
 const mockGetUser = jest.fn().mockResolvedValue({ data: { user: { id: 'validated-user' } }, error: null });
@@ -1713,6 +1709,16 @@ describe('AuthContext', () => {
     function deletedUserError(): AuthError {
       return new AuthError('User from sub claim in JWT does not exist', 403, 'user_not_found');
     }
+
+    // jest.clearAllMocks ne vide pas les files `mockResolvedValueOnce` : un test en échec
+    // ferait échouer les suivants. Le beforeEach du fichier remet les valeurs par défaut.
+    afterEach(() => {
+      mockGetSession.mockReset();
+      mockSignInAnonymously.mockReset();
+      mockSignInWithIdToken.mockReset();
+      mockLinkIdentity.mockReset();
+      mockUpdateUser.mockReset();
+    });
 
     it('connexion Apple : purge la session locale puis rejoue une fois avec le même jeton', async () => {
       mockSignInWithIdToken
