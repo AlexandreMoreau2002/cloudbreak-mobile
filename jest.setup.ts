@@ -5,6 +5,7 @@ jest.mock('react-native-worklets', () => require('react-native-worklets/lib/modu
 jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
   getPermissionsAsync: jest.fn(async () => ({ status: 'undetermined' })),
+  getExpoPushTokenAsync: jest.fn(async () => ({ data: 'ExponentPushToken[mock]' })),
 }));
 
 jest.mock('expo-secure-store', () => {

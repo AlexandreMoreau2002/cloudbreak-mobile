@@ -4,8 +4,8 @@ import { Text, TouchableOpacity, Platform } from 'react-native';
 import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
 
 import { useDisplayName } from '@/hooks/useDisplayName';
-import { fetchMe, deleteAccount, provisionUser, updateDisplayName, updateUserSurvey } from '@/services/api/user';
 import { AuthProvider, appleDisplayName, isProvisioningError, isRateLimitError, useAuth } from '@/contexts/AuthContext';
+import { fetchMe, deleteAccount, deletePushToken, provisionUser, updateDisplayName, updateUserSurvey } from '@/services/api/user';
 
 // DEBUG dépend maintenant de EXPO_PUBLIC_DEBUG (pas seulement __DEV__) — ce fichier teste
 // le contenu des logs console.debug, donc on force DEBUG à true indépendamment de l'env de test.
@@ -62,6 +62,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 jest.mock('@/services/api/user', () => ({
   fetchMe: jest.fn(),
   deleteAccount: jest.fn().mockResolvedValue(undefined),
+  deletePushToken: jest.fn().mockResolvedValue(undefined),
   provisionUser: jest.fn().mockResolvedValue({}),
   updateUserSurvey: jest.fn().mockResolvedValue({}),
   updateDisplayName: jest.fn().mockResolvedValue({}),
@@ -71,6 +72,7 @@ jest.mock('expo-location', () => ({
   getForegroundPermissionsAsync: jest.fn(),
 }));
 
+const mockDeletePushToken = deletePushToken as jest.MockedFunction<typeof deletePushToken>;
 const mockDeleteAccount = deleteAccount as jest.MockedFunction<typeof deleteAccount>;
 const mockFetchMe = fetchMe as jest.MockedFunction<typeof fetchMe>;
 const mockProvisionUser = provisionUser as jest.MockedFunction<typeof provisionUser>;
@@ -150,6 +152,7 @@ describe('AuthContext', () => {
     mockGetRandomBytesAsync.mockResolvedValue(Uint8Array.from([0, 1, 2, 255]));
     mockDigestStringAsync.mockResolvedValue('hashed-apple-nonce');
     mockDeleteAccount.mockResolvedValue(undefined);
+    mockDeletePushToken.mockResolvedValue(undefined);
     mockProvisionUser.mockResolvedValue({} as never);
     mockUpdateDisplayName.mockResolvedValue({} as never);
     mockUpdateUserSurvey.mockResolvedValue({} as never);
@@ -827,10 +830,11 @@ describe('AuthContext', () => {
     let signOutPromise: Promise<AuthError | null>;
     await act(async () => {
       signOutPromise = getAuth().signOutToAnonymous();
+      // La libération du push token précède désormais supabase.auth.signOut.
+      await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
       resolveSignOut?.();
       await Promise.resolve();
     });
-    await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mockSignInAnonymously).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('false'));
     expect(getAuth().session).toBeNull();
@@ -1702,6 +1706,80 @@ describe('AuthContext', () => {
     expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(getAuth().isAnonymous).toBe(false);
   });
+  describe('désinscription du push token', () => {
+    const permanentSession = {
+      access_token: 'permanent-token', user: { id: 'account', is_anonymous: false },
+    };
+    const anonymousSession = {
+      access_token: 'guest-token', user: { id: 'guest', is_anonymous: true },
+    };
+
+    async function renderWith(session: object) {
+      mockGetSession.mockResolvedValueOnce({ data: { session } });
+      const utils = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(utils.getByTestId('loading').props.children).toBe('false'));
+      return utils;
+    }
+
+    it('signOutToAnonymous supprime le token avant supabase.auth.signOut', async () => {
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: anonymousSession }, error: null });
+      await renderWith(permanentSession);
+      mockGetSession.mockResolvedValueOnce({ data: { session: anonymousSession } });
+
+      await act(async () => { await getAuth().signOutToAnonymous(); });
+
+      expect(mockDeletePushToken).toHaveBeenCalledWith('permanent-token');
+      expect(mockDeletePushToken.mock.invocationCallOrder[0])
+        .toBeLessThan(mockSignOut.mock.invocationCallOrder[0]);
+    });
+
+    it('signOutToAnonymous continue si deletePushToken échoue', async () => {
+      mockDeletePushToken.mockRejectedValueOnce(new Error('network down'));
+      mockSignInAnonymously.mockResolvedValueOnce({ data: { session: anonymousSession }, error: null });
+      await renderWith(permanentSession);
+      mockGetSession.mockResolvedValueOnce({ data: { session: anonymousSession } });
+
+      await act(async () => { expect(await getAuth().signOutToAnonymous()).toBeNull(); });
+
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+    });
+
+    it('signOut supprime le token avant supabase.auth.signOut, même si la suppression échoue', async () => {
+      mockDeletePushToken.mockRejectedValueOnce(new Error('network down'));
+      const { getByTestId } = await renderWith(permanentSession);
+
+      await act(async () => { fireEvent.press(getByTestId('signOut')); });
+
+      await waitFor(() => expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' }));
+      expect(mockDeletePushToken).toHaveBeenCalledWith('permanent-token');
+      expect(mockDeletePushToken.mock.invocationCallOrder[0])
+        .toBeLessThan(mockSignOut.mock.invocationCallOrder[0]);
+    });
+
+    it('ne bloque pas la déconnexion plus de 2,5 s si le DELETE ne répond jamais', async () => {
+      mockDeletePushToken.mockImplementationOnce(() => new Promise<void>(() => {}));
+      const { getByTestId } = await renderWith(permanentSession);
+      jest.useFakeTimers();
+      try {
+        await act(async () => { fireEvent.press(getByTestId('signOut')); });
+        expect(mockSignOut).not.toHaveBeenCalled();
+        await act(async () => { await jest.advanceTimersByTimeAsync(2500); });
+        expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("n'appelle pas deletePushToken pour un utilisateur anonyme", async () => {
+      const { getByTestId } = await renderWith(anonymousSession);
+
+      await act(async () => { fireEvent.press(getByTestId('signOut')); });
+
+      await waitFor(() => expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' }));
+      expect(mockDeletePushToken).not.toHaveBeenCalled();
+    });
+  });
+
   describe('session invitée supprimée côté Supabase', () => {
     const guestSession = { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } };
     const permanentSession = { access_token: 'apple-token', user: { id: 'u1', is_anonymous: false } };

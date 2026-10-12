@@ -104,7 +104,19 @@ export async function updatePushToken(token: string, push_token: string): Promis
     await _delay(100);
     return;
   }
-  await apiFetch<void>('/api/v1/user/push-token', token);
+  await apiFetch<void>('/api/v1/user/push-token', token, undefined, {
+    method: 'POST',
+    body: { push_token },
+  });
+}
+
+export async function deletePushToken(token: string): Promise<void> {
+  if (MOCK_API) {
+    if (DEBUG) console.debug('[api/user] MOCK deletePushToken');
+    await _delay(100);
+    return;
+  }
+  await apiFetch<void>('/api/v1/user/push-token', token, undefined, { method: 'DELETE' });
 }
 
 export async function addFavorite(token: string, peak_id: string): Promise<FavoriteResponse> {

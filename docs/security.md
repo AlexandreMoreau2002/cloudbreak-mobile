@@ -323,3 +323,19 @@ SECURE — les coordonnées GPS réelles introduites par cette story ne quittent
 
 ### Verdict
 SECURE — aucune nouvelle surface de données exposée. Ces corrections sont de la robustesse réseau/UX et une garde de configuration, pas des changements de flux d'authentification. Le retry provisioning ne contourne aucune vérification serveur : il rappelle exactement le même provisioning que le chemin nominal. La WARNING 2026-09-11 sur `verify.tsx` est soldée dans cette branche.
+
+---
+
+## 2026-10-09 Story 5-1 — Infrastructure push (token Expo Push)
+
+### 🔵 INFO
+- **[usePushToken.ts]** Le token Expo Push est envoyé uniquement au backend (`POST /api/v1/user/push-token`, JWT en header). Il n'est jamais stocké localement (ni AsyncStorage ni SecureStore ; seule une référence mémoire `useRef` évite les renvois) et jamais loggué : le `console.debug` en échec n'est actif qu'en DEBUG et ne contient que l'erreur.
+- **[usePushToken.ts]** Aucun envoi pour un compte anonyme ou sans session ; le hook ne demande jamais la permission iOS (lecture seule de `getPermissionsAsync`), la demande reste à l'onboarding.
+- **[AuthContext.tsx]** Au logout (`signOut`, `signOutToAnonymous`), le token est libéré (`DELETE /api/v1/user/push-token`) avant la perte du JWT, en best-effort : une erreur réseau n'empêche pas la déconnexion. Aucun appel dans `deleteAccount` (la ligne utilisateur est supprimée côté serveur).
+- **[usePushToken.ts]** L'enregistrement est retenté à chaque retour de l'app au premier plan (permission accordée après coup, échec réseau), avec garde « en cours » et déduplication par clé `userId:pushToken`.
+- **[usePushToken.ts / AuthContext.tsx — limite connue]** Un POST déjà parti ne peut pas être annulé : s'il arrive côté serveur après le DELETE du logout, l'ancien compte garde le token jusqu'à ce qu'un autre compte l'enregistre. Fenêtre étroite, non corrigée côté mobile (seul l'état local est protégé).
+- **[usePushToken.ts]** L'enregistrement est indexé sur l'id utilisateur (clé `userId:pushToken`) : un renouvellement du JWT ne renvoie pas le token, et un refresh tombant pendant un logout ne peut pas le ré-attacher.
+- **[AuthContext.tsx]** Le DELETE du logout est best-effort et borné à 2,5 s (course avec un délai) pour ne pas bloquer la déconnexion hors ligne. Si le DELETE échoue ou expire, l'ancien compte garde potentiellement le token jusqu'à ce qu'un autre compte l'enregistre côté serveur.
+
+### Verdict
+SECURE — le token push ne quitte l'appareil que vers le backend authentifié, n'est pas persisté localement et est détaché du compte à la déconnexion.
