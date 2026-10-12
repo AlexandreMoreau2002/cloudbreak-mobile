@@ -1,5 +1,19 @@
 # Security — Mobile
 
+## 2026-10-12 Session invitée supprimée côté serveur
+
+### 🔵 INFO
+- **[AuthContext.tsx — isDeletedUserError]** Un 403 Supabase `User from sub claim in JWT does not exist` (code `user_not_found`) signale que le JWT stocké appartient à un invité supprimé côté serveur. Il n'est détecté que pendant `email_otp_start`, `apple_identity_link` et `apple_id_token_sign_in` (liste blanche).
+- **[AuthContext.tsx — réparation]** Le JWT orphelin est purgé localement ; pour le rattachement Apple et l'ajout d'e-mail, un nouvel invité est créé (`startFreshGuestSession`), pour la connexion Apple la purge suffit. L'action est rejouée **une seule fois** : pas de boucle, au second échec l'erreur normale remonte.
+- **[AuthContext.tsx]** Les étapes mot de passe et reset ne sont jamais réparées : elles concernent des comptes permanents, qui ne doivent jamais basculer silencieusement en invité.
+- **[logAuthOperation]** Le log se limite à `{ stage, outcome: 'session_recovered' }` : jamais de token, d'e-mail ni de message Supabase brut.
+- **Stockage** : aucune nouvelle donnée stockée ; la session invitée neuve réutilise le Keychain (`expo-secure-store`) existant.
+
+### Verdict
+SECURE — la réparation ne contourne aucune vérification serveur (Supabase émet lui-même le nouvel invité), est bornée à un rejeu et n'élargit pas la surface de données.
+
+---
+
 ## 2026-10-09 Story 3.6 — Universal Links
 
 ### 🔵 INFO
