@@ -11,6 +11,10 @@ import { AuthProvider, appleDisplayName, isProvisioningError, isRateLimitError, 
 // le contenu des logs console.debug, donc on force DEBUG à true indépendamment de l'env de test.
 jest.mock('@/constants/devConfig', () => ({ DEBUG: true }));
 
+// Le premier test du fichier paie le chargement à froid des modules (~1,7 s sans cache) ;
+// sur un runner CI chargé il dépassait les 5 s par défaut de Jest.
+jest.setTimeout(15000);
+
 const mockUnsubscribe = jest.fn();
 const mockGetSession = jest.fn().mockResolvedValue({ data: { session: null } });
 const mockGetUser = jest.fn().mockResolvedValue({ data: { user: { id: 'validated-user' } }, error: null });
