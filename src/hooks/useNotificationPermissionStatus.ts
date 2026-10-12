@@ -3,6 +3,7 @@ import { Alert, AppState, Linking } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import i18n from '@/utils/i18n';
 import { DEBUG } from '@/constants/devConfig';
+import { track } from '@/services/analytics';
 
 /**
  * useNotificationPermissionStatus — expose si la permission iOS des notifications
@@ -17,15 +18,18 @@ export function useNotificationPermissionStatus() {
 
   useEffect(() => {
     let cancelled = false;
+    let requestId = 0;
 
     async function refresh() {
+      const id = ++requestId;
       try {
         const { status } = await Notifications.getPermissionsAsync();
         /* istanbul ignore next -- diagnostic disponible uniquement dans les builds DEBUG */
         if (DEBUG) console.debug('[useNotificationPermissionStatus] status', { status });
-        if (!cancelled) setDenied(status === 'denied');
+        // Une lecture plus ancienne ne doit pas écraser une plus récente.
+        if (!cancelled && id === requestId) setDenied(status === 'denied');
       } catch {
-        if (!cancelled) setDenied(false);
+        // Échec de lecture : on conserve l'état précédent.
       }
     }
 
@@ -40,6 +44,7 @@ export function useNotificationPermissionStatus() {
   }, []);
 
   const openSettings = useCallback(async () => {
+    track('notification_settings_opened');
     try {
       await Linking.openSettings();
     } catch (error) {
