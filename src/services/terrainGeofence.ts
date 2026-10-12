@@ -11,6 +11,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
 
 import i18n from '@/utils/i18n';
+import { DEBUG } from '@/constants/devConfig';
 import {
   canNotify,
   getTerrainPref,
@@ -73,7 +74,12 @@ export async function syncTerrainGeofences(enabled: boolean): Promise<void> {
       return;
     }
     await Location.startGeofencingAsync(TERRAIN_GEOFENCE_TASK, buildRegions(peaks));
-  } catch {
-    // simulateur sans geofencing, permission retirée entre-temps : ignoré
+  } catch (error) {
+    // simulateur sans geofencing, permission retirée entre-temps : ignoré (log DEBUG seulement)
+    if (DEBUG) {
+      console.debug('[terrainGeofence] sync failed', {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }

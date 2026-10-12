@@ -12,6 +12,12 @@ import {
 } from '@/services/terrainGeofence';
 import * as watch from '@/utils/terrainWatch';
 
+const mockDevConfig = { DEBUG: false };
+jest.mock('@/constants/devConfig', () => ({
+  get DEBUG() {
+    return mockDevConfig.DEBUG;
+  },
+}));
 jest.mock('expo-task-manager', () => ({ defineTask: jest.fn() }));
 jest.mock('expo-notifications', () => ({ scheduleNotificationAsync: jest.fn() }));
 jest.mock('expo-location', () => ({
@@ -120,6 +126,24 @@ describe('syncTerrainGeofences', () => {
   it('ne lève jamais si expo-location échoue', async () => {
     mocked(Location.startGeofencingAsync).mockRejectedValue(new Error('boom'));
     await expect(syncTerrainGeofences(true)).resolves.toBeUndefined();
+  });
+
+  it("journalise l'échec (message seul) en DEBUG", async () => {
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    mockDevConfig.DEBUG = true;
+    mocked(Location.startGeofencingAsync).mockRejectedValue(new Error('boom'));
+    await syncTerrainGeofences(true);
+    mockDevConfig.DEBUG = false;
+    expect(debugSpy).toHaveBeenCalledWith('[terrainGeofence] sync failed', { message: 'boom' });
+    debugSpy.mockRestore();
+  });
+
+  it("ne journalise rien hors DEBUG", async () => {
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    mocked(Location.startGeofencingAsync).mockRejectedValue(new Error('boom'));
+    await syncTerrainGeofences(true);
+    expect(debugSpy).not.toHaveBeenCalled();
+    debugSpy.mockRestore();
   });
 });
 
