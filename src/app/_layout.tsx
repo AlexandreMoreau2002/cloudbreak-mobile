@@ -27,14 +27,14 @@ const ONBOARDING_ROUTE = '/onboarding' as Href;
 function AuthGuard() {
   const router = useRouter();
   const segments = useSegments();
-  const { session, loading, ensureAnonymousSession } = useAuth();
+  const { session, loading, sessionRecovering, ensureAnonymousSession } = useAuth();
   useLanguage();
   const { completed, hydrated } = useOnboarding();
   const anonymousAttempted = useRef(false);
   usePendingPeakLink();
 
   useEffect(() => {
-    if (loading || !hydrated) return;
+    if (loading || !hydrated || sessionRecovering) return;
     const inOnboarding = segments[0] === 'onboarding';
     if (!completed) {
       if (!inOnboarding) router.replace(ONBOARDING_ROUTE);
@@ -56,7 +56,7 @@ function AuthGuard() {
         else router.replace(TABS_ROUTE);
       });
     }
-  }, [session, loading, completed, hydrated, segments, router, ensureAnonymousSession]);
+  }, [session, loading, sessionRecovering, completed, hydrated, segments, router, ensureAnonymousSession]);
 
   return null;
 }

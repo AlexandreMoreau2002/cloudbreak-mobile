@@ -229,6 +229,30 @@ describe('RootLayout', () => {
     });
   });
 
+  it("n'agit pas tant qu'une réparation de session est en cours, puis reprend", async () => {
+    mockUseAuth.mockReturnValue({
+      session: null,
+      loading: false,
+      sessionRecovering: true,
+      ensureAnonymousSession: mockEnsureAnonymousSession,
+    });
+
+    const { rerender } = render(<RootLayout />);
+    await waitFor(() => expect(mockHideAsync).toHaveBeenCalledTimes(1));
+    expect(mockEnsureAnonymousSession).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    mockUseAuth.mockReturnValue({
+      session: null,
+      loading: false,
+      sessionRecovering: false,
+      ensureAnonymousSession: mockEnsureAnonymousSession,
+    });
+    rerender(<RootLayout />);
+
+    await waitFor(() => expect(mockEnsureAnonymousSession).toHaveBeenCalledTimes(1));
+  });
+
   it('redirige vers les tabs si onboarding terminé, sur le segment onboarding, avec session', async () => {
     mockUseSegments.mockReturnValue(['onboarding']);
     mockUseAuth.mockReturnValue({ session: { access_token: 'token' }, loading: false });
