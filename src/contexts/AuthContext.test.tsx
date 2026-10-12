@@ -1740,6 +1740,29 @@ describe('AuthContext', () => {
       osSpy.restore();
     });
 
+    it.each([
+      ['code user_not_found seul', () => new AuthError('Unknown auth failure', 403, 'user_not_found')],
+      ['message sub claim seul', () => new AuthError('User from sub claim in JWT does not exist', 403)],
+    ])('détecte un invité supprimé avec le %s', async (_label, buildError) => {
+      mockSignInWithIdToken
+        .mockResolvedValueOnce({ error: buildError() })
+        .mockResolvedValueOnce({ error: null });
+      mockGetSession
+        .mockResolvedValueOnce({ data: { session: null } })
+        .mockResolvedValue({ data: { session: permanentSession } });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = 'cancelled';
+      await act(async () => { result = await getAuth().signInWithApple('connexion'); });
+
+      expect(result).toBeNull();
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(mockSignInWithIdToken).toHaveBeenCalledTimes(2);
+      osSpy.restore();
+    });
+
     it('création Apple : recrée un invité puis rejoue linkIdentity une fois', async () => {
       mockLinkIdentity
         .mockResolvedValueOnce({ error: deletedUserError() })
