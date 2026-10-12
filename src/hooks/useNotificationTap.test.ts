@@ -44,7 +44,7 @@ it("alerte favoris : navigue vers le sommet sans mémoriser d'ouverture du sheet
 it.each([
   ['alerte favoris au slug manquant', response({ type: 'favorite_alert' })],
   ['alerte favoris au slug invalide', response({ type: 'favorite_alert', slug: '../etc' })],
-])('ignore : %s', async (_l, value) => {
+])('ignore favorite_alert : %s', async (_l, value) => {
   useResponse.mockReturnValue(value);
   renderHook(() => useNotificationTap());
   await new Promise((r) => setTimeout(r, 0));
@@ -65,7 +65,7 @@ it.each([
   ['autre type de notification', response({ type: 'other', slug: 'x' })],
   ['slug manquant', response({ type: 'terrain' })],
   ['slug invalide', response({ type: 'terrain', slug: '../etc' })],
-])('ignore : %s', async (_l, value) => {
+])('ignore terrain : %s', async (_l, value) => {
   useResponse.mockReturnValue(value);
   renderHook(() => useNotificationTap());
   await new Promise((r) => setTimeout(r, 0));

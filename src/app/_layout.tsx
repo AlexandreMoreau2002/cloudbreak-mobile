@@ -1,5 +1,4 @@
 import { Alert } from 'react-native';
-import '@/services/notificationHandler';
 import {
   JosefinSans_300Light,
   JosefinSans_400Regular,
@@ -8,8 +7,10 @@ import {
   useFonts,
 } from '@expo-google-fonts/josefin-sans';
 import { useEffect, useRef } from 'react';
+import '@/services/notificationHandler';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useNotificationTap } from '@/hooks/useNotificationTap';
 import { usePendingPeakLink } from '@/hooks/usePendingPeakLink';
 import { useTerrainGeofence } from '@/hooks/useTerrainGeofence';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
@@ -17,7 +18,6 @@ import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { usePushToken } from '@/hooks/usePushToken';
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
-import { useNotificationTap } from '@/hooks/useNotificationTap';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { AccountGateProvider } from '@/contexts/AccountGateContext';
 import i18n from '@/utils/i18n';
