@@ -80,7 +80,10 @@ jest.mock('@/hooks/useAppSessionTracking', () => ({
 
 jest.mock('@/hooks/useTerrainGeofence', () => ({ useTerrainGeofence: jest.fn() }));
 
-jest.mock('@/services/notificationHandler', () => ({}));
+jest.mock('@/services/notificationHandler', () => {
+  (globalThis as { __notificationHandlerLoaded?: boolean }).__notificationHandlerLoaded = true;
+  return {};
+});
 jest.mock('@/hooks/useNotificationTap', () => ({ useNotificationTap: jest.fn() }));
 
 describe('RootLayout', () => {
@@ -95,6 +98,12 @@ describe('RootLayout', () => {
       hydrated: true,
       completeOnboarding: jest.fn(),
     });
+  });
+
+  it('charge le handler de notifications au premier plan avec le layout racine', () => {
+    expect(
+      (globalThis as { __notificationHandlerLoaded?: boolean }).__notificationHandlerLoaded,
+    ).toBe(true);
   });
 
   it('rend null tant que les polices ne sont pas chargées', () => {
