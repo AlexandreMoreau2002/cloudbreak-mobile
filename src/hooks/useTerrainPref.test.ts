@@ -22,11 +22,18 @@ beforeEach(() => {
   mockFocusCallback = null;
 });
 
-it('vaut true avant lecture puis reflète le cache local', async () => {
+it('vaut false avant la fin de la lecture (pas de surveillance GPS prématurée)', async () => {
+  getPref.mockResolvedValue(true);
+  const { result } = renderHook(() => useTerrainPref());
+  expect(result.current).toBe(false);
+  await waitFor(() => expect(result.current).toBe(true));
+});
+
+it('reflète un cache local désactivé', async () => {
   getPref.mockResolvedValue(false);
   const { result } = renderHook(() => useTerrainPref());
-  expect(result.current).toBe(true);
-  await waitFor(() => expect(result.current).toBe(false));
+  await waitFor(() => expect(getPref).toHaveBeenCalled());
+  expect(result.current).toBe(false);
 });
 
 it('relit la préférence à chaque nouveau focus de l\'écran', async () => {
