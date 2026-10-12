@@ -15,7 +15,7 @@ _Dernière mise à jour : 2026-10-08_
 | ThemeContext (light/dark) | ✅ |
 | AuthContext + AuthGuard | ✅ |
 | Nom d’usage facultatif dans le Profil (story 2.9), édition/effacement, initialisation Apple, renouvellement JWT et initiales Unicode | 🟡 Tests automatisés verts ; validation iPhone réelle à effectuer |
-| 2026-10-09 — Universal Links `cloudbreak-app.com/sommet/{slug}` (story 3.6) : `associatedDomains`, route `sommet/[slug]`, slug en attente validé puis consommé après onboarding | 🟡 Tests automatisés verts ; déploiement ops et validation iPhone en attente |
+| 2026-10-09 — Universal Links `{hôte ops de l'environnement}/sommet/{slug}` (story 3.6) : `associatedDomains` dérivé de l'env, route `sommet/[slug]`, slug en attente validé puis consommé après onboarding | 🟡 Tests automatisés verts ; déploiement ops et validation iPhone en attente |
 | i18n FR/EN + toggle runtime | ✅ |
 | CI GitHub Actions (lint + tsc + jest + build check) | ✅ |
 | Socle EAS iOS — projet Expo lié, profils development/preview/production et credentials Apple App Store / Ad Hoc internes | ✅ |

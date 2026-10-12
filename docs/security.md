@@ -6,7 +6,7 @@
 - **[pendingPeakLink.ts]** Le slug du sommet est mémorisé dans AsyncStorage sous la clé `pendingPeakSlug`. C'est une donnée non sensible (identifiant public d'un sommet), effacée dès sa consommation par `usePendingPeakLink` ; aucun token, e-mail ni donnée personnelle n'y transite.
 - **[pendingPeakLink.ts / sommet/[slug].tsx]** Le slug provient d'une URL non fiable (lien externe). Il est validé par `isValidPeakSlug` (`^[a-z0-9-]{1,100}$`) avant tout stockage ; un slug invalide est ignoré, jamais écrit ni envoyé à l'API.
 - **[usePendingPeakLink.ts]** Le slug validé n'est utilisé que comme paramètre de `fetchPeakBySlug` (appel authentifié habituel). Les logs debug (`DEBUG` uniquement) ne contiennent aucune donnée personnelle.
-- **[app.json]** `ios.associatedDomains` ne déclare que des domaines `applinks:` ; aucun secret côté app (l'AASA, public, est servi par `ops`). L'entrée `?mode=developer` sur `dev-ops.cloudbreak-app.com` est à retirer avant la production.
+- **[app.config.ts / plugins/associatedDomains.js]** `ios.associatedDomains` est dérivé de l'hôte ops de l'environnement (`EXPO_PUBLIC_LEGAL_BASE_URL`) et ne déclare que des domaines `applinks:` en https ; aucun secret côté app (l'AASA, public, est servi par `ops`). Le mode `?mode=developer` n'est ajouté que pour un hôte autre que `ops.cloudbreak-app.com` : un build de production (hôte par défaut) ne l'embarque jamais.
 
 ### Verdict
 SECURE — entrée externe validée avant stockage, donnée stockée non sensible et éphémère, aucun secret ajouté côté app. Validation réelle sur iPhone en attente du déploiement ops.
