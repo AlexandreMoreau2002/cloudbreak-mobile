@@ -51,6 +51,11 @@ export default {
     networkHint: 'Vérifie ta connexion et réessaie.',
     back: 'Retour',
   },
+  deepLink: {
+    notFoundTitle: 'Sommet introuvable',
+    notFoundMessage: 'Ce lien ne correspond à aucun sommet connu.',
+    errorTitle: 'Lien impossible à ouvrir',
+  },
   home: {
     comingSoon: 'À venir',
     title: 'CLOUDBREAK',

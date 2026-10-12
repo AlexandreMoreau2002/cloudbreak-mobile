@@ -51,6 +51,11 @@ export default {
     networkHint: 'Check your connection and try again.',
     back: 'Back',
   },
+  deepLink: {
+    notFoundTitle: 'Peak not found',
+    notFoundMessage: 'This link does not match any known peak.',
+    errorTitle: 'Unable to open link',
+  },
   home: {
     comingSoon: 'Coming soon',
     title: 'CLOUDBREAK',

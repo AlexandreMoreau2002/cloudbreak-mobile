@@ -114,7 +114,7 @@ describe('SubscriptionProvider', () => {
   });
 
   it.each(['active', 'trial'] as const)('treats %s premium states as entitled', async (status) => {
-    mockFetchSubscription.mockResolvedValueOnce({ plan: 'premium', status, expires_at: '2026-10-10T00:00:00Z' });
+    mockFetchSubscription.mockResolvedValueOnce({ plan: 'premium', status, expires_at: '2099-01-01T00:00:00Z' });
     renderProvider();
     await waitFor(() => expect(latest?.isPremium).toBe(true));
   });
@@ -141,7 +141,7 @@ describe('SubscriptionProvider', () => {
   });
 
   it('verifies StoreKit JWS before finishing a purchase', async () => {
-    mockVerifySubscription.mockResolvedValue({ plan: 'premium', status: 'trial', expires_at: '2026-10-10T00:00:00Z' });
+    mockVerifySubscription.mockResolvedValue({ plan: 'premium', status: 'trial', expires_at: '2099-01-01T00:00:00Z' });
     renderProvider();
     await waitFor(() => expect(onPurchase).toBeDefined());
     const purchase = { purchaseToken: 'signed-jws', productId: 'com.alexandremoreau.cloudbreak.premium.monthly' } as Iap.Purchase;
@@ -199,7 +199,7 @@ describe('SubscriptionProvider', () => {
     const first = { purchaseToken: 'first-jws' } as Iap.Purchase;
     const second = { purchaseToken: 'second-jws' } as Iap.Purchase;
     iap.getAvailablePurchases.mockResolvedValueOnce([first, second]);
-    mockVerifySubscription.mockResolvedValue({ plan: 'premium', status: 'active', expires_at: '2026-10-10T00:00:00Z' });
+    mockVerifySubscription.mockResolvedValue({ plan: 'premium', status: 'active', expires_at: '2099-01-01T00:00:00Z' });
     renderProvider();
     await waitFor(() => expect(latest).toBeDefined());
     await act(async () => { await latest?.restore(); });

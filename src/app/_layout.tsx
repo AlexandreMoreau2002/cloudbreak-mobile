@@ -9,6 +9,7 @@ import {
 import { useEffect, useRef } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { usePendingPeakLink } from '@/hooks/usePendingPeakLink';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
@@ -30,6 +31,7 @@ function AuthGuard() {
   useLanguage();
   const { completed, hydrated } = useOnboarding();
   const anonymousAttempted = useRef(false);
+  usePendingPeakLink();
 
   useEffect(() => {
     if (loading || !hydrated) return;
