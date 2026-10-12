@@ -14,7 +14,7 @@ const mockUpdate = updatePushToken as jest.Mock;
 const mockPermissions = Notifications.getPermissionsAsync as jest.Mock;
 const mockGetToken = Notifications.getExpoPushTokenAsync as jest.Mock;
 
-let appStateListeners: Array<(status: AppStateStatus) => void> = [];
+let appStateListeners: ((status: AppStateStatus) => void)[] = [];
 const remove = jest.fn();
 
 const flush = () => act(async () => {});
