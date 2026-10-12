@@ -126,6 +126,7 @@ interface AuthState {
   session: Session | null;
   isAnonymous: boolean;
   authServiceUnavailable: boolean;
+  sessionRecovering: boolean;
   locationPermission: LocationPermissionStatus;
 }
 
@@ -186,29 +187,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profileRevision, setProfileRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [authServiceUnavailable, setAuthServiceUnavailable] = useState(false);
+  const [sessionRecovering, setSessionRecovering] = useState(false);
   const [locationPermission, setLocationPermission] = useState<LocationPermissionStatus>('undetermined');
   const anonymousSessionInFlight = useRef<Promise<AuthError | null> | null>(null);
   const sessionGeneration = useRef(0);
   const isAnonymous = session?.user.is_anonymous === true;
 
-  async function runAuthOperation(
+  async function runAuthOperationOnce(
     stage: AuthOperationStage,
     operation: () => Promise<{ error: AuthError | null }>,
-    onRecovered?: () => Promise<void>,
-    hasRetried = false,
   ): Promise<AuthError | null> {
     try {
       const { error } = await operation();
-      if (error && !hasRetried && SELF_HEALING_STAGES.has(stage) && isDeletedUserError(error)) {
-        const recoveryError = await recoverDeletedGuestSession(stage);
-        if (recoveryError) {
-          logAuthOperation(stage, 'auth_error');
-          return recoveryError;
-        }
-        logAuthOperation(stage, 'session_recovered');
-        await onRecovered?.();
-        return runAuthOperation(stage, operation, onRecovered, true);
-      }
       if (error) {
         const outcome = isNetworkError(error) ? 'network_error' : 'auth_error';
         if (outcome === 'network_error') setAuthServiceUnavailable(true);
@@ -224,6 +214,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return error instanceof AuthError
         ? error
         : new AuthError('Service d\'authentification indisponible');
+    }
+  }
+
+  // Un invité supprimé côté Supabase est remplacé en silence, puis l'action est rejouée UNE fois.
+  // Les rattachements (Apple, e-mail) exigent une session invitée : un compte permanent n'est
+  // jamais transformé en invité ici.
+  async function runAuthOperation(
+    stage: AuthOperationStage,
+    operation: () => Promise<{ error: AuthError | null }>,
+    options: { onRecovered?: () => Promise<void> } = {},
+  ): Promise<AuthError | null> {
+    const error = await runAuthOperationOnce(stage, operation);
+    const canRecover = SELF_HEALING_STAGES.has(stage)
+      && (stage === 'apple_id_token_sign_in' || isAnonymous);
+    if (!error || !canRecover || !isDeletedUserError(error)) return error;
+
+    setSessionRecovering(true);
+    try {
+      const recoveryError = await recoverDeletedGuestSession(stage);
+      if (recoveryError) return error;
+      logAuthOperation(stage, 'session_recovered');
+      await options.onRecovered?.();
+      const retryError = await runAuthOperationOnce(stage, operation);
+      // Après une purge sans nouvel invité, un rejeu raté ne doit pas laisser l'app sans session.
+      if (retryError && stage === 'apple_id_token_sign_in') await startFreshGuestSession();
+      return retryError;
+    } catch {
+      return error;
+    } finally {
+      setSessionRecovering(false);
     }
   }
 
@@ -423,7 +443,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return runAuthOperation(
       'email_otp_start',
       () => supabase.auth.updateUser({ email }),
-      () => syncEmailLocale(locale),
+      { onRecovered: () => syncEmailLocale(locale) },
     );
   }
 
@@ -632,7 +652,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        session, loading, isAnonymous, authServiceUnavailable, locationPermission, profileRevision,
+        session, loading, isAnonymous, authServiceUnavailable, sessionRecovering, locationPermission, profileRevision,
         signUp, signIn, signOut, deleteAccount,
         ensureAnonymousSession, requestPasswordReset, completePasswordReset,
         beginEmailUpgrade, completeEmailUpgrade,
