@@ -1781,5 +1781,56 @@ describe('AuthContext', () => {
       expect(mockLinkIdentity).toHaveBeenCalledTimes(1);
       osSpy.restore();
     });
+
+    it('ne rejoue qu’une seule fois : un second 403 est renvoyé tel quel', async () => {
+      const secondError = deletedUserError();
+      mockSignInWithIdToken
+        .mockResolvedValueOnce({ error: deletedUserError() })
+        .mockResolvedValueOnce({ error: secondError });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('connexion'); });
+
+      expect(result).toBe(secondError);
+      expect(mockSignInWithIdToken).toHaveBeenCalledTimes(2);
+      osSpy.restore();
+    });
+
+    it("ne répare pas un 403 d'un autre type", async () => {
+      const otherError = new AuthError('Signups not allowed', 403, 'signup_disabled');
+      mockSignInWithIdToken.mockResolvedValueOnce({ error: otherError });
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = null;
+      await act(async () => { result = await getAuth().signInWithApple('connexion'); });
+
+      expect(result).toBe(otherError);
+      expect(mockSignInWithIdToken).toHaveBeenCalledTimes(1);
+      expect(mockSignOut).not.toHaveBeenCalled();
+      osSpy.restore();
+    });
+
+    it('ne transforme jamais une étape mot de passe en invité', async () => {
+      const passwordError = deletedUserError();
+      mockUpdateUser.mockResolvedValueOnce({ error: passwordError });
+      mockGetSession.mockResolvedValue({ data: { session: permanentSession } });
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let error: AuthError | null = null;
+      await act(async () => {
+        error = await getAuth().completePasswordReset('a@b.com', '123456', 'new-password');
+      });
+
+      expect(error).toBe(passwordError);
+      expect(mockUpdateUser).toHaveBeenCalledTimes(1);
+      expect(mockSignInAnonymously).not.toHaveBeenCalled();
+      expect(mockSignOut).not.toHaveBeenCalled();
+    });
   });
 });
