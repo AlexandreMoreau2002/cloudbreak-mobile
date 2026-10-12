@@ -1702,4 +1702,42 @@ describe('AuthContext', () => {
     expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(getAuth().isAnonymous).toBe(false);
   });
+  describe('session invitée supprimée côté Supabase', () => {
+    const guestSession = { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } };
+    const permanentSession = { access_token: 'apple-token', user: { id: 'u1', is_anonymous: false } };
+
+    function deletedUserError(): AuthError {
+      return new AuthError('User from sub claim in JWT does not exist', 403, 'user_not_found');
+    }
+
+    it('connexion Apple : purge la session locale puis rejoue une fois avec le même jeton', async () => {
+      mockSignInWithIdToken
+        .mockResolvedValueOnce({ error: deletedUserError() })
+        .mockResolvedValueOnce({ error: null });
+      mockGetSession
+        .mockResolvedValueOnce({ data: { session: null } })
+        .mockResolvedValue({ data: { session: permanentSession } });
+      const debug = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+      const osSpy = jest.replaceProperty(Platform, 'OS', 'ios');
+      const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+      let result: Awaited<ReturnType<ReturnType<typeof useAuth>['signInWithApple']>> = 'cancelled';
+      await act(async () => { result = await getAuth().signInWithApple('connexion'); });
+
+      expect(result).toBeNull();
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(mockSignInWithIdToken).toHaveBeenCalledTimes(2);
+      expect(mockSignInWithIdToken).toHaveBeenNthCalledWith(2, {
+        provider: 'apple', token: 'apple-id-token', nonce: '000102ff',
+      });
+      expect(mockAppleSignInAsync).toHaveBeenCalledTimes(1);
+      expect(mockSignInAnonymously).not.toHaveBeenCalled();
+      expect(mockProvisionUser).toHaveBeenCalledWith('apple-token');
+      expect(debug).toHaveBeenCalledWith('[AuthContext] auth operation', {
+        stage: 'apple_id_token_sign_in', outcome: 'session_recovered',
+      });
+      osSpy.restore();
+    });
+  });
 });

@@ -78,6 +78,12 @@ function isTerminalSessionError(error: unknown): boolean {
   return TERMINAL_SESSION_ERROR_MESSAGES.has(error.message.trim().toLowerCase());
 }
 
+function isDeletedUserError(error: unknown): boolean {
+  if (!(error instanceof AuthError) || error.status !== 403) return false;
+  return error.code?.toLowerCase() === 'user_not_found'
+    || error.message.toLowerCase().includes('sub claim');
+}
+
 export type LocationPermissionStatus = 'undetermined' | 'granted' | 'denied';
 
 export interface SurveyAnswers {
@@ -156,12 +162,20 @@ type AuthOperationStage =
   | 'apple_identity_link'
   | 'apple_id_token_sign_in';
 
-type AuthOperationOutcome = 'success' | 'auth_error' | 'network_error' | 'unexpected_error';
+type AuthOperationOutcome = 'success' | 'auth_error' | 'network_error' | 'unexpected_error' | 'session_recovered';
 
 function logAuthOperation(stage: AuthOperationStage, outcome: AuthOperationOutcome): void {
   // Intentionally contains no e-mail, OTP, access token or Supabase error message.
   if (DEBUG) console.debug('[AuthContext] auth operation', { stage, outcome });
 }
+
+// Étapes où un invité supprimé côté Supabase peut être remplacé en silence puis l'action rejouée.
+// Les étapes mot de passe / reset visent des comptes permanents : jamais réparées ici.
+const SELF_HEALING_STAGES: ReadonlySet<AuthOperationStage> = new Set<AuthOperationStage>([
+  'email_otp_start',
+  'apple_identity_link',
+  'apple_id_token_sign_in',
+]);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -175,10 +189,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function runAuthOperation(
     stage: AuthOperationStage,
-    operation: () => Promise<{ error: AuthError | null }>
+    operation: () => Promise<{ error: AuthError | null }>,
+    onRecovered?: () => Promise<void>,
+    hasRetried = false,
   ): Promise<AuthError | null> {
     try {
       const { error } = await operation();
+      if (error && !hasRetried && SELF_HEALING_STAGES.has(stage) && isDeletedUserError(error)) {
+        const recoveryError = await recoverDeletedGuestSession(stage);
+        if (recoveryError) {
+          logAuthOperation(stage, 'auth_error');
+          return recoveryError;
+        }
+        logAuthOperation(stage, 'session_recovered');
+        await onRecovered?.();
+        return runAuthOperation(stage, operation, onRecovered, true);
+      }
       if (error) {
         const outcome = isNetworkError(error) ? 'network_error' : 'auth_error';
         if (outcome === 'network_error') setAuthServiceUnavailable(true);
@@ -567,6 +593,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setSession(data.session);
     return null;
+  }
+
+  async function recoverDeletedGuestSession(stage: AuthOperationStage): Promise<AuthError | null> {
+    // La connexion Apple crée elle-même sa session : la purge locale suffit.
+    if (stage === 'apple_id_token_sign_in') {
+      await clearLocalSession();
+      return null;
+    }
+    return startFreshGuestSession();
   }
 
   async function signOutToAnonymous(): Promise<AuthError | null> {
