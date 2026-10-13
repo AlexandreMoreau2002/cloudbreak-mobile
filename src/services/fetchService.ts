@@ -38,6 +38,15 @@ export interface ApiFetchOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * Identifie une erreur métier renvoyée par l'API sans confondre son statut HTTP
+ * avec son code. Plusieurs causes peuvent être en 429 (quota, rate limit),
+ * elles doivent donc rester distinguées dans les hooks et l'UI.
+ */
+export function isApiErrorCode(error: unknown, code: string): boolean {
+  return error instanceof Error && (error as Error & { code?: string }).code === code;
+}
+
 export async function apiFetch<T>(
   path: string,
   token: string | null,

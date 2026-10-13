@@ -45,6 +45,8 @@ jest.mock('@/utils/i18n', () => ({
       'home.notNow': 'Pas maintenant',
       'home.quotaNoCacheTitle': 'Aucune donnée pour ce sommet',
       'home.quotaNoCacheMessage': "Ta limite quotidienne est atteinte et ce sommet n'a pas encore été consulté aujourd'hui.",
+      'home.rateLimitTitle': 'Trop de demandes',
+      'home.rateLimitMessage': 'Attends un instant avant de réessayer.',
       'home.offlineBanner': 'Données de %{time} · connexion requise pour actualiser',
       'home.offlineNoCacheTitle': 'Données non disponibles',
       'home.offlineNoCacheMessage': 'Connexion requise pour voir une prévision fraîche.',
@@ -317,6 +319,7 @@ function setupSuccess(
     loading: false,
     error: null,
     quotaExceeded,
+    rateLimited: false,
     fromCache: false,
     isOffline: false,
     cachedAt: null,
@@ -330,6 +333,7 @@ function setupLoading(existingData: WeekData | null = null) {
     loading: true,
     error: null,
     quotaExceeded: false,
+    rateLimited: false,
     fromCache: false,
     isOffline: false,
     cachedAt: null,
@@ -343,6 +347,7 @@ function setupError(message = 'Erreur de chargement', quotaExceeded = false) {
     loading: false,
     error: message,
     quotaExceeded,
+    rateLimited: false,
     fromCache: false,
     isOffline: false,
     cachedAt: null,
@@ -356,6 +361,7 @@ function setupIdle() {
     loading: false,
     error: null,
     quotaExceeded: false,
+    rateLimited: false,
     fromCache: false,
     isOffline: false,
     cachedAt: null,
@@ -1241,6 +1247,70 @@ describe('HomeScreen', () => {
     expect(mockShowPaywall).toHaveBeenCalledWith('quota');
     expect(mockRequireAccount).not.toHaveBeenCalled();
     expect(mockTrack).toHaveBeenCalledWith('quota_badge_viewed', { peak_id: 'peak-1' });
+  });
+
+  it('affiche un retry non bloquant sans ouvrir le paywall pour RATE_LIMIT_EXCEEDED', () => {
+    const retry = jest.fn();
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockUseWeekData.mockReturnValue({
+      data: makeWeekData(MOCK_SCORE_DATA),
+      loading: false,
+      error: 'RATE_LIMIT_EXCEEDED',
+      quotaExceeded: false,
+      rateLimited: true,
+      fromCache: true,
+      isOffline: false,
+      cachedAt: Date.now(),
+      refresh: retry,
+    });
+
+    render(<HomeScreen />);
+
+    expect(screen.getByTestId('score-card')).toBeTruthy();
+    expect(screen.getByText('Trop de demandes')).toBeTruthy();
+    expect(mockShowPaywall).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('rate-limit-retry-button'));
+    expect(retry).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByTestId('secondary-action-btn'));
+    expect(screen.queryByText('Trop de demandes')).toBeNull();
+  });
+
+  it('affiche le retry rate-limit sans score et ne lance jamais le paywall', () => {
+    const retry = jest.fn();
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    mockUseWeekData.mockReturnValue({
+      data: null,
+      loading: false,
+      error: 'RATE_LIMIT_EXCEEDED',
+      quotaExceeded: false,
+      rateLimited: true,
+      fromCache: false,
+      isOffline: false,
+      cachedAt: null,
+      refresh: retry,
+    });
+
+    render(<HomeScreen />);
+
+    expect(screen.getByText('Trop de demandes')).toBeTruthy();
+    expect(screen.queryByTestId('score-card')).toBeNull();
+    expect(mockShowPaywall).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('rate-limit-retry-button'));
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 
   it('un quota atteint par un invité ouvre account, jamais le paywall', () => {

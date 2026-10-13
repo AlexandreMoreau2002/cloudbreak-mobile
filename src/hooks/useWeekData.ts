@@ -1,7 +1,7 @@
 /**
  * useWeekData — source de données unique pour WeekStrip et ScoreCard.
  *
- * Précharge les 7 prochains jours × 9 créneaux horaires en parallèle.
+ * Charge les 7 prochains jours × 9 créneaux horaires en une requête groupée.
  * Garantit que le score affiché dans la card et dans le weekly proviennent
  * du même fetch, éliminant toute incohérence entre les deux composants.
  *
@@ -15,9 +15,10 @@ import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { fetchScore } from '@/services/api/score';
+import { fetchWeekScores } from '@/services/api/score';
 import { DEBUG, MOCK_API } from '@/constants/devConfig';
 import { addDays, getTodayISO } from '@/utils/dateUtils';
+import { isApiErrorCode } from '@/services/fetchService';
 import { debugDataRefresh } from '@/services/dataRefreshDebug';
 import type { ScoreResponse } from '@/services/mockData/types';
 import type { DayScore, WeekScores } from '@/hooks/useWeekScores';
@@ -27,13 +28,24 @@ export type WeekData = {
   bestByDate: WeekScores;
 };
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3h
-const DAY_HOURS = [6, 8, 10, 12, 14, 16, 18, 20, 22] as const;
+const WEEK_DAYS = 7;
+const WEEK_HOURS = [6, 8, 10, 12, 14, 16, 18, 20, 22] as const;
 const TIEBREAKER: Record<number, number> = { 6: 0, 8: 1, 16: 2, 14: 3, 10: 4, 12: 5, 18: 6, 20: 7, 22: 8 };
 
 function weekCacheKey(peakId: string, today: string): string {
   return `cache:weekdata:${CACHE_VERSION}:${peakId}:${today}`;
+}
+
+function isCompleteWeek(
+  byDate: Record<string, Record<number, ScoreResponse>>,
+  startDate: string,
+): boolean {
+  return Array.from({ length: WEEK_DAYS }, (_, index) => addDays(startDate, index)).every((date) => {
+    const scoresByHour = byDate[date];
+    return scoresByHour != null && WEEK_HOURS.every((hour) => scoresByHour[hour] != null);
+  });
 }
 
 function computeBestByDate(
@@ -65,10 +77,12 @@ export function useWeekData(
   peakId: string | null,
   token: string | null,
 ): {
+  // Interface historique multi-états conservée pour ne pas casser les consommateurs existants.
   data: WeekData | null;
   loading: boolean;
   error: string | null;
   quotaExceeded: boolean;
+  rateLimited: boolean;
   fromCache: boolean;
   isOffline: boolean;
   cachedAt: number | null;
@@ -78,6 +92,7 @@ export function useWeekData(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
   const [fromCache, setFromCache] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [cachedAt, setCachedAt] = useState<number | null>(null);
@@ -96,6 +111,8 @@ export function useWeekData(
       setData(null);
       setLoading(false);
       setError(null);
+      setQuotaExceeded(false);
+      setRateLimited(false);
       updateOffline(false);
       return;
     }
@@ -105,6 +122,7 @@ export function useWeekData(
       setData(null);
       setError(null);
       setQuotaExceeded(false);
+      setRateLimited(false);
       setFromCache(false);
       setCachedAt(null);
       updateOffline(false);
@@ -116,7 +134,7 @@ export function useWeekData(
 
     let hasValidCache = false;
 
-    if (!MOCK_API && !force) {
+    if (!MOCK_API) {
       try {
         const raw = await AsyncStorage.getItem(cacheK);
         if (raw) {
@@ -124,11 +142,9 @@ export function useWeekData(
             byDate: Record<string, Record<number, ScoreResponse>>;
             cachedAt: number;
           };
-          const todayHours = byDate[today];
           const cacheValid =
             Date.now() - cachedAt < CACHE_TTL_MS &&
-            todayHours != null &&
-            Object.keys(todayHours).length > 0;
+            isCompleteWeek(byDate, today);
           if (cacheValid) {
             if (DEBUG) console.debug('[useWeekData] cache', { key: cacheK, hit: true, age: Date.now() - cachedAt });
             loadedPeakRef.current = peakId;
@@ -165,91 +181,50 @@ export function useWeekData(
     }
 
     updateOffline(false);
-    if (hasValidCache) {
+    if (hasValidCache && !force) {
       setError(null);
       setLoading(false);
       return;
     }
 
-    // Fetch réseau : 7 jours × 9 créneaux en parallèle
-    const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
-    const byDate: Record<string, Record<number, ScoreResponse>> = {};
-    let totalSuccess = 0;
-    let isServiceUnavailable = false;
-    let isQuotaExceeded = false;
-
-    if (DEBUG) console.debug('[useWeekData] fetch', { peakId, dates: dates.length });
+    if (DEBUG) console.debug('[useWeekData] fetch', { peakId, dates: 7 });
     debugDataRefresh('week-data', force ? 'manual' : 'mount-or-session', {
-      requestCount: dates.length * DAY_HOURS.length,
+      requestCount: 1,
     });
 
-    await Promise.all(
-      dates.map(async (date) => {
-        const results = await Promise.all(
-          DAY_HOURS.map((hour) =>
-            fetchScore(token, peakId, date, hour)
-              .then((result) => ({ hour, result }))
-              .catch((err: unknown) => {
-                const errObj = err instanceof Error ? err : null;
-                const code: string | undefined = errObj ? (errObj as Error & { code?: string }).code : undefined;
-                const msg = errObj ? errObj.message : '';
-                if (code === 'QUOTA_EXCEEDED') {
-                  isQuotaExceeded = true;
-                } else if (msg.includes('503') || msg.toLowerCase().includes('unavailable')) {
-                  isServiceUnavailable = true;
-                }
-                return null;
-              }),
-          ),
-        );
-        const hoursMap: Record<number, ScoreResponse> = {};
-        for (const r of results) {
-          if (r) {
-            hoursMap[r.hour] = r.result;
-            totalSuccess++;
-          }
+    try {
+      const weekData = await fetchWeekScores(token, peakId, today);
+      loadedPeakRef.current = peakId;
+      setData(weekData);
+      setFromCache(false);
+      setCachedAt(null);
+      setError(null);
+      setQuotaExceeded(false);
+      setRateLimited(false);
+
+      if (!MOCK_API) {
+        try {
+          await AsyncStorage.setItem(cacheK, JSON.stringify({ byDate: weekData.byDate, cachedAt: Date.now() }));
+        } catch {
+          // Cache write failure — non-fatal
         }
-        byDate[date] = hoursMap;
-      }),
-    );
-
-    loadedPeakRef.current = peakId;
-
-    if (DEBUG) console.debug('[useWeekData] result', { totalSuccess, isQuotaExceeded, isServiceUnavailable });
-
-    if (isQuotaExceeded) {
-      setQuotaExceeded(true);
-      setError('QUOTA_EXCEEDED');
-      setLoading(false);
-      return;
-    }
-
-    if (totalSuccess === 0) {
-      if (force) {
-        setLoading(false);
-        return;
       }
-      const errMsg = isServiceUnavailable
-        ? 'Service momentanément indisponible'
-        : 'Erreur de chargement';
-      setError(errMsg);
-      setLoading(false);
-      return;
-    }
-
-    const weekData: WeekData = { byDate, bestByDate: computeBestByDate(byDate) };
-    setData(weekData);
-    setFromCache(false);
-    setCachedAt(null);
-    setError(null);
-    setLoading(false);
-
-    if (!MOCK_API) {
-      try {
-        await AsyncStorage.setItem(cacheK, JSON.stringify({ byDate, cachedAt: Date.now() }));
-      } catch {
-        // Cache write failure — non-fatal
+    } catch (cause) {
+      loadedPeakRef.current = peakId;
+      if (isApiErrorCode(cause, 'QUOTA_EXCEEDED')) {
+        setQuotaExceeded(true);
+        setRateLimited(false);
+        setError('QUOTA_EXCEEDED');
+      } else if (isApiErrorCode(cause, 'RATE_LIMIT_EXCEEDED')) {
+        setQuotaExceeded(false);
+        setRateLimited(true);
+        setError('RATE_LIMIT_EXCEEDED');
+      } else if (!hasValidCache) {
+        const message = cause instanceof Error ? cause.message : '';
+        setError(message.toLowerCase().includes('unavailable') ? 'Service momentanément indisponible' : 'Erreur de chargement');
       }
+    } finally {
+      setLoading(false);
     }
   }, [peakId, token]);
 
@@ -260,5 +235,5 @@ export function useWeekData(
     load();
   }, [load]);
 
-  return { data, loading, error, quotaExceeded, fromCache, isOffline, cachedAt, refresh };
+  return { data, loading, error, quotaExceeded, rateLimited, fromCache, isOffline, cachedAt, refresh };
 }

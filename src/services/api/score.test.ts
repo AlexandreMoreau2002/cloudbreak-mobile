@@ -1,4 +1,4 @@
-import { fetchScore } from '@/services/api/score';
+import { fetchScore, fetchWeekScores } from '@/services/api/score';
 import { MOCK_SCORE_HIGH, MOCK_SCORE_LOW } from '@/services/mockData/score';
 
 jest.mock('@/utils/i18n', () => ({
@@ -17,6 +17,8 @@ jest.mock('@/utils/i18n', () => ({
 const mockDevConfigState = { MOCK_API: false, DEBUG: false };
 const mockApiFetch = jest.fn();
 const mockDelay = jest.fn((_ms: number) => Promise.resolve());
+const WEEK_DATES = ['2026-03-23', '2026-03-24', '2026-03-25', '2026-03-26', '2026-03-27', '2026-03-28', '2026-03-29'];
+const WEEK_HOURS = [6, 8, 10, 12, 14, 16, 18, 20, 22];
 
 jest.mock('@/constants/devConfig', () => ({
   get MOCK_API() { return mockDevConfigState.MOCK_API; },
@@ -27,6 +29,14 @@ jest.mock('@/services/fetchService', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
   _delay: (ms: number) => mockDelay(ms),
 }));
+
+function makeWeekPayload(): { by_date: Record<string, Record<number, typeof MOCK_SCORE_HIGH>> } {
+  return {
+    by_date: Object.fromEntries(
+      WEEK_DATES.map((date) => [date, Object.fromEntries(WEEK_HOURS.map((hour) => [hour, MOCK_SCORE_HIGH]))]),
+    ),
+  };
+}
 
 describe('api/score', () => {
   beforeEach(() => {
@@ -58,6 +68,106 @@ describe('api/score', () => {
       date: '2026-03-23',
       hour: '6',
     });
+  });
+
+  it('calls the weekly endpoint once and normalizes every returned score', async () => {
+    mockApiFetch.mockResolvedValueOnce(makeWeekPayload());
+
+    const result = await fetchWeekScores('token-123', 'peak-1', '2026-03-23');
+
+    expect(mockApiFetch).toHaveBeenCalledTimes(1);
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/score/week', 'token-123', {
+      peak_id: 'peak-1',
+      start_date: '2026-03-23',
+    });
+    expect(result.byDate['2026-03-23'][6]).toMatchObject({
+      score: MOCK_SCORE_HIGH.score,
+      prediction_id: MOCK_SCORE_HIGH.prediction_id,
+    });
+    expect(Object.keys(result.byDate)).toHaveLength(7);
+  });
+
+  it('rejects an incomplete weekly payload instead of fabricating forecast cells', async () => {
+    mockApiFetch.mockResolvedValueOnce({ by_date: { '2026-03-23': { 6: MOCK_SCORE_HIGH } } });
+
+    await expect(fetchWeekScores('token-123', 'peak-1', '2026-03-23')).rejects.toThrow('Réponse hebdomadaire incomplète');
+  });
+
+  it('rejects a weekly payload containing an out-of-range date', async () => {
+    const payload = makeWeekPayload();
+    delete payload.by_date['2026-03-29'];
+    payload.by_date['2026-04-02'] = Object.fromEntries(WEEK_HOURS.map((hour) => [hour, MOCK_SCORE_HIGH]));
+    mockApiFetch.mockResolvedValueOnce(payload);
+
+    await expect(fetchWeekScores('token-123', 'peak-1', '2026-03-23')).rejects.toThrow('Réponse hebdomadaire invalide');
+  });
+
+  it('rejects a non-object day or hour instead of normalizing it', async () => {
+    mockApiFetch.mockResolvedValueOnce({ by_date: null });
+
+    await expect(fetchWeekScores('token-123', 'peak-1', '2026-03-23')).rejects.toThrow('Réponse hebdomadaire invalide');
+
+    const dayPayload = makeWeekPayload() as { by_date: Record<string, unknown> };
+    dayPayload.by_date['2026-03-23'] = null;
+    mockApiFetch.mockResolvedValueOnce(dayPayload);
+
+    await expect(fetchWeekScores('token-123', 'peak-1', '2026-03-23')).rejects.toThrow('Réponse hebdomadaire incomplète');
+
+    const hourPayload = makeWeekPayload() as { by_date: Record<string, Record<string, unknown>> };
+    hourPayload.by_date['2026-03-23']['6'] = 'not-a-score';
+    mockApiFetch.mockResolvedValueOnce(hourPayload);
+
+    await expect(fetchWeekScores('token-123', 'peak-1', '2026-03-23')).rejects.toThrow('Réponse hebdomadaire incomplète');
+  });
+
+  it('rejects an out-of-range hour', async () => {
+    const payload = makeWeekPayload() as { by_date: Record<string, Record<string, unknown>> };
+    payload.by_date['2026-03-23']['7'] = MOCK_SCORE_HIGH;
+    mockApiFetch.mockResolvedValueOnce(payload);
+
+    await expect(fetchWeekScores('token-123', 'peak-1', '2026-03-23')).rejects.toThrow('Réponse hebdomadaire invalide');
+  });
+
+  it('rejects a missing expected hour', async () => {
+    const payload = makeWeekPayload();
+    delete payload.by_date['2026-03-23'][6];
+    mockApiFetch.mockResolvedValueOnce(payload);
+
+    await expect(fetchWeekScores('token-123', 'peak-1', '2026-03-23')).rejects.toThrow('Réponse hebdomadaire incomplète');
+  });
+
+  it('returns a complete mock batch without calling the API', async () => {
+    mockDevConfigState.MOCK_API = true;
+    mockDevConfigState.DEBUG = true;
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+
+    const result = await fetchWeekScores('token-123', 'peak-mont-blanc', '2026-03-23');
+
+    expect(mockDelay).toHaveBeenCalledWith(400);
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(debugSpy).toHaveBeenCalledWith('[api/score] MOCK fetchWeekScores', {
+      peakId: 'peak-mont-blanc',
+      startDate: '2026-03-23',
+    });
+    expect(Object.keys(result.byDate)).toHaveLength(7);
+    expect(Object.keys(result.byDate['2026-03-23'])).toHaveLength(9);
+    expect(result.byDate['2026-03-23'][6]).toMatchObject(MOCK_SCORE_LOW);
+    debugSpy.mockRestore();
+  });
+
+  it('selects the higher score then the tie-break hour in a weekly batch', async () => {
+    const payload = makeWeekPayload();
+    for (const date of WEEK_DATES) {
+      payload.by_date[date][6] = { ...MOCK_SCORE_HIGH, score: 0 };
+      payload.by_date[date][8] = { ...MOCK_SCORE_HIGH, score: 0 };
+      payload.by_date[date][10] = { ...MOCK_SCORE_HIGH, score: 90 };
+      payload.by_date[date][14] = { ...MOCK_SCORE_HIGH, score: 90 };
+    }
+    mockApiFetch.mockResolvedValueOnce(payload);
+
+    const result = await fetchWeekScores('token-123', 'peak-1', '2026-03-23');
+
+    expect(result.bestByDate['2026-03-23']).toMatchObject({ score: 90, hour: 14 });
   });
 
   it('retourne le score mock en mode MOCK_API', async () => {

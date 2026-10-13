@@ -72,11 +72,12 @@ export default function HomeScreen() {
   const { session, isAnonymous, locationPermission } = useAuth();
   const { colors, typography, spacing } = useTheme();
   const [quotaDismissed, setQuotaDismissed] = useState(false);
+  const [rateLimitDismissed, setRateLimitDismissed] = useState(false);
   const [lastSuccessfulPeak, setLastSuccessfulPeak] = useState<Peak | null>(null);
   const { selectedPeak, setSelectedPeak, selectedDate, selectedHour, setSelectedDate, setSelectedHour } = useSelectedPeak();
 
   const token = session?.access_token ?? null;
-  const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded, fromCache, isOffline, cachedAt, refresh } = useWeekData(selectedPeak?.id ?? null, token);
+  const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded, rateLimited, fromCache, isOffline, cachedAt, refresh } = useWeekData(selectedPeak?.id ?? null, token);
 
   const { showPaywall } = usePaywall();
   const { requireAccount } = useAccountGate();
@@ -87,7 +88,15 @@ export default function HomeScreen() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
     setQuotaDismissed(false);
+    setRateLimitDismissed(false);
   }, [selectedPeak?.id]);
+
+  useEffect(() => {
+    if (!rateLimited) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- réarme la carte après une réponse fraîche réussie
+      setRateLimitDismissed(false);
+    }
+  }, [rateLimited]);
 
   useEffect(() => {
     if (!quotaExceeded) {
@@ -255,6 +264,26 @@ export default function HomeScreen() {
     setQuotaDismissed(true);
   }
 
+  function handleDismissRateLimit() {
+    setRateLimitDismissed(true);
+  }
+
+  function renderRateLimitState(canDismiss = true) {
+    if (!rateLimited || (canDismiss && rateLimitDismissed)) return null;
+    return (
+      <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+        <ErrorState
+          icon="time-outline"
+          title={i18n.t('home.rateLimitTitle')}
+          message={i18n.t('home.rateLimitMessage')}
+          action={{ label: i18n.t('common.retry'), onPress: refresh }}
+          actionTestID="rate-limit-retry-button"
+          secondaryAction={canDismiss ? { label: i18n.t('home.notNow'), onPress: handleDismissRateLimit } : undefined}
+        />
+      </View>
+    );
+  }
+
   function renderContent() {
     if (!selectedPeak) {
       return (
@@ -292,6 +321,7 @@ export default function HomeScreen() {
       return (
         <View style={[styles.forecastStack, isRefreshing && { opacity: 0.7 }]}>
           {isOffline && cachedAt ? <OfflineBanner cachedAt={cachedAt} /> : null}
+          {renderRateLimitState()}
           <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
           <ScoreCard
             score={displayScore}
@@ -309,6 +339,15 @@ export default function HomeScreen() {
     }
 
     if (weekError) {
+      if (weekError === 'RATE_LIMIT_EXCEEDED') {
+        return (
+          <View style={styles.forecastStack}>
+            <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
+            {renderRateLimitState(false)}
+          </View>
+        );
+      }
+
       if (weekError === 'QUOTA_EXCEEDED') {
         if (!quotaDismissed) {
           return (

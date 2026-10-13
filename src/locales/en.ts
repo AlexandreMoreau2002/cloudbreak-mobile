@@ -70,6 +70,8 @@ export default {
     notNow: 'Not now',
     quotaNoCacheTitle: 'No data for this summit',
     quotaNoCacheMessage: 'You\'ve reached your daily limit and this summit hasn\'t been checked yet today.',
+    rateLimitTitle: 'Too many requests',
+    rateLimitMessage: 'Wait a moment before retrying. Your displayed forecasts remain available.',
     offlineBanner: 'Data from %{time} · connection required to refresh',
     offlineNoCacheTitle: 'No data available',
     offlineNoCacheMessage: 'Connection required to see a fresh forecast.',
