@@ -15,8 +15,8 @@ import * as Notifications from 'expo-notifications';
 
 import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { updatePushToken } from '@/services/api/user';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function resolveProjectId(): string | undefined {
   return Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;

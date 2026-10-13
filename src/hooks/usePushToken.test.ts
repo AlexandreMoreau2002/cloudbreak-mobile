@@ -3,9 +3,9 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { usePushToken } from '@/hooks/usePushToken';
 import { updatePushToken } from '@/services/api/user';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/contexts/LanguageContext', () => ({ useLanguage: jest.fn() }));
