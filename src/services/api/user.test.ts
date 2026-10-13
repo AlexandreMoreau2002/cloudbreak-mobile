@@ -70,16 +70,16 @@ describe('updateNotificationPreferences', () => {
 describe('updatePushToken', () => {
   it('envoie le token en POST /api/v1/user/push-token', async () => {
     mockApiFetch.mockResolvedValueOnce(undefined);
-    await updatePushToken(TOKEN, 'ExponentPushToken[abc]');
+    await updatePushToken(TOKEN, 'ExponentPushToken[abc]', 'en');
     expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/user/push-token', TOKEN, undefined, {
       method: 'POST',
-      body: { push_token: 'ExponentPushToken[abc]' },
+      body: { push_token: 'ExponentPushToken[abc]', locale: 'en' },
     });
   });
 
   it('résout sans appel réseau en mode MOCK_API', async () => {
     mockDevConfigState.MOCK_API = true;
-    await expect(updatePushToken(TOKEN, 'push-token-123')).resolves.toBeUndefined();
+    await expect(updatePushToken(TOKEN, 'push-token-123', 'fr')).resolves.toBeUndefined();
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
@@ -88,7 +88,7 @@ describe('updatePushToken', () => {
     mockDevConfigState.MOCK_API = true;
     mockDevConfigState.DEBUG = true;
 
-    await updatePushToken(TOKEN, 'push-token-123');
+    await updatePushToken(TOKEN, 'push-token-123', 'fr');
 
     expect(consoleSpy).toHaveBeenCalledWith('[api/user] MOCK updatePushToken');
     consoleSpy.mockRestore();
