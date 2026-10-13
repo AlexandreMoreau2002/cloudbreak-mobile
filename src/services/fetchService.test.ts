@@ -1,5 +1,5 @@
-import { API_BASE, _delay, apiFetch } from '@/services/fetchService';
 import { getInstallationId } from '@/services/installationId';
+import { API_BASE, _delay, apiFetch, isApiErrorCode } from '@/services/fetchService';
 
 const mockDevConfigState = { DEBUG: false, SIMULATE_DELAY_MS: 0 };
 
@@ -243,6 +243,16 @@ describe('fetchService', () => {
       expect((err as Error).message).toBe('Quota journalier atteint');
       expect((err as Error & { code: string }).code).toBe('QUOTA_EXCEEDED');
     }
+  });
+
+  it('distinguishes a quota error from another HTTP 429', () => {
+    const quota = Object.assign(new Error('Quota'), { code: 'QUOTA_EXCEEDED', httpStatus: 429 });
+    const limited = Object.assign(new Error('Slow down'), { code: 'RATE_LIMIT_EXCEEDED', httpStatus: 429 });
+
+    expect(isApiErrorCode(quota, 'QUOTA_EXCEEDED')).toBe(true);
+    expect(isApiErrorCode(limited, 'QUOTA_EXCEEDED')).toBe(false);
+    expect(isApiErrorCode(limited, 'RATE_LIMIT_EXCEEDED')).toBe(true);
+    expect(isApiErrorCode({ code: 'QUOTA_EXCEEDED' }, 'QUOTA_EXCEEDED')).toBe(false);
   });
 
   it('lance NETWORK_UNREACHABLE quand fetch() rejette (backend injoignable)', async () => {

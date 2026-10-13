@@ -70,6 +70,8 @@ export default {
     notNow: 'Pas maintenant',
     quotaNoCacheTitle: 'Aucune donnée pour ce sommet',
     quotaNoCacheMessage: 'Ta limite quotidienne est atteinte et ce sommet n\'a pas encore été consulté aujourd\'hui.',
+    rateLimitTitle: 'Trop de demandes',
+    rateLimitMessage: 'Attends un instant avant de réessayer. Tes prévisions déjà affichées restent disponibles.',
     offlineBanner: 'Données de %{time} · connexion requise pour actualiser',
     offlineNoCacheTitle: 'Données non disponibles',
     offlineNoCacheMessage: 'Connexion requise pour voir une prévision fraîche.',
