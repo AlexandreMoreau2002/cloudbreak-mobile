@@ -15,13 +15,13 @@ import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { fetchWeekScores } from '@/services/api/score';
 import { DEBUG, MOCK_API } from '@/constants/devConfig';
-import type { DayScore, WeekScores } from '@/hooks/useWeekScores';
+import { fetchWeekScores } from '@/services/api/score';
 import { addDays, getTodayISO } from '@/utils/dateUtils';
-import { debugDataRefresh } from '@/services/dataRefreshDebug';
 import { isApiErrorCode } from '@/services/fetchService';
+import { debugDataRefresh } from '@/services/dataRefreshDebug';
 import type { ScoreResponse } from '@/services/mockData/types';
+import type { DayScore, WeekScores } from '@/hooks/useWeekScores';
 
 export type WeekData = {
   byDate: Record<string, Record<number, ScoreResponse>>;
