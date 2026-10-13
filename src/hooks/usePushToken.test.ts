@@ -257,4 +257,20 @@ describe('usePushToken', () => {
       expect(mockUpdate).toHaveBeenCalledWith('jwt', 'ExponentPushToken[abc]', 'fr'),
     );
   });
+
+  it("réessaie avec la nouvelle langue au retour actif si l'envoi a échoué", async () => {
+    const { rerender } = renderHook(() => usePushToken());
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+
+    mockUpdate.mockRejectedValueOnce(new Error('network down'));
+    mockUseLanguage.mockReturnValue({ locale: 'en' });
+    rerender({});
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(2));
+    await flush();
+
+    await becomeActive();
+
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(3));
+    expect(mockUpdate).toHaveBeenLastCalledWith('jwt', 'ExponentPushToken[abc]', 'en');
+  });
 });
