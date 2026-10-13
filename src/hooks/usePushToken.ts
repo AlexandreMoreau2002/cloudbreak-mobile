@@ -3,7 +3,7 @@
  *
  * Monté une fois à la racine (_layout.tsx). N'agit que pour un compte permanent dont la
  * permission iOS est DÉJÀ accordée (la demande se fait à l'onboarding) : aucune invite ici.
- * Le token n'est renvoyé que s'il change pour l'utilisateur courant (un refresh du JWT ne le renvoie pas). Jamais bloquant.
+ * Le token n'est renvoyé que s'il change pour l'utilisateur courant (un refresh du JWT ne le renvoie pas). La langue de l'app part avec le token ; la changer le renvoie. Jamais bloquant.
  *
  * Usage :
  *   usePushToken(); // dans AppStack, sans destructuring
@@ -15,6 +15,7 @@ import * as Notifications from 'expo-notifications';
 
 import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { updatePushToken } from '@/services/api/user';
 
 function resolveProjectId(): string | undefined {
@@ -23,6 +24,9 @@ function resolveProjectId(): string | undefined {
 
 export function usePushToken(): void {
   const { session, isAnonymous } = useAuth();
+  const { locale: appLocale } = useLanguage();
+  // Le backend n'accepte que fr | en (422 sinon) : tout autre cas retombe sur fr.
+  const locale = appLocale === 'en' ? 'en' : 'fr';
   const userId = session?.user?.id ?? null;
   // Le JWT est renouvelé toutes les heures : on le garde en ref pour ne pas relancer l'effet
   // (et re-POSTer le token) à chaque refresh, ni risquer de ré-attacher le token au logout.
@@ -52,10 +56,10 @@ export function usePushToken(): void {
         const { data: pushToken } = await Notifications.getExpoPushTokenAsync({
           projectId: resolveProjectId(),
         });
-        const key = `${userId}:${pushToken}`;
+        const key = `${userId}:${pushToken}:${locale}`;
         const jwt = accessTokenRef.current;
         if (cancelled || !jwt || lastSentRef.current === key) return;
-        await updatePushToken(jwt, pushToken);
+        await updatePushToken(jwt, pushToken, locale);
         // Un POST déjà parti ne peut pas être annulé : on évite au moins de mémoriser la clé
         // d'une identité qui n'est plus la courante.
         if (!cancelled) lastSentRef.current = key;
@@ -79,5 +83,5 @@ export function usePushToken(): void {
       cancelled = true;
       subscription.remove();
     };
-  }, [userId, isAnonymous]);
+  }, [userId, isAnonymous, locale]);
 }

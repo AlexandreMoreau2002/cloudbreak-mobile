@@ -25,7 +25,7 @@ Logout (signOut / signOutToAnonymous)
 
 ## Fichiers
 
-- `src/services/api/user.ts` : `updatePushToken` corrigé (POST avec corps), `deletePushToken` ajouté.
+- `src/services/api/user.ts` : `updatePushToken` corrigé (POST avec corps `{ push_token, locale }` ; le backend 5.2 doit être déployé avant ce mobile, sinon 422 sur `locale`), `deletePushToken` ajouté.
 - `src/hooks/usePushToken.ts` : hook d'enregistrement, monté dans `AppStack` (`src/app/_layout.tsx`).
 - `src/contexts/AuthContext.tsx` : `releasePushToken` appelé par `signOut` et `signOutToAnonymous`.
 - `jest.setup.ts` : mock de `getExpoPushTokenAsync`.

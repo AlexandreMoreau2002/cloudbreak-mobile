@@ -98,7 +98,11 @@ export async function updateNotificationPreferences(
   });
 }
 
-export async function updatePushToken(token: string, push_token: string): Promise<void> {
+export async function updatePushToken(
+  token: string,
+  push_token: string,
+  locale: 'fr' | 'en',
+): Promise<void> {
   if (MOCK_API) {
     if (DEBUG) console.debug('[api/user] MOCK updatePushToken');
     await _delay(100);
@@ -106,7 +110,7 @@ export async function updatePushToken(token: string, push_token: string): Promis
   }
   await apiFetch<void>('/api/v1/user/push-token', token, undefined, {
     method: 'POST',
-    body: { push_token },
+    body: { push_token, locale },
   });
 }
 
