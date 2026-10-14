@@ -2,10 +2,12 @@
 
 ## État
 
-Implémentation livrée avec 2.5 et 2.6 sur `feature/parcours-compte-2-5-2-6-2-8`. Parcours e-mail
-raccordé (2026-09-06) ; reste à éprouver le provisioning + l'OTP sur l'instance Supabase dev
-(voir [`story-2-5-manual-test-guide.md`](story-2-5-manual-test-guide.md)). Le sondage via
-création **Apple** dépend du compte Apple Developer payant.
+Implémentation livrée avec 2.5 et 2.6 sur `feature/parcours-compte-2-5-2-6-2-8`. La persistance
+réelle a été validée le 2026-10-14 avec un compte Supabase jetable, via FastAPI local et
+PostgreSQL : la première réponse est conservée, une seconde est ignorée et
+`GET /api/v1/user/me` restitue le même état terminal. Le compte jetable a été supprimé via
+`DELETE /api/v1/user` à la fin de la vérification.
+Le sondage via création **Apple** dépend toujours du compte Apple Developer payant.
 
 ## Fonctionnement
 
@@ -38,7 +40,11 @@ on peut retirer **et** ré-accorder le consentement (RGPD art. 7-3). Event analy
 ## Tests
 
 Les tests mobile mockent `saveSurvey`, le routeur et le gate : réponses partielles, toutes les
-catégories, skip, double soumission, erreur réseau et replay après succès sont couverts. Le test
-réel doit vérifier les deux questions, chaque catégorie, caractères/locale, skip, retry après
-erreur, idempotence serveur et absence du sondage en reconnexion. Les tests mockés ne prouvent
-pas la persistance PostgreSQL ni un compte Supabase réel.
+catégories, skip, double soumission, erreur réseau et replay après succès sont couverts. La
+vérification réelle couvre uniquement la persistance API : première réponse, seconde réponse
+ignorée et relecture de l'état terminal. Elle est rejouable avec les trois requêtes décrites dans
+[`backend/http/user-provisioning.http`](../../backend/http/user-provisioning.http), en utilisant
+un JWT de compte permanent dont le sondage est vierge.
+
+Restent à valider manuellement sur l'app : le chemin UI de skip, toutes les catégories,
+caractères/locale, retry après erreur et l'absence du sondage lors d'une reconnexion.
