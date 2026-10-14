@@ -47,4 +47,5 @@ ignorée et relecture de l'état terminal. Elle est rejouable avec les trois req
 un JWT de compte permanent dont le sondage est vierge.
 
 Restent à valider manuellement sur l'app : le chemin UI de skip, toutes les catégories,
-caractères/locale, retry après erreur et l'absence du sondage lors d'une reconnexion.
+caractères/locale, retry après erreur, l'absence du sondage lors d'une reconnexion et le
+parcours de création e-mail avec OTP Supabase. La vérification API ne couvre pas l'OTP.
