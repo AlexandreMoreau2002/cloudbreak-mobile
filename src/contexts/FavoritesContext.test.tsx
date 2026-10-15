@@ -1,8 +1,10 @@
+import { Text } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
 
-import { useFavorites } from '@/hooks/useFavorites';
+import type { FavoriteResponse } from '@/services/mockData/types';
+import { FavoritesProvider, useFavorites, type FavoritesContextValue } from '@/contexts/FavoritesContext';
 
 const mockFetchFavorites = jest.fn();
 const mockRemoveFavorite = jest.fn();
@@ -52,6 +54,7 @@ const mockNetInfoFetch = NetInfo.fetch as jest.MockedFunction<typeof NetInfo.fet
 
 const MOCK_PEAK_1 = { id: 'peak-1', name: 'Mont Blanc', slug: 'mont-blanc', lat: 45.83, lng: 6.87, altitude: 4808 };
 const MOCK_PEAK_2 = { id: 'peak-2', name: 'Ventoux', slug: 'mont-ventoux', lat: 44.17, lng: 5.28, altitude: 1909 };
+const MOCK_PEAK_3 = { id: 'peak-3', name: 'Aiguille du Midi', slug: 'aiguille-du-midi', lat: 45.88, lng: 6.89, altitude: 3842 };
 
 const MOCK_FAVORITES = [
   { id: 'fav-1', peak_id: MOCK_PEAK_1.id, peak: MOCK_PEAK_1, created_at: '2024-01-01T00:00:00Z' },
@@ -60,29 +63,63 @@ const MOCK_FAVORITES = [
 
 const CACHE_KEY = 'cache:favorites:v1:user-1';
 
-describe('useFavorites', () => {
+const latest = {} as Record<'home' | 'search', FavoritesContextValue>;
+
+function Probe({ id }: { id: 'home' | 'search' }) {
+  const value = useFavorites();
+  // eslint-disable-next-line react-hooks/immutability -- test probe captures both consumers' latest shared state
+  latest[id] = value;
+  return <Text testID={`${id}-count`}>
+    {value.state.status === 'success' ? value.state.data?.length : -1}
+  </Text>;
+}
+
+function renderFavorites() {
+  return render(
+    <FavoritesProvider>
+      <Probe id="home" />
+      <Probe id="search" />
+    </FavoritesProvider>,
+  );
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+describe('FavoritesProvider', () => {
   it('trace montage, mutation et refresh manuel avant les lectures réseau', async () => {
     const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
     mockDevConfigState.DEBUG = true;
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
-    mockAddFavorite.mockResolvedValueOnce(undefined);
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
-    await act(async () => { await result.current.addFavorite('peak-3'); });
-    await act(async () => { await result.current.refresh(); });
+    mockAddFavorite.mockResolvedValueOnce({ id: 'fav-3', peak_id: 'peak-3', peak: MOCK_PEAK_3, created_at: '' });
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
+    await act(async () => { await latest.home.addFavorite('peak-3'); });
+    await act(async () => { await latest.home.refresh(); });
 
     expect(debugSpy.mock.calls.filter(([label]) => label === '[data-refresh]')).toEqual([
       ['[data-refresh]', { source: 'favorites', reason: 'mount-or-session', context: undefined }],
-      ['[data-refresh]', { source: 'favorites', reason: 'mutation', context: undefined }],
       ['[data-refresh]', { source: 'favorites', reason: 'manual', context: undefined }],
     ]);
-    expect(mockFetchFavorites).toHaveBeenCalledTimes(3);
+    expect(mockFetchFavorites).toHaveBeenCalledTimes(2);
     expect(JSON.stringify(debugSpy.mock.calls)).not.toMatch(/mock-token|user-1/);
     debugSpy.mockRestore();
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetchFavorites.mockReset();
+    mockAddFavorite.mockReset();
+    mockRemoveFavorite.mockReset();
+    mockAddFavorite.mockResolvedValue({ id: 'fav-3', peak_id: 'peak-3', peak: MOCK_PEAK_3, created_at: '' });
+    mockRemoveFavorite.mockResolvedValue(undefined);
     mockAuthState.session = { access_token: 'mock-token', user: { id: 'user-1' } };
     mockAuthState.isAnonymous = false;
     mockDevConfigState.MOCK_API = false;
@@ -94,27 +131,27 @@ describe('useFavorites', () => {
 
   it('charge les favoris au mount', async () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
     await waitFor(() => {
-      expect(result.current.state.status).toBe('success');
+      expect(latest.home.state.status).toBe('success');
     });
 
-    expect(result.current.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2]);
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2]);
     expect(mockFetchFavorites).toHaveBeenCalledWith('mock-token');
   });
 
   it('écrit en cache après un chargement réseau réussi', async () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
       CACHE_KEY,
       expect.stringContaining('"peaks"'),
     );
-    expect(result.current.fromCache).toBe(false);
+    expect(latest.home.fromCache).toBe(false);
   });
 
   it('retombe sur le cache si le fetch réseau échoue (cache hit)', async () => {
@@ -124,13 +161,13 @@ describe('useFavorites', () => {
     );
     mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
-    expect(result.current.state.data).toEqual([MOCK_PEAK_1]);
-    expect(result.current.fromCache).toBe(true);
-    expect(result.current.cachedAt).toBe(cachedAt);
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_1]);
+    expect(latest.home.fromCache).toBe(true);
+    expect(latest.home.cachedAt).toBe(cachedAt);
   });
 
   it('log le fallback cache en mode debug si le fetch échoue (cache hit)', async () => {
@@ -142,9 +179,9 @@ describe('useFavorites', () => {
     );
     mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     expect(consoleSpy).toHaveBeenCalledWith(
       '[useFavorites] fetch failed, fallback cache',
@@ -160,34 +197,34 @@ describe('useFavorites', () => {
     );
     mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state.status).toBe('error'));
+    await waitFor(() => expect(latest.home.state.status).toBe('error'));
 
-    expect(result.current.state.error).toBe('Erreur réseau');
-    expect(result.current.fromCache).toBe(false);
+    expect(latest.home.state.error).toBe('Erreur réseau');
+    expect(latest.home.fromCache).toBe(false);
   });
 
   it('ignore un cache corrompu (JSON invalide) et retombe en erreur', async () => {
     mockAsyncStorage.getItem.mockResolvedValue('not-json{{{');
     mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state.status).toBe('error'));
+    await waitFor(() => expect(latest.home.state.status).toBe('error'));
 
-    expect(result.current.state.error).toBe('Erreur réseau');
+    expect(latest.home.state.error).toBe('Erreur réseau');
   });
 
   it('passe en erreur si fetchFavorites rejette et aucun cache disponible', async () => {
     mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
     await waitFor(() => {
-      expect(result.current.state.status).toBe('error');
+      expect(latest.home.state.status).toBe('error');
     });
 
-    expect(result.current.state.error).toBe('Erreur réseau');
+    expect(latest.home.state.error).toBe('Erreur réseau');
   });
 
   it('retombe sur le cache si hors-ligne au chargement (cache hit)', async () => {
@@ -197,12 +234,12 @@ describe('useFavorites', () => {
       JSON.stringify({ peaks: [MOCK_PEAK_2], cachedAt }),
     );
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
-    expect(result.current.state.data).toEqual([MOCK_PEAK_2]);
-    expect(result.current.fromCache).toBe(true);
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_2]);
+    expect(latest.home.fromCache).toBe(true);
     expect(mockFetchFavorites).not.toHaveBeenCalled();
   });
 
@@ -215,9 +252,9 @@ describe('useFavorites', () => {
       JSON.stringify({ peaks: [MOCK_PEAK_2], cachedAt }),
     );
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     expect(consoleSpy).toHaveBeenCalledWith(
       '[useFavorites] offline, fallback cache',
@@ -230,11 +267,11 @@ describe('useFavorites', () => {
     mockNetInfoFetch.mockResolvedValue({ isConnected: false } as never);
     mockAsyncStorage.getItem.mockResolvedValue(null);
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state.status).toBe('error'));
+    await waitFor(() => expect(latest.home.state.status).toBe('error'));
 
-    expect(result.current.state.error).toBe('OFFLINE_NO_CACHE');
+    expect(latest.home.state.error).toBe('OFFLINE_NO_CACHE');
     expect(mockFetchFavorites).not.toHaveBeenCalled();
   });
 
@@ -245,11 +282,11 @@ describe('useFavorites', () => {
       JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt: Date.now() }),
     );
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state.status).toBe('error'));
+    await waitFor(() => expect(latest.home.state.status).toBe('error'));
 
-    expect(result.current.state.error).toBe('OFFLINE_NO_CACHE');
+    expect(latest.home.state.error).toBe('OFFLINE_NO_CACHE');
   });
 
   it('ignore le cache de fallback en mode MOCK_API si le fetch échoue', async () => {
@@ -259,45 +296,46 @@ describe('useFavorites', () => {
     );
     mockFetchFavorites.mockRejectedValue(new Error('Erreur réseau'));
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state.status).toBe('error'));
+    await waitFor(() => expect(latest.home.state.status).toBe('error'));
 
-    expect(result.current.state.error).toBe('Erreur réseau');
+    expect(latest.home.state.error).toBe('Erreur réseau');
   });
 
   it('n\'écrit pas en cache en mode MOCK_API', async () => {
     mockDevConfigState.MOCK_API = true;
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
 
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
   });
 
-  it('addFavorite appelle l\'API et recharge la liste', async () => {
+  it('addFavorite appelle l\'API et met à jour la liste', async () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
-    mockAddFavorite.mockResolvedValue({ id: 'fav-new', peak_id: 'peak-3', peak: MOCK_PEAK_1, created_at: '' });
+    mockAddFavorite.mockResolvedValue({ id: 'fav-3', peak_id: 'peak-3', peak: MOCK_PEAK_3, created_at: '' });
 
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     await act(async () => {
-      await result.current.addFavorite('peak-3');
+      await latest.home.addFavorite('peak-3');
     });
 
     expect(mockAddFavorite).toHaveBeenCalledWith('mock-token', 'peak-3');
-    expect(mockFetchFavorites).toHaveBeenCalledTimes(2);
+    expect(mockFetchFavorites).toHaveBeenCalledTimes(1);
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2, MOCK_PEAK_3]);
   });
 
   it('un invité ouvre account au lieu d’appeler le backend pour ajouter un favori', async () => {
     mockAuthState.isAnonymous = true;
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state).toEqual({ status: 'success', data: [] }));
-    await act(async () => result.current.addFavorite('peak-3'));
+    await waitFor(() => expect(latest.home.state).toEqual({ status: 'success', data: [] }));
+    await act(async () => latest.home.addFavorite('peak-3'));
 
     expect(mockRequireAccount).toHaveBeenCalledWith({ kind: 'favorite', peakId: 'peak-3' });
     expect(mockAddFavorite).not.toHaveBeenCalled();
@@ -306,48 +344,49 @@ describe('useFavorites', () => {
 
   it('un invité obtient une liste vide sûre sans requête favoris ni cache', async () => {
     mockAuthState.isAnonymous = true;
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
-    await waitFor(() => expect(result.current.state).toEqual({ status: 'success', data: [] }));
+    await waitFor(() => expect(latest.home.state).toEqual({ status: 'success', data: [] }));
 
     expect(mockNetInfoFetch).not.toHaveBeenCalled();
     expect(mockFetchFavorites).not.toHaveBeenCalled();
     expect(mockAsyncStorage.getItem).not.toHaveBeenCalled();
   });
 
-  it('removeFavorite appelle l\'API et recharge la liste', async () => {
+  it('removeFavorite appelle l\'API et met à jour la liste', async () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
     mockRemoveFavorite.mockResolvedValue(undefined);
 
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     await act(async () => {
-      await result.current.removeFavorite(MOCK_PEAK_1.id);
+      await latest.home.removeFavorite(MOCK_PEAK_1.id);
     });
 
     expect(mockRemoveFavorite).toHaveBeenCalledWith('mock-token', MOCK_PEAK_1.id);
-    expect(mockFetchFavorites).toHaveBeenCalledTimes(2);
+    expect(mockFetchFavorites).toHaveBeenCalledTimes(1);
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_2]);
   });
 
   it('liste vide si fetchFavorites retourne []', async () => {
     mockFetchFavorites.mockResolvedValue([]);
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
     await waitFor(() => {
-      expect(result.current.state.status).toBe('success');
+      expect(latest.home.state.status).toBe('success');
     });
 
-    expect(result.current.state.data).toEqual([]);
+    expect(latest.home.state.data).toEqual([]);
   });
 
   it('refresh recharge la liste', async () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     await act(async () => {
-      await result.current.refresh();
+      await latest.home.refresh();
     });
 
     expect(mockFetchFavorites).toHaveBeenCalledTimes(2);
@@ -356,10 +395,10 @@ describe('useFavorites', () => {
   it('passe en erreur si aucun token n’est disponible', async () => {
     mockAuthState.session = null;
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
     await waitFor(() => {
-      expect(result.current.state).toEqual({ status: 'error', error: 'Non authentifié' });
+      expect(latest.home.state).toEqual({ status: 'error', error: 'Non authentifié' });
     });
 
     expect(mockFetchFavorites).not.toHaveBeenCalled();
@@ -367,10 +406,10 @@ describe('useFavorites', () => {
 
   it('ignore addFavorite sans token', async () => {
     mockAuthState.session = null;
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
     await act(async () => {
-      await result.current.addFavorite('peak-3');
+      await latest.home.addFavorite('peak-3');
     });
 
     expect(mockAddFavorite).not.toHaveBeenCalled();
@@ -378,10 +417,10 @@ describe('useFavorites', () => {
 
   it('ignore removeFavorite sans token', async () => {
     mockAuthState.session = null;
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
     await act(async () => {
-      await result.current.removeFavorite('peak-3');
+      await latest.home.removeFavorite('peak-3');
     });
 
     expect(mockRemoveFavorite).not.toHaveBeenCalled();
@@ -389,10 +428,10 @@ describe('useFavorites', () => {
 
   it('ignore removeFavorite pour une session invitée', async () => {
     mockAuthState.isAnonymous = true;
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
-    await act(async () => result.current.removeFavorite('peak-3'));
+    await act(async () => latest.home.removeFavorite('peak-3'));
 
     expect(mockRemoveFavorite).not.toHaveBeenCalled();
   });
@@ -403,11 +442,11 @@ describe('useFavorites', () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
     mockAddFavorite.mockRejectedValue('unexpected error');
 
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     await act(async () => {
-      await result.current.addFavorite('peak-3');
+      await latest.home.addFavorite('peak-3');
     });
 
     expect(consoleSpy).toHaveBeenCalledWith(
@@ -423,11 +462,11 @@ describe('useFavorites', () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
     mockRemoveFavorite.mockRejectedValue(new Error('remove failed'));
 
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     await act(async () => {
-      await result.current.removeFavorite('peak-1');
+      await latest.home.removeFavorite('peak-1');
     });
 
     expect(consoleSpy).toHaveBeenCalledWith(
@@ -442,10 +481,10 @@ describe('useFavorites', () => {
     mockDevConfigState.DEBUG = true;
     mockFetchFavorites.mockRejectedValue(new Error('fetch failed'));
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
     await waitFor(() => {
-      expect(result.current.state).toEqual({ status: 'error', error: 'fetch failed' });
+      expect(latest.home.state).toEqual({ status: 'error', error: 'fetch failed' });
     });
 
     expect(consoleSpy).toHaveBeenCalledWith(
@@ -458,10 +497,10 @@ describe('useFavorites', () => {
   it('retourne "Erreur inconnue" si le chargement initial rejette une valeur non Error', async () => {
     mockFetchFavorites.mockRejectedValue('unexpected');
 
-    const { result } = renderHook(() => useFavorites());
+    renderFavorites();
 
     await waitFor(() => {
-      expect(result.current.state).toEqual({ status: 'error', error: 'Erreur inconnue' });
+      expect(latest.home.state).toEqual({ status: 'error', error: 'Erreur inconnue' });
     });
   });
 
@@ -471,11 +510,11 @@ describe('useFavorites', () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
     mockAddFavorite.mockRejectedValue(new Error('add failed'));
 
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     await act(async () => {
-      await result.current.addFavorite('peak-3');
+      await latest.home.addFavorite('peak-3');
     });
 
     expect(consoleSpy).toHaveBeenCalledWith(
@@ -490,11 +529,11 @@ describe('useFavorites', () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
     mockAddFavorite.mockRejectedValue(new Error('add failed'));
 
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     await act(async () => {
-      await result.current.addFavorite('peak-3');
+      await latest.home.addFavorite('peak-3');
     });
 
     expect(consoleSpy).not.toHaveBeenCalledWith(
@@ -510,11 +549,11 @@ describe('useFavorites', () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
     mockRemoveFavorite.mockRejectedValue('remove failed');
 
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     await act(async () => {
-      await result.current.removeFavorite('peak-1');
+      await latest.home.removeFavorite('peak-1');
     });
 
     expect(consoleSpy).toHaveBeenCalledWith(
@@ -529,11 +568,11 @@ describe('useFavorites', () => {
     mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
     mockRemoveFavorite.mockRejectedValue(new Error('remove failed'));
 
-    const { result } = renderHook(() => useFavorites());
-    await waitFor(() => expect(result.current.state.status).toBe('success'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
 
     await act(async () => {
-      await result.current.removeFavorite('peak-1');
+      await latest.home.removeFavorite('peak-1');
     });
 
     expect(consoleSpy).not.toHaveBeenCalledWith(
@@ -541,5 +580,103 @@ describe('useFavorites', () => {
       expect.anything(),
     );
     consoleSpy.mockRestore();
+  });
+
+  it('coalesce le montage et deux revalidations pendant le même GET', async () => {
+    const pending = deferred<FavoriteResponse[]>();
+    mockFetchFavorites.mockReturnValue(pending.promise);
+    renderFavorites();
+
+    await act(async () => {
+      void latest.home.revalidate();
+      void latest.search.revalidate();
+    });
+    expect(mockFetchFavorites).toHaveBeenCalledTimes(1);
+
+    await act(async () => pending.resolve(MOCK_FAVORITES));
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
+    expect(latest.search.state).toEqual(latest.home.state);
+  });
+
+  it('partage un ajout sans GET de réconciliation', async () => {
+    mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
+
+    await act(async () => latest.home.addFavorite('peak-3'));
+
+    expect(mockFetchFavorites).toHaveBeenCalledTimes(1);
+    expect(latest.home.state).toMatchObject({ status: 'success', data: expect.arrayContaining([MOCK_PEAK_3]) });
+    expect(latest.search.state).toEqual(latest.home.state);
+  });
+
+  it('retire un favori partagé et écrit le cache', async () => {
+    mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
+
+    await act(async () => latest.search.removeFavorite(MOCK_PEAK_1.id));
+
+    expect(mockFetchFavorites).toHaveBeenCalledTimes(1);
+    expect(latest.home.state).toMatchObject({ status: 'success', data: [MOCK_PEAK_2] });
+    expect(latest.search.state).toEqual(latest.home.state);
+    expect(mockAsyncStorage.setItem).toHaveBeenLastCalledWith(CACHE_KEY, expect.stringContaining('peak-2'));
+  });
+
+  it('réessaie après erreur puis ne relit pas sous 60 secondes', async () => {
+    mockFetchFavorites.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(MOCK_FAVORITES);
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('error'));
+
+    await act(async () => latest.home.revalidate());
+    await waitFor(() => expect(mockFetchFavorites).toHaveBeenCalledTimes(2));
+    await act(async () => latest.home.revalidate());
+
+    expect(mockFetchFavorites).toHaveBeenCalledTimes(2);
+  });
+
+  it('affiche le cache valide avant la réponse réseau', async () => {
+    const pending = deferred<FavoriteResponse[]>();
+    const snapshot = Date.now() - 30_000;
+    mockAsyncStorage.getItem.mockResolvedValue(JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt: snapshot }));
+    mockFetchFavorites.mockReturnValue(pending.promise);
+    renderFavorites();
+
+    await waitFor(() => expect(latest.home.fromCache).toBe(true));
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_1]);
+    expect(latest.search.cachedAt).toBe(snapshot);
+
+    await act(async () => pending.resolve(MOCK_FAVORITES));
+    await waitFor(() => expect(latest.home.fromCache).toBe(false));
+  });
+
+  it('garde la liste partagée et le cache si l’ajout échoue', async () => {
+    mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
+    mockAddFavorite.mockRejectedValue(new Error('add failed'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
+    const cacheBefore = mockAsyncStorage.setItem.mock.calls.at(-1)?.[1];
+
+    await act(async () => latest.search.addFavorite('peak-3'));
+
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2]);
+    expect(latest.search.state).toEqual(latest.home.state);
+    expect(mockAsyncStorage.setItem).toHaveBeenCalledTimes(1);
+    expect(mockAsyncStorage.setItem.mock.calls.at(-1)?.[1]).toBe(cacheBefore);
+  });
+
+  it('garde la liste partagée et le cache si la suppression échoue', async () => {
+    mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
+    mockRemoveFavorite.mockRejectedValue(new Error('remove failed'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
+    const cacheBefore = mockAsyncStorage.setItem.mock.calls.at(-1)?.[1];
+
+    await act(async () => latest.search.removeFavorite(MOCK_PEAK_1.id));
+
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2]);
+    expect(latest.search.state).toEqual(latest.home.state);
+    expect(mockAsyncStorage.setItem).toHaveBeenCalledTimes(1);
+    expect(mockAsyncStorage.setItem.mock.calls.at(-1)?.[1]).toBe(cacheBefore);
   });
 });

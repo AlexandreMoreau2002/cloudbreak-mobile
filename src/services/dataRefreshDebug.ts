@@ -8,7 +8,7 @@ export type DataRefreshSource =
   | 'notifications'
   | 'subscription';
 
-export type DataRefreshReason = 'mount-or-session' | 'manual' | 'mutation' | 'foreground';
+export type DataRefreshReason = 'mount-or-session' | 'manual' | 'mutation' | 'foreground' | 'focus';
 
 export function debugDataRefresh(
   source: DataRefreshSource,
