@@ -271,18 +271,36 @@ describe('SubscriptionProvider refresh freshness', () => {
     await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(2));
   });
 
-  it('retire Premium au foreground dès son expiration sous le TTL', async () => {
+  it('relit l’abonnement dès son expiration locale malgré le TTL', async () => {
     mockFetchSubscription.mockResolvedValueOnce({
       plan: 'premium', status: 'active', expires_at: '2026-10-15T12:00:30Z',
     });
     renderProvider();
     await waitFor(() => expect(latest?.isPremium).toBe(true));
 
-    act(() => { jest.advanceTimersByTime(31_000); });
+    mockFetchSubscription.mockResolvedValueOnce({
+      plan: 'premium', status: 'active', expires_at: '2026-11-15T12:00:00Z',
+    });
+    await act(async () => { jest.advanceTimersByTime(31_000); });
     act(() => { appStateListener('active'); });
 
-    expect(mockFetchSubscription).toHaveBeenCalledTimes(1);
-    expect(latest?.isPremium).toBe(false);
+    // L'expiration locale force une relecture (sous le TTL) : un renouvellement a pu avoir lieu.
+    await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(latest?.isPremium).toBe(true));
+  });
+
+  it('retire Premium à l’expiration même sans passage en arrière-plan', async () => {
+    mockFetchSubscription.mockResolvedValueOnce({
+      plan: 'premium', status: 'active', expires_at: '2026-10-15T12:00:30Z',
+    });
+    renderProvider();
+    await waitFor(() => expect(latest?.isPremium).toBe(true));
+
+    mockFetchSubscription.mockResolvedValueOnce({ plan: 'free', status: 'expired', expires_at: null });
+    await act(async () => { jest.advanceTimersByTime(31_000); });
+
+    await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(latest?.isPremium).toBe(false));
   });
 
   it('force un refresh manuel malgré la fraîcheur du dernier GET', async () => {

@@ -684,6 +684,36 @@ describe('FavoritesProvider', () => {
     expect(mockAsyncStorage.setItem.mock.calls.at(-1)?.[1]).toBe(cacheBefore);
   });
 
+  it('relit le serveur après un ajout quand aucune liste n’est connue', async () => {
+    mockFetchFavorites.mockRejectedValueOnce(new Error('boom'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('error'));
+    mockAddFavorite.mockResolvedValueOnce({ id: 'fav-3', peak_id: 'peak-3', peak: MOCK_PEAK_3, created_at: '' });
+    mockFetchFavorites.mockResolvedValue([...MOCK_FAVORITES, { id: 'fav-3', peak_id: 'peak-3', peak: MOCK_PEAK_3, created_at: '' }]);
+
+    await act(async () => latest.home.addFavorite('peak-3'));
+
+    await waitFor(() => expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2, MOCK_PEAK_3]));
+  });
+
+  it('ne recharge pas les favoris quand seul le jeton est renouvelé', async () => {
+    mockFetchFavorites.mockResolvedValue(MOCK_FAVORITES);
+    const view = renderFavorites();
+    await waitFor(() => expect(latest.home.state.status).toBe('success'));
+
+    mockAuthState.session = { access_token: 'rotated-token', user: { id: 'user-1' } };
+    view.rerender(
+      <FavoritesProvider>
+        <Probe id="home" />
+        <Probe id="search" />
+      </FavoritesProvider>,
+    );
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockFetchFavorites).toHaveBeenCalledTimes(1);
+    expect(latest.home.state.status).toBe('success');
+  });
+
   it('conserve l’ajout si le GET déjà lancé renvoie un ancien snapshot', async () => {
     const pending = deferred<FavoriteResponse[]>();
     mockFetchFavorites.mockReturnValue(pending.promise);
@@ -691,7 +721,8 @@ describe('FavoritesProvider', () => {
     await waitFor(() => expect(mockFetchFavorites).toHaveBeenCalledTimes(1));
 
     await act(async () => latest.home.addFavorite('peak-3'));
-    expect(latest.search.state.data).toEqual([MOCK_PEAK_3]);
+    // Sans liste de référence, pas de liste partielle publiée : on attend le GET.
+    expect(latest.search.state.status).toBe('loading');
     await act(async () => pending.resolve(MOCK_FAVORITES));
 
     expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2, MOCK_PEAK_3]);

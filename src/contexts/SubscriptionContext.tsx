@@ -27,6 +27,7 @@ const PRODUCT_IDS = [
   'com.alexandremoreau.cloudbreak.premium.annual',
 ] as const;
 const SUBSCRIPTION_FRESHNESS_MS = 60 * 1000;
+const MAX_TIMER_MS = 2 ** 31 - 1;
 
 export type SubscriptionProductId = (typeof PRODUCT_IDS)[number];
 
@@ -92,6 +93,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [state, setState] = useState<SubscriptionState>(FREE_STATE);
   const [products, setProducts] = useState<StoreKitProduct[]>([]);
   const sessionRef = useRef(session);
+  const stateRef = useRef(state);
   const lastFetchedAtRef = useRef<number | null>(null);
   const inFlightRef = useRef<Promise<void> | null>(null);
   const inFlightGenerationRef = useRef<number | null>(null);
@@ -220,19 +222,32 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     else setState(FREE_STATE);
   }, [userId, load]);
 
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  /** Marque le droit expiré en local et force la relecture (un renouvellement a pu avoir lieu). */
+  const expireLocally = useCallback((): boolean => {
+    const current = stateRef.current;
+    const entitled = current.plan === 'premium' && (current.status === 'trial' || current.status === 'active');
+    if (!entitled || hasFutureExpiry(current.expires_at)) return false;
+    setState((latest) => ({ ...latest, status: 'expired' }));
+    void load('foreground', true);
+    return true;
+  }, [load]);
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        setState((current) => {
-          if (current.plan !== 'premium' || (current.status !== 'trial' && current.status !== 'active')
-            || hasFutureExpiry(current.expires_at)) return current;
-          return { ...current, status: 'expired' };
-        });
-        void load('foreground', false);
-      }
+      if (nextState === 'active' && !expireLocally()) void load('foreground', false);
     });
     return () => subscription.remove();
-  }, [load]);
+  }, [load, expireLocally]);
+
+  useEffect(() => {
+    if (state.plan !== 'premium' || (state.status !== 'trial' && state.status !== 'active')) return undefined;
+    const expiresAtMs = state.expires_at ? Date.parse(state.expires_at) : NaN;
+    if (!Number.isFinite(expiresAtMs)) return undefined;
+    const timer = setTimeout(expireLocally, Math.min(Math.max(expiresAtMs - Date.now(), 0) + 100, MAX_TIMER_MS));
+    return () => clearTimeout(timer);
+  }, [state.plan, state.status, state.expires_at, expireLocally]);
 
   const purchase = useCallback(async (productId: SubscriptionProductId): Promise<void> => {
     const { data } = await supabase.auth.getSession();
