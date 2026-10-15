@@ -134,16 +134,15 @@ export default function HomeScreen() {
     userClickedHourRef.current = false;
   }, [weekData, selectedDate, selectedHour, setSelectedDate, setSelectedHour]);
 
-  const { state: favoritesState, addFavorite, removeFavorite, refresh: refreshFavorites } = useFavorites();
+  const { state: favoritesState, addFavorite, removeFavorite, revalidate } = useFavorites();
   const favorites: Peak[] = favoritesState.status === 'success' ? favoritesState.data || [] : [];
 
-  // Recharge les favoris à chaque retour sur Home (ex: ajout/suppression depuis
-  // l'onglet Favoris) — sans ça la liste affichée sous la prévision peut rester
-  // périmée ou vide si le premier chargement a échoué avant que l'écran soit visité.
+  // Vérifie la fraîcheur des favoris au retour sur Home (ex: ajout/suppression
+  // depuis l'onglet Favoris), sans forcer une requête si le cache est récent.
   useFocusEffect(
     useCallback(() => {
-      refreshFavorites();
-    }, [refreshFavorites]),
+      void revalidate();
+    }, [revalidate]),
   );
 
   const terrain = useTerrainValidation({ token, locationPermission });

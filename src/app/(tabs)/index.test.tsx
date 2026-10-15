@@ -206,8 +206,10 @@ jest.mock('@/hooks/useWeekData', () => ({
 }));
 
 const mockUseFavorites = jest.fn();
+const mockRevalidate = jest.fn();
+const mockRefreshFavorites = jest.fn();
 jest.mock('@/hooks/useFavorites', () => ({
-  useFavorites: () => mockUseFavorites(),
+  useFavorites: () => ({ revalidate: mockRevalidate, ...mockUseFavorites() }),
 }));
 
 let mockIsFocused = true;
@@ -395,7 +397,7 @@ describe('HomeScreen', () => {
       state: { status: 'success', data: [] },
       addFavorite: jest.fn(),
       removeFavorite: jest.fn(),
-      refresh: jest.fn(),
+      refresh: mockRefreshFavorites,
     });
   });
 
@@ -406,6 +408,12 @@ describe('HomeScreen', () => {
   it('affiche_invite_si_pas_de_sommet_selectionne', () => {
     render(<HomeScreen />);
     expect(screen.getByText('Choisissez un sommet')).toBeTruthy();
+  });
+
+  it('demande une revalidation non forcée au focus de Home', () => {
+    render(<HomeScreen />);
+    expect(mockRevalidate).toHaveBeenCalledTimes(1);
+    expect(mockRefreshFavorites).not.toHaveBeenCalled();
   });
 
   it('utilise_null_comme_token_si_session_absente', () => {
