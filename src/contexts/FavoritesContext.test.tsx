@@ -65,20 +65,24 @@ const CACHE_KEY = 'cache:favorites:v1:user-1';
 
 const latest = {} as Record<'home' | 'search', FavoritesContextValue>;
 
-function Probe({ id }: { id: 'home' | 'search' }) {
+type ProbeId = 'home' | 'search';
+type OnProbeRender = (id: ProbeId, value: FavoritesContextValue) => void;
+
+function Probe({ id, onRender }: { id: ProbeId; onRender?: OnProbeRender }) {
   const value = useFavorites();
   // eslint-disable-next-line react-hooks/immutability -- test probe captures both consumers' latest shared state
   latest[id] = value;
+  onRender?.(id, value);
   return <Text testID={`${id}-count`}>
     {value.state.status === 'success' ? value.state.data?.length : -1}
   </Text>;
 }
 
-function renderFavorites() {
+function renderFavorites(onRender?: OnProbeRender) {
   return render(
     <FavoritesProvider>
-      <Probe id="home" />
-      <Probe id="search" />
+      <Probe id="home" onRender={onRender} />
+      <Probe id="search" onRender={onRender} />
     </FavoritesProvider>,
   );
 }
@@ -678,5 +682,77 @@ describe('FavoritesProvider', () => {
     expect(latest.search.state).toEqual(latest.home.state);
     expect(mockAsyncStorage.setItem).toHaveBeenCalledTimes(1);
     expect(mockAsyncStorage.setItem.mock.calls.at(-1)?.[1]).toBe(cacheBefore);
+  });
+
+  it('conserve l’ajout si le GET déjà lancé renvoie un ancien snapshot', async () => {
+    const pending = deferred<FavoriteResponse[]>();
+    mockFetchFavorites.mockReturnValue(pending.promise);
+    renderFavorites();
+    await waitFor(() => expect(mockFetchFavorites).toHaveBeenCalledTimes(1));
+
+    await act(async () => latest.home.addFavorite('peak-3'));
+    expect(latest.search.state.data).toEqual([MOCK_PEAK_3]);
+    await act(async () => pending.resolve(MOCK_FAVORITES));
+
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2, MOCK_PEAK_3]);
+    expect(latest.search.state).toEqual(latest.home.state);
+    expect(mockAsyncStorage.setItem).toHaveBeenLastCalledWith(
+      CACHE_KEY, expect.stringContaining('peak-3'),
+    );
+  });
+
+  it('conserve la suppression si un GET forcé renvoie un ancien snapshot', async () => {
+    const pending = deferred<FavoriteResponse[]>();
+    mockFetchFavorites.mockResolvedValueOnce(MOCK_FAVORITES).mockReturnValueOnce(pending.promise);
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2]));
+
+    await act(async () => { void latest.home.refresh(); });
+    await waitFor(() => expect(mockFetchFavorites).toHaveBeenCalledTimes(2));
+    await act(async () => latest.search.removeFavorite(MOCK_PEAK_1.id));
+    await act(async () => pending.resolve(MOCK_FAVORITES));
+
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_2]);
+    expect(latest.search.state).toEqual(latest.home.state);
+    expect(JSON.parse(mockAsyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '').peaks).toEqual([MOCK_PEAK_2]);
+  });
+
+  it('préfère la liste en mémoire au cache disque ancien après un échec réseau', async () => {
+    const oldDisk = JSON.stringify({ peaks: [MOCK_PEAK_1], cachedAt: Date.now() - 30_000 });
+    mockAsyncStorage.getItem.mockResolvedValue(oldDisk);
+    mockAsyncStorage.setItem.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('disk full'));
+    mockFetchFavorites.mockResolvedValueOnce(MOCK_FAVORITES).mockRejectedValueOnce(new Error('offline'));
+    renderFavorites();
+    await waitFor(() => expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2]));
+
+    await act(async () => latest.home.addFavorite('peak-3'));
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2, MOCK_PEAK_3]);
+    await act(async () => latest.home.refresh());
+
+    expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2, MOCK_PEAK_3]);
+    expect(latest.search.state).toEqual(latest.home.state);
+    expect(latest.home.fromCache).toBe(false);
+  });
+
+  it('ne montre pas les favoris du compte précédent pendant le premier rendu du nouveau compte', async () => {
+    const seen: FavoritesContextValue[] = [];
+    const onRender: OnProbeRender = (id, value) => { if (id === 'home') seen.push(value); };
+    mockFetchFavorites.mockResolvedValueOnce(MOCK_FAVORITES).mockResolvedValueOnce([]);
+    const view = renderFavorites(onRender);
+    await waitFor(() => expect(latest.home.state.data).toEqual([MOCK_PEAK_1, MOCK_PEAK_2]));
+
+    seen.length = 0;
+    mockAuthState.session = { access_token: 'second-token', user: { id: 'user-2' } };
+    view.rerender(
+      <FavoritesProvider>
+        <Probe id="home" onRender={onRender} />
+        <Probe id="search" onRender={onRender} />
+      </FavoritesProvider>,
+    );
+
+    expect(seen[0].state).toEqual({ status: 'loading' });
+    expect(seen[0].fromCache).toBe(false);
+    await waitFor(() => expect(latest.home.state.data).toEqual([]));
+    expect(mockFetchFavorites).toHaveBeenLastCalledWith('second-token');
   });
 });

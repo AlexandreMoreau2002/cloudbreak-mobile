@@ -20,6 +20,17 @@ interface FavoritesCachePayload {
   cachedAt: number;
 }
 
+interface FavoritesSnapshot {
+  accountKey: string;
+  state: AsyncState<Peak[]>;
+  fromCache: boolean;
+  cachedAt: number | null;
+}
+
+type FavoriteMutation =
+  | { revision: number; kind: 'add'; peak: Peak }
+  | { revision: number; kind: 'remove'; peakId: string };
+
 export interface FavoritesContextValue {
   state: AsyncState<Peak[]>;
   fromCache: boolean;
@@ -43,19 +54,30 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }): 
   const userId = session?.user?.id ?? null;
   const anonymous = isAnonymous || Boolean(session?.user.is_anonymous);
   const accountKey = `${userId ?? ''}:${token ?? ''}:${anonymous}`;
-  const [state, setState] = useState<AsyncState<Peak[]>>({ status: 'idle' });
-  const [fromCache, setFromCache] = useState(false);
-  const [cachedAt, setCachedAt] = useState<number | null>(null);
+  const [snapshot, setSnapshot] = useState<FavoritesSnapshot>({
+    accountKey, state: { status: 'idle' }, fromCache: false, cachedAt: null,
+  });
   const lastFetchedAtRef = useRef<number | null>(null);
   const inFlightRef = useRef<Promise<void> | null>(null);
   const lastGoodPeaksRef = useRef<Peak[] | null>(null);
   const accountKeyRef = useRef(accountKey);
+  const mutationRevisionRef = useRef(0);
+  const mutationJournalRef = useRef<FavoriteMutation[]>([]);
+  const cacheWriteRef = useRef<Promise<void>>(Promise.resolve());
+  const lastGoodCachedAtRef = useRef<number | null>(null);
+
+  const publish = useCallback((nextState: AsyncState<Peak[]>, nextFromCache = false, nextCachedAt: number | null = null) => {
+    setSnapshot({ accountKey, state: nextState, fromCache: nextFromCache, cachedAt: nextCachedAt });
+  }, [accountKey]);
 
   useEffect(() => {
     accountKeyRef.current = accountKey;
     lastFetchedAtRef.current = null;
     inFlightRef.current = null;
     lastGoodPeaksRef.current = null;
+    lastGoodCachedAtRef.current = null;
+    mutationRevisionRef.current = 0;
+    mutationJournalRef.current = [];
   }, [accountKey]);
 
   const readCache = useCallback(async (cacheUserId: string): Promise<FavoritesCachePayload | null> => {
@@ -71,14 +93,10 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }): 
 
   const writeCache = useCallback(async (cacheUserId: string, peaks: Peak[]): Promise<void> => {
     if (MOCK_API) return;
-    try {
-      await AsyncStorage.setItem(
-        favoritesCacheKey(cacheUserId),
-        JSON.stringify({ peaks, cachedAt: Date.now() } satisfies FavoritesCachePayload),
-      );
-    } catch {
-      // The network result remains usable when the local cache cannot be written.
-    }
+    const payload = JSON.stringify({ peaks, cachedAt: Date.now() } satisfies FavoritesCachePayload);
+    const write = cacheWriteRef.current.then(() => AsyncStorage.setItem(favoritesCacheKey(cacheUserId), payload));
+    cacheWriteRef.current = write.catch(() => undefined);
+    await cacheWriteRef.current;
   }, []);
 
   const load = useCallback(({ force, reason }: { force: boolean; reason: DataRefreshReason }): Promise<void> => {
@@ -87,43 +105,47 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }): 
       && Date.now() - lastFetchedAtRef.current < FAVORITES_FRESHNESS_MS) return Promise.resolve();
 
     const requestAccountKey = accountKey;
+    const requestRevision = mutationRevisionRef.current;
+    mutationJournalRef.current = [];
     const request = (async () => {
       if (anonymous) {
         lastGoodPeaksRef.current = [];
-        setState({ status: 'success', data: [] });
-        setFromCache(false);
-        setCachedAt(null);
+        publish({ status: 'success', data: [] });
         return;
       }
       if (!token || !userId) {
-        setState({ status: 'error', error: 'Non authentifié' });
+        publish({ status: 'error', error: 'Non authentifié' });
         return;
       }
 
       if (DEBUG) console.debug('[useFavorites] listFavorites');
-      if (lastGoodPeaksRef.current === null) setState({ status: 'loading' });
-      const cached = MOCK_API ? null : await readCache(userId);
+      if (lastGoodPeaksRef.current === null) publish({ status: 'loading' });
+      const cached = MOCK_API || lastGoodPeaksRef.current !== null ? null : await readCache(userId);
       if (accountKeyRef.current !== requestAccountKey) return;
       const cacheValid = cached !== null && Date.now() - cached.cachedAt < CACHE_TTL_MS;
-      if (cacheValid) {
+      const hydrateCache = cacheValid && lastGoodPeaksRef.current === null;
+      if (hydrateCache) {
         lastGoodPeaksRef.current = cached.peaks;
-        setState({ status: 'success', data: cached.peaks });
-        setFromCache(true);
-        setCachedAt(cached.cachedAt);
+        lastGoodCachedAtRef.current = cached.cachedAt;
+        publish({ status: 'success', data: cached.peaks }, true, cached.cachedAt);
       }
 
       try {
         const netState = await NetInfo.fetch();
         if (accountKeyRef.current !== requestAccountKey) return;
         if (!netState.isConnected) {
-          if (cacheValid) {
+          if (hydrateCache) {
             if (DEBUG) console.debug('[useFavorites] offline, fallback cache', {
               count: cached.peaks.length, age: Date.now() - cached.cachedAt,
             });
           } else if (lastGoodPeaksRef.current !== null) {
-            setState({ status: 'success', data: lastGoodPeaksRef.current });
+            publish(
+              { status: 'success', data: lastGoodPeaksRef.current },
+              lastGoodCachedAtRef.current !== null,
+              lastGoodCachedAtRef.current,
+            );
           } else {
-            setState({ status: 'error', error: 'OFFLINE_NO_CACHE' });
+            publish({ status: 'error', error: 'OFFLINE_NO_CACHE' });
           }
           return;
         }
@@ -131,40 +153,48 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }): 
         debugDataRefresh('favorites', reason);
         const favorites = await fetchFavorites(token);
         if (accountKeyRef.current !== requestAccountKey) return;
-        const peaks = favorites.map((favorite) => favorite.peak);
+        const serverPeaks = favorites.map((favorite) => favorite.peak);
+        const peaks = mutationJournalRef.current
+          .filter((mutation) => mutation.revision > requestRevision)
+          .reduce((current, mutation) => {
+            if (mutation.kind === 'remove') return current.filter((peak) => peak.id !== mutation.peakId);
+            return current.some((peak) => peak.id === mutation.peak.id)
+              ? current : [...current, mutation.peak];
+          }, serverPeaks);
         if (DEBUG) console.debug('[useFavorites] listFavorites success', { count: peaks.length });
         lastGoodPeaksRef.current = peaks;
+        lastGoodCachedAtRef.current = null;
         lastFetchedAtRef.current = Date.now();
-        setState({ status: 'success', data: peaks });
-        setFromCache(false);
-        setCachedAt(null);
+        publish({ status: 'success', data: peaks });
         await writeCache(userId, peaks);
       } catch (error) {
         if (accountKeyRef.current !== requestAccountKey) return;
         const message = error instanceof Error ? error.message : 'Erreur inconnue';
         if (DEBUG) console.debug('[useFavorites] listFavorites error', { message });
-        if (cacheValid) {
-          if (DEBUG) console.debug('[useFavorites] fetch failed, fallback cache', {
+        if (lastGoodPeaksRef.current !== null) {
+          if (hydrateCache && DEBUG) console.debug('[useFavorites] fetch failed, fallback cache', {
             count: cached.peaks.length, age: Date.now() - cached.cachedAt,
           });
-          lastGoodPeaksRef.current = cached.peaks;
-          setState({ status: 'success', data: cached.peaks });
-          setFromCache(true);
-          setCachedAt(cached.cachedAt);
-        } else if (lastGoodPeaksRef.current !== null) {
-          setState({ status: 'success', data: lastGoodPeaksRef.current });
+          publish(
+            { status: 'success', data: lastGoodPeaksRef.current },
+            lastGoodCachedAtRef.current !== null,
+            lastGoodCachedAtRef.current,
+          );
         } else {
-          setState({ status: 'error', error: message });
+          publish({ status: 'error', error: message });
         }
       }
     })();
 
     inFlightRef.current = request;
     void request.finally(() => {
-      if (inFlightRef.current === request) inFlightRef.current = null;
+      if (inFlightRef.current === request) {
+        inFlightRef.current = null;
+        mutationJournalRef.current = [];
+      }
     });
     return request;
-  }, [accountKey, anonymous, token, userId, readCache, writeCache]);
+  }, [accountKey, anonymous, token, userId, publish, readCache, writeCache]);
 
   useEffect(() => {
     void load({ force: true, reason: 'mount-or-session' });
@@ -183,17 +213,18 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }): 
       const current = lastGoodPeaksRef.current ?? [];
       const afterAdd = current.some((peak) => peak.id === favorite.peak.id)
         ? current : [...current, favorite.peak];
+      const revision = ++mutationRevisionRef.current;
+      if (inFlightRef.current) mutationJournalRef.current.push({ revision, kind: 'add', peak: favorite.peak });
       lastGoodPeaksRef.current = afterAdd;
+      lastGoodCachedAtRef.current = null;
       lastFetchedAtRef.current = Date.now();
-      setState({ status: 'success', data: afterAdd });
-      setFromCache(false);
-      setCachedAt(null);
+      publish({ status: 'success', data: afterAdd });
       await writeCache(userId, afterAdd);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
       if (DEBUG) console.debug('[useFavorites] addFavorite error', { message });
     }
-  }, [accountKey, anonymous, requireAccount, token, userId, writeCache]);
+  }, [accountKey, anonymous, requireAccount, token, userId, publish, writeCache]);
 
   const removeFavorite = useCallback(async (peakId: string): Promise<void> => {
     if (!token || anonymous) return;
@@ -203,23 +234,28 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }): 
       if (accountKeyRef.current !== accountKey || !userId) return;
       const current = lastGoodPeaksRef.current ?? [];
       const afterRemove = current.filter((peak) => peak.id !== peakId);
+      const revision = ++mutationRevisionRef.current;
+      if (inFlightRef.current) mutationJournalRef.current.push({ revision, kind: 'remove', peakId });
       lastGoodPeaksRef.current = afterRemove;
+      lastGoodCachedAtRef.current = null;
       lastFetchedAtRef.current = Date.now();
-      setState({ status: 'success', data: afterRemove });
-      setFromCache(false);
-      setCachedAt(null);
+      publish({ status: 'success', data: afterRemove });
       await writeCache(userId, afterRemove);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
       if (DEBUG) console.debug('[useFavorites] removeFavorite error', { message });
     }
-  }, [accountKey, anonymous, token, userId, writeCache]);
+  }, [accountKey, anonymous, token, userId, publish, writeCache]);
 
   const refresh = useCallback(() => load({ force: true, reason: 'manual' }), [load]);
   const revalidate = useCallback(() => load({ force: false, reason: 'focus' }), [load]);
+  const visible = snapshot.accountKey === accountKey ? snapshot : {
+    accountKey, state: { status: 'loading' } as AsyncState<Peak[]>, fromCache: false, cachedAt: null,
+  };
 
   return <FavoritesContext.Provider value={{
-    state, fromCache, cachedAt, addFavorite, removeFavorite, refresh, revalidate,
+    state: visible.state, fromCache: visible.fromCache, cachedAt: visible.cachedAt,
+    addFavorite, removeFavorite, refresh, revalidate,
   }}>{children}</FavoritesContext.Provider>;
 }
 
