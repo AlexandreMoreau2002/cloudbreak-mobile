@@ -271,6 +271,20 @@ describe('SubscriptionProvider refresh freshness', () => {
     await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(2));
   });
 
+  it('retire Premium au foreground dès son expiration sous le TTL', async () => {
+    mockFetchSubscription.mockResolvedValueOnce({
+      plan: 'premium', status: 'active', expires_at: '2026-10-15T12:00:30Z',
+    });
+    renderProvider();
+    await waitFor(() => expect(latest?.isPremium).toBe(true));
+
+    act(() => { jest.advanceTimersByTime(31_000); });
+    act(() => { appStateListener('active'); });
+
+    expect(mockFetchSubscription).toHaveBeenCalledTimes(1);
+    expect(latest?.isPremium).toBe(false);
+  });
+
   it('force un refresh manuel malgré la fraîcheur du dernier GET', async () => {
     renderProvider();
     await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(1));
@@ -311,6 +325,27 @@ describe('SubscriptionProvider refresh freshness', () => {
     await waitFor(() => expect(latest?.state.plan).toBe('premium'));
     await act(async () => { oldRead.resolve(FREE_RESPONSE); });
     expect(latest?.state).toMatchObject(PREMIUM_RESPONSE);
+  });
+
+  it('attend un GET invalidé puis relit après une restauration forcée', async () => {
+    const oldRead = deferred<SubscriptionResponse>();
+    mockFetchSubscription.mockReturnValueOnce(oldRead.promise).mockResolvedValueOnce(FREE_RESPONSE);
+    mockVerifySubscription.mockResolvedValue(PREMIUM_RESPONSE);
+    iap.getAvailablePurchases.mockResolvedValueOnce([]);
+    renderProvider();
+    await waitFor(() => expect(onPurchase).toBeDefined());
+    await act(async () => { onPurchase?.(PURCHASE); });
+    await waitFor(() => expect(latest?.state.plan).toBe('premium'));
+
+    let restoring: Promise<void> | undefined;
+    await act(async () => { restoring = latest?.restore(); });
+    await waitFor(() => expect(iap.getAvailablePurchases).toHaveBeenCalledTimes(1));
+    expect(mockFetchSubscription).toHaveBeenCalledTimes(1);
+    expect(latest?.state.loading).toBe(true);
+
+    await act(async () => { oldRead.resolve(FREE_RESPONSE); await restoring; });
+    expect(mockFetchSubscription).toHaveBeenCalledTimes(2);
+    expect(latest?.state).toMatchObject({ ...FREE_RESPONSE, loading: false, error: null });
   });
 
   it('relit pour un autre compte et ignore le GET du compte précédent', async () => {

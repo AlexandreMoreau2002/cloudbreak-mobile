@@ -94,6 +94,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const sessionRef = useRef(session);
   const lastFetchedAtRef = useRef<number | null>(null);
   const inFlightRef = useRef<Promise<void> | null>(null);
+  const inFlightGenerationRef = useRef<number | null>(null);
   const requestGenerationRef = useRef(0);
   const productsRef = useRef<StoreKitProduct[]>([]);
   const storeInitialisationRef = useRef<Promise<void> | null>(null);
@@ -103,15 +104,19 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   useEffect(() => { sessionRef.current = session; }, [session]);
   useEffect(() => { productsRef.current = products; }, [products]);
 
-  const load = useCallback((reason: DataRefreshReason, force: boolean): Promise<void> => {
-    if (inFlightRef.current) return inFlightRef.current;
+  const load = useCallback(async (reason: DataRefreshReason, force: boolean): Promise<void> => {
+    while (inFlightRef.current) {
+      const pending = inFlightRef.current;
+      if (!force || inFlightGenerationRef.current === requestGenerationRef.current) return pending;
+      await pending;
+    }
     const currentSession = sessionRef.current;
     if (!currentSession?.user || currentSession.user.is_anonymous) {
       setState(FREE_STATE);
-      return Promise.resolve();
+      return;
     }
     if (!force && lastFetchedAtRef.current !== null
-      && Date.now() - lastFetchedAtRef.current < SUBSCRIPTION_FRESHNESS_MS) return Promise.resolve();
+      && Date.now() - lastFetchedAtRef.current < SUBSCRIPTION_FRESHNESS_MS) return;
 
     const generation = ++requestGenerationRef.current;
     setState((current) => ({ ...current, loading: true, error: null }));
@@ -128,9 +133,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         }
       })
       .finally(() => {
-        if (inFlightRef.current === request) inFlightRef.current = null;
+        if (inFlightRef.current === request) {
+          inFlightRef.current = null;
+          inFlightGenerationRef.current = null;
+        }
       });
     inFlightRef.current = request;
+    inFlightGenerationRef.current = generation;
     return request;
   }, []);
 
@@ -204,6 +213,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     requestGenerationRef.current += 1;
     inFlightRef.current = null;
+    inFlightGenerationRef.current = null;
     lastFetchedAtRef.current = null;
     if (userId) void load('mount-or-session', true);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
@@ -212,7 +222,14 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') void load('foreground', false);
+      if (nextState === 'active') {
+        setState((current) => {
+          if (current.plan !== 'premium' || (current.status !== 'trial' && current.status !== 'active')
+            || hasFutureExpiry(current.expires_at)) return current;
+          return { ...current, status: 'expired' };
+        });
+        void load('foreground', false);
+      }
     });
     return () => subscription.remove();
   }, [load]);
