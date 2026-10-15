@@ -4,7 +4,7 @@ import { act, render, waitFor } from '@testing-library/react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/services/supabaseClient';
-import { fetchSubscription, verifySubscription } from '@/services/api/subscription';
+import { fetchSubscription, verifySubscription, type SubscriptionResponse } from '@/services/api/subscription';
 import { SubscriptionProvider, useSubscription } from '@/contexts/SubscriptionContext';
 
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
@@ -25,6 +25,20 @@ let onPurchase: ((purchase: Iap.Purchase) => void) | undefined;
 let onPurchaseError: ((error: Iap.PurchaseError) => void) | undefined;
 let latest: ReturnType<typeof useSubscription> | undefined;
 
+const FREE_RESPONSE: SubscriptionResponse = { plan: 'free', status: 'none', expires_at: null };
+const PREMIUM_RESPONSE: SubscriptionResponse = { plan: 'premium', status: 'active', expires_at: '2099-01-01T00:00:00Z' };
+const PURCHASE = { purchaseToken: 'signed-jws', productId: 'com.alexandremoreau.cloudbreak.premium.monthly' } as Iap.Purchase;
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => { resolve = settle; });
+  return { promise, resolve };
+}
+
+function appStateListener(nextState: string): void {
+  (AppState.addEventListener as jest.Mock).mock.calls[0][1](nextState);
+}
+
 function Probe() {
   // eslint-disable-next-line react-hooks/globals -- capture volontaire de la valeur du hook dans un helper de test
   latest = useSubscription();
@@ -36,7 +50,7 @@ function setup(permanent = true): void {
     isAnonymous: !permanent,
     session: permanent ? { access_token: 'token', user: { id: 'account-id', is_anonymous: false } } : null,
   } as ReturnType<typeof useAuth>);
-  mockFetchSubscription.mockResolvedValue({ plan: 'free', status: 'none', expires_at: null });
+  mockFetchSubscription.mockResolvedValue(FREE_RESPONSE);
   mockGetSession.mockResolvedValue({
     data: { session: permanent ? { access_token: 'token', user: { id: 'account-id', is_anonymous: false } } : null },
     error: null,
@@ -89,13 +103,12 @@ describe('SubscriptionProvider', () => {
     mockDevConfig.DEBUG = true;
     renderProvider();
     await waitFor(() => expect(latest?.products).toHaveLength(2));
-    act(() => { (AppState.addEventListener as jest.Mock).mock.calls[0][1]('active'); });
-    await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(2));
+    act(() => { appStateListener('active'); });
+    expect(mockFetchSubscription).toHaveBeenCalledTimes(1);
     await act(async () => { await latest?.refresh(); });
 
     expect(debugSpy.mock.calls.filter(([label]) => label === '[data-refresh]')).toEqual([
       ['[data-refresh]', { source: 'subscription', reason: 'mount-or-session', context: undefined }],
-      ['[data-refresh]', { source: 'subscription', reason: 'foreground', context: undefined }],
       ['[data-refresh]', { source: 'subscription', reason: 'manual', context: undefined }],
     ]);
     expect(JSON.stringify(debugSpy.mock.calls)).not.toMatch(/"token"|account-id|signed-jws/);
@@ -207,13 +220,6 @@ describe('SubscriptionProvider', () => {
     expect(mockVerifySubscription).toHaveBeenCalledWith('token', 'second-jws');
   });
 
-  it('refreshes backend subscription when the app returns to foreground', async () => {
-    renderProvider();
-    await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(1));
-    act(() => { (AppState.addEventListener as jest.Mock).mock.calls[0][1]('active'); });
-    await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(2));
-  });
-
   it('loads the StoreKit catalog for anonymous visitors without reading their entitlement', async () => {
     setup(false);
     renderProvider();
@@ -236,5 +242,92 @@ describe('SubscriptionProvider', () => {
     renderProvider();
     await waitFor(() => expect(latest?.products).toHaveLength(1));
     expect(latest?.products[0].hasFreeTrial).toBe(false);
+  });
+});
+
+describe('SubscriptionProvider refresh freshness', () => {
+  beforeEach(() => { jest.useFakeTimers({ now: new Date('2026-10-15T12:00:00Z') }); });
+  afterEach(() => { jest.useRealTimers(); });
+
+  it('ignore le foreground sous 60 secondes', async () => {
+    mockFetchSubscription.mockResolvedValueOnce(PREMIUM_RESPONSE);
+    renderProvider();
+    await waitFor(() => expect(latest?.state.plan).toBe('premium'));
+    expect(mockFetchSubscription).toHaveBeenCalledTimes(1);
+
+    act(() => { jest.advanceTimersByTime(59_999); });
+    act(() => { appStateListener('active'); });
+    expect(mockFetchSubscription).toHaveBeenCalledTimes(1);
+  });
+
+  it('relit au foreground après 60 secondes', async () => {
+    mockFetchSubscription.mockResolvedValueOnce(PREMIUM_RESPONSE);
+    renderProvider();
+    await waitFor(() => expect(latest?.state.plan).toBe('premium'));
+    expect(mockFetchSubscription).toHaveBeenCalledTimes(1);
+
+    act(() => { jest.advanceTimersByTime(60_000); });
+    act(() => { appStateListener('active'); });
+    await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(2));
+  });
+
+  it('force un refresh manuel malgré la fraîcheur du dernier GET', async () => {
+    renderProvider();
+    await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(latest?.state.loading).toBe(false));
+
+    await act(async () => { await latest?.refresh(); });
+    expect(mockFetchSubscription).toHaveBeenCalledTimes(2);
+  });
+
+  it('coalesce deux refresh forcés concurrents', async () => {
+    const pending = deferred<SubscriptionResponse>();
+    mockFetchSubscription.mockReturnValueOnce(pending.promise);
+    renderProvider();
+
+    await act(async () => { void latest?.refresh(); void latest?.refresh(); });
+    expect(mockFetchSubscription).toHaveBeenCalledTimes(1);
+    await act(async () => { pending.resolve(FREE_RESPONSE); });
+  });
+
+  it('réessaie au foreground après un GET de montage en échec', async () => {
+    mockFetchSubscription.mockRejectedValueOnce(new Error('offline'));
+    renderProvider();
+    await waitFor(() => expect(latest?.state.error).toBe('store_unavailable'));
+
+    act(() => { appStateListener('active'); });
+    await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(latest?.state.error).toBeNull());
+  });
+
+  it('ignore un GET ancien après une vérification StoreKit', async () => {
+    const oldRead = deferred<SubscriptionResponse>();
+    mockFetchSubscription.mockReturnValueOnce(oldRead.promise);
+    mockVerifySubscription.mockResolvedValue(PREMIUM_RESPONSE);
+    renderProvider();
+    await waitFor(() => expect(onPurchase).toBeDefined());
+
+    await act(async () => { onPurchase?.(PURCHASE); });
+    await waitFor(() => expect(latest?.state.plan).toBe('premium'));
+    await act(async () => { oldRead.resolve(FREE_RESPONSE); });
+    expect(latest?.state).toMatchObject(PREMIUM_RESPONSE);
+  });
+
+  it('relit pour un autre compte et ignore le GET du compte précédent', async () => {
+    const oldRead = deferred<SubscriptionResponse>();
+    mockFetchSubscription.mockReturnValueOnce(oldRead.promise).mockResolvedValueOnce(PREMIUM_RESPONSE);
+    const view = renderProvider();
+    expect(mockFetchSubscription).toHaveBeenCalledTimes(1);
+
+    mockUseAuth.mockReturnValue({
+      isAnonymous: false,
+      session: { access_token: 'other-token', user: { id: 'other-account', is_anonymous: false } },
+    } as ReturnType<typeof useAuth>);
+    view.rerender(<SubscriptionProvider><Probe /></SubscriptionProvider>);
+    await waitFor(() => expect(mockFetchSubscription).toHaveBeenCalledWith('other-token'));
+    await waitFor(() => expect(latest?.state.plan).toBe('premium'));
+
+    await act(async () => { oldRead.resolve(FREE_RESPONSE); });
+    expect(latest?.state).toMatchObject(PREMIUM_RESPONSE);
   });
 });
