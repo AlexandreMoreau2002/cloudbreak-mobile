@@ -37,5 +37,7 @@ La [description du fonctionnement](../../docs/data-refresh-freshness/fonctionnem
 
 ## Plan et conception
 
-- Plan : `docs/superpowers/plans/2026-10-14-data-refresh-freshness.md` (chemin consigné dans `.superpowers/sdd/2026-10-14-data-refresh-freshness/plan-path`).
-- Spécification : critères résumés dans le plan et dans le brief d’exécution `.superpowers/sdd/2026-10-14-data-refresh-freshness/task-4-brief.md`.
+- Plan local : `docs/superpowers/plans/2026-10-14-data-refresh-freshness.md`.
+- Spécification locale : `docs/superpowers/specs/2026-10-14-data-refresh-freshness-design.md`.
+
+Ces deux fichiers de préparation sont locaux et ignorés par Git ; les critères nécessaires à la revue sont reproduits ci-dessus.
