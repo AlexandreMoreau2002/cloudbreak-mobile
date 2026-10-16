@@ -16,6 +16,7 @@ import {
   fetchMe,
   provisionUser,
   updateDisplayName,
+  resetUserSurvey,
   updateUserSurvey,
   type UserSurvey,
 } from '@/services/api/user';
@@ -147,6 +148,7 @@ interface AuthContextValue extends AuthState {
   resendEmailUpgrade: (email: string, locale: AuthEmailLocale) => Promise<AuthError | null>;
   signInWithApple: (intent: AppleAuthIntent) => Promise<AppleAuthResult>;
   saveSurvey: (answer: SurveyAnswers) => Promise<AuthError | null>;
+  replaySurvey: () => Promise<AuthError | null>;
   signOutToAnonymous: () => Promise<AuthError | null>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -599,6 +601,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function replaySurvey(): Promise<AuthError | null> {
+    const token = session?.access_token;
+    if (!token || session?.user.is_anonymous === true) return new AuthError('Non authentifié');
+    try {
+      await resetUserSurvey(token);
+      return null;
+    } catch (error) {
+      if (isNetworkError(error)) setAuthServiceUnavailable(true);
+      return error instanceof AuthError ? error : new AuthError(
+        error instanceof Error ? error.message : 'Réinitialisation du sondage impossible',
+      );
+    }
+  }
+
   // Renvoie null (et non une promesse) quand il n'y a rien à libérer : le signOut Supabase
   // reste ainsi déclenché de façon synchrone pour une session absente ou anonyme.
   function releasePushToken(): Promise<void> | null {
@@ -674,7 +690,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp, signIn, signOut, deleteAccount,
         ensureAnonymousSession, requestPasswordReset, completePasswordReset,
         beginEmailUpgrade, completeEmailUpgrade,
-        resendEmailUpgrade, retryProvisioning, signInWithApple, saveSurvey, signOutToAnonymous,
+        resendEmailUpgrade, retryProvisioning, signInWithApple, saveSurvey, replaySurvey, signOutToAnonymous,
         setLocationPermission, refreshLocationPermission,
       }}
     >

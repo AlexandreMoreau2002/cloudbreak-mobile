@@ -201,6 +201,7 @@ export default {
     devSandbox: 'DEV · CloudLayerViz Sandbox',
     devResetPeak: 'DEV · Reset selected summit',
     devReplayOnboarding: 'DEV · Replay onboarding',
+    devReplaySurvey: 'DEV · Replay survey',
     devResetSession: 'DEV · Reset session',
     guest: {
       title: 'Guest mode',

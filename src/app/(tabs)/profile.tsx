@@ -29,7 +29,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { showPaywall } = usePaywall();
   const { openAccount } = useAccountGate();
-  const { session, signOutToAnonymous, deleteAccount, locationPermission, refreshLocationPermission } = useAuth();
+  const { session, signOutToAnonymous, deleteAccount, locationPermission, refreshLocationPermission, replaySurvey } = useAuth();
   const { selectedPeak, setSelectedPeak } = useSelectedPeak();
   const { resetOnboarding } = useOnboarding();
   const { locale, toggleLocale } = useLanguage();
@@ -96,6 +96,11 @@ export default function ProfileScreen() {
     notifState.status === 'success' &&
     notifState.data !== undefined &&
     (notifState.data.notif_favorites || notifState.data.notif_regional || notifState.data.notif_terrain);
+
+  async function handleReplaySurvey() {
+    const error = await replaySurvey();
+    if (!error) router.push('/survey' as import('expo-router').Href);
+  }
 
   return (
     <ScrollView
@@ -294,6 +299,18 @@ export default function ProfileScreen() {
               {i18n.t('profile.devReplayOnboarding')}
             </Text>
           </TouchableOpacity>
+          {session?.user.is_anonymous !== true && (
+            <TouchableOpacity
+              style={[styles.devButton, { borderColor: '#C25C4A' }]}
+              onPress={() => void handleReplaySurvey()}
+              activeOpacity={0.7}
+              testID="dev-replay-survey"
+            >
+              <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
+                {i18n.t('profile.devReplaySurvey')}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.devButton, { borderColor: '#C25C4A' }]}
             onPress={() => void signOutToAnonymous()}

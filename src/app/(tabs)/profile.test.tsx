@@ -40,6 +40,7 @@ const mockSignOutToAnonymous = jest.fn().mockResolvedValue(null);
 const mockDeleteAccount = jest.fn();
 const mockToggleScheme = jest.fn();
 const mockToggleLocale = jest.fn();
+const mockReplaySurvey = jest.fn();
 let mockSession: { user: { email?: string; is_anonymous?: boolean } } | null = { user: { email: 'test@example.com' } };
 
 const mockRefreshLocationPermission = jest.fn();
@@ -51,6 +52,7 @@ jest.mock('@/contexts/AuthContext', () => ({
     signOutToAnonymous: mockSignOutToAnonymous,
     deleteAccount: mockDeleteAccount,
     session: mockSession,
+    replaySurvey: mockReplaySurvey,
     locationPermission: mockLocationPermission,
     refreshLocationPermission: mockRefreshLocationPermission,
   }),
@@ -573,5 +575,32 @@ describe('ProfileScreen', () => {
   it('refreshes the location permission when the screen regains focus', () => {
     render(<ProfileScreen />);
     expect(mockRefreshLocationPermission).toHaveBeenCalled();
+  });
+
+  it('rejoue le sondage : réinitialise côté serveur puis ouvre /survey', async () => {
+    mockReplaySurvey.mockResolvedValue(null);
+    const { getByTestId } = render(<ProfileScreen />);
+
+    fireEvent.press(getByTestId('dev-replay-survey'));
+
+    await waitFor(() => expect(mockReplaySurvey).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/survey'));
+  });
+
+  it("n'ouvre pas /survey si la réinitialisation échoue", async () => {
+    mockReplaySurvey.mockResolvedValue(new Error('boom'));
+    const { getByTestId } = render(<ProfileScreen />);
+
+    fireEvent.press(getByTestId('dev-replay-survey'));
+
+    await waitFor(() => expect(mockReplaySurvey).toHaveBeenCalledTimes(1));
+    expect(mockPush).not.toHaveBeenCalledWith('/survey');
+  });
+
+  it('masque le bouton de rejeu du sondage pour une session invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { queryByTestId } = render(<ProfileScreen />);
+
+    expect(queryByTestId('dev-replay-survey')).toBeNull();
   });
 });

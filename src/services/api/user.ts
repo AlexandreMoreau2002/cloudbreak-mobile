@@ -47,6 +47,10 @@ export async function updateUserSurvey(token: string, survey: UserSurvey): Promi
   return apiFetch<UserProfile>('/api/v1/user/survey', token, undefined, { method: 'PATCH', body });
 }
 
+export async function resetUserSurvey(token: string): Promise<UserProfile> {
+  return apiFetch<UserProfile>('/api/v1/user/survey/reset', token, undefined, { method: 'POST' });
+}
+
 export interface UserMe {
   id: string;
   is_anonymous: boolean;
