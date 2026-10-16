@@ -5,7 +5,7 @@ import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
 
 import { useDisplayName } from '@/hooks/useDisplayName';
 import { AuthProvider, appleDisplayName, isProvisioningError, isRateLimitError, useAuth } from '@/contexts/AuthContext';
-import { fetchMe, deleteAccount, deletePushToken, provisionUser, updateDisplayName, updateUserSurvey } from '@/services/api/user';
+import { fetchMe, deleteAccount, deletePushToken, provisionUser, updateDisplayName, updateUserSurvey, resetUserSurvey } from '@/services/api/user';
 
 // DEBUG dépend maintenant de EXPO_PUBLIC_DEBUG (pas seulement __DEV__) — ce fichier teste
 // le contenu des logs console.debug, donc on force DEBUG à true indépendamment de l'env de test.
@@ -75,6 +75,7 @@ jest.mock('@/services/api/user', () => ({
   deletePushToken: jest.fn().mockResolvedValue(undefined),
   provisionUser: jest.fn().mockResolvedValue({}),
   updateUserSurvey: jest.fn().mockResolvedValue({}),
+  resetUserSurvey: jest.fn().mockResolvedValue({}),
   updateDisplayName: jest.fn().mockResolvedValue({}),
 }));
 
@@ -88,6 +89,7 @@ const mockFetchMe = fetchMe as jest.MockedFunction<typeof fetchMe>;
 const mockProvisionUser = provisionUser as jest.MockedFunction<typeof provisionUser>;
 const mockUpdateDisplayName = updateDisplayName as jest.MockedFunction<typeof updateDisplayName>;
 const mockUpdateUserSurvey = updateUserSurvey as jest.MockedFunction<typeof updateUserSurvey>;
+const mockResetUserSurvey = resetUserSurvey as jest.MockedFunction<typeof resetUserSurvey>;
 
 jest.mock('@/services/supabaseClient', () => ({
   supabase: {
@@ -166,6 +168,7 @@ describe('AuthContext', () => {
     mockProvisionUser.mockResolvedValue({} as never);
     mockUpdateDisplayName.mockResolvedValue({} as never);
     mockUpdateUserSurvey.mockResolvedValue({} as never);
+    mockResetUserSurvey.mockResolvedValue({} as never);
     mockAsyncStorageClear.mockResolvedValue(undefined);
     jest.requireMock('expo-location').getForegroundPermissionsAsync.mockResolvedValue({ status: 'undetermined' });
   });
@@ -1664,6 +1667,54 @@ describe('AuthContext', () => {
 
     expect(mockUpdateUserSurvey).toHaveBeenCalledWith('test-token', { newsletterOptIn: false });
     expect(mockUpdateUser).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.anything() }));
+  });
+
+  it('réinitialise le sondage via le backend', async () => {
+    mockGetSession.mockResolvedValueOnce({ data: {
+      session: { access_token: 'test-token', user: { id: 'u1', is_anonymous: false } },
+    } });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = new AuthError('init');
+    await act(async () => {
+      error = await getAuth().replaySurvey();
+    });
+
+    expect(error).toBeNull();
+    expect(mockResetUserSurvey).toHaveBeenCalledWith('test-token');
+  });
+
+  it('refuse de réinitialiser le sondage sans compte permanent', async () => {
+    mockGetSession.mockResolvedValueOnce({ data: {
+      session: { access_token: 'guest-token', user: { id: 'guest', is_anonymous: true } },
+    } });
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => {
+      error = await getAuth().replaySurvey();
+    });
+
+    expect(error).toBeInstanceOf(AuthError);
+    expect(mockResetUserSurvey).not.toHaveBeenCalled();
+  });
+
+  it('renvoie une AuthError si la réinitialisation du sondage échoue', async () => {
+    mockGetSession.mockResolvedValueOnce({ data: {
+      session: { access_token: 'test-token', user: { id: 'u1', is_anonymous: false } },
+    } });
+    mockResetUserSurvey.mockRejectedValueOnce(new Error('boom'));
+    const { getByTestId } = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(getByTestId('loading').props.children).toBe('false'));
+
+    let error: AuthError | null = null;
+    await act(async () => {
+      error = await getAuth().replaySurvey();
+    });
+
+    expect(error).toBeInstanceOf(AuthError);
   });
 
   it('clôt la session courante puis crée une session invitée', async () => {
