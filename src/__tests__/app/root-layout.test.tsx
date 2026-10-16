@@ -61,6 +61,10 @@ jest.mock('@/contexts/AccountGateContext', () => ({
   useAccountGate: () => ({ maybePromptFirstRun: mockMaybePromptFirstRun }),
 }));
 
+jest.mock('@/contexts/FavoritesContext', () => ({
+  FavoritesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 jest.mock('@/contexts/SelectedPeakContext', () => ({
   SelectedPeakProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));

@@ -26,6 +26,8 @@ const PRODUCT_IDS = [
   'com.alexandremoreau.cloudbreak.premium.monthly',
   'com.alexandremoreau.cloudbreak.premium.annual',
 ] as const;
+const SUBSCRIPTION_FRESHNESS_MS = 60 * 1000;
+const MAX_TIMER_MS = 2 ** 31 - 1;
 
 export type SubscriptionProductId = (typeof PRODUCT_IDS)[number];
 
@@ -91,30 +93,59 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [state, setState] = useState<SubscriptionState>(FREE_STATE);
   const [products, setProducts] = useState<StoreKitProduct[]>([]);
   const sessionRef = useRef(session);
+  const stateRef = useRef(state);
+  const lastFetchedAtRef = useRef<number | null>(null);
+  const inFlightRef = useRef<Promise<void> | null>(null);
+  const inFlightGenerationRef = useRef<number | null>(null);
+  const requestGenerationRef = useRef(0);
   const productsRef = useRef<StoreKitProduct[]>([]);
   const storeInitialisationRef = useRef<Promise<void> | null>(null);
   const isPermanent = Boolean(session && !isAnonymous);
+  const userId = isPermanent ? session?.user?.id ?? null : null;
 
   useEffect(() => { sessionRef.current = session; }, [session]);
   useEffect(() => { productsRef.current = products; }, [products]);
 
-  const load = useCallback(async (reason: DataRefreshReason): Promise<void> => {
+  const load = useCallback(async (reason: DataRefreshReason, force: boolean): Promise<void> => {
+    while (inFlightRef.current) {
+      const pending = inFlightRef.current;
+      if (!force || inFlightGenerationRef.current === requestGenerationRef.current) return pending;
+      await pending;
+    }
     const currentSession = sessionRef.current;
     if (!currentSession?.user || currentSession.user.is_anonymous) {
       setState(FREE_STATE);
       return;
     }
+    if (!force && lastFetchedAtRef.current !== null
+      && Date.now() - lastFetchedAtRef.current < SUBSCRIPTION_FRESHNESS_MS) return;
+
+    const generation = ++requestGenerationRef.current;
     setState((current) => ({ ...current, loading: true, error: null }));
-    try {
-      debugDataRefresh('subscription', reason);
-      const subscription = await fetchSubscription(currentSession.access_token);
-      setState({ ...subscription, loading: false, error: null });
-    } catch {
-      setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
-    }
+    debugDataRefresh('subscription', reason);
+    const request = fetchSubscription(currentSession.access_token)
+      .then((subscription) => {
+        if (generation !== requestGenerationRef.current) return;
+        lastFetchedAtRef.current = Date.now();
+        setState({ ...subscription, loading: false, error: null });
+      })
+      .catch(() => {
+        if (generation === requestGenerationRef.current) {
+          setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
+        }
+      })
+      .finally(() => {
+        if (inFlightRef.current === request) {
+          inFlightRef.current = null;
+          inFlightGenerationRef.current = null;
+        }
+      });
+    inFlightRef.current = request;
+    inFlightGenerationRef.current = generation;
+    return request;
   }, []);
 
-  const refresh = useCallback(() => load('manual'), [load]);
+  const refresh = useCallback(() => load('manual', true), [load]);
 
   const verifyAndFinish = useCallback(async (purchase: Purchase): Promise<void> => {
     const { data } = await supabase.auth.getSession();
@@ -126,6 +157,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     try {
       const subscription = await verifySubscription(currentSession.access_token, purchase.purchaseToken);
       await finishTransaction({ purchase, isConsumable: false });
+      if (sessionRef.current?.user?.id !== currentSession.user.id) return;
+      requestGenerationRef.current += 1;
+      lastFetchedAtRef.current = Date.now();
       setState({ ...subscription, loading: false, error: null });
     } catch {
       setState((current) => ({ ...current, loading: false, error: 'verification_failed' }));
@@ -179,17 +213,41 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, [verifyAndFinish]);
 
   useEffect(() => {
-    if (isPermanent) void load('mount-or-session');
+    requestGenerationRef.current += 1;
+    inFlightRef.current = null;
+    inFlightGenerationRef.current = null;
+    lastFetchedAtRef.current = null;
+    if (userId) void load('mount-or-session', true);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
     else setState(FREE_STATE);
-  }, [isPermanent, load]);
+  }, [userId, load]);
+
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  /** Marque le droit expiré en local et force la relecture (un renouvellement a pu avoir lieu). */
+  const expireLocally = useCallback((): boolean => {
+    const current = stateRef.current;
+    const entitled = current.plan === 'premium' && (current.status === 'trial' || current.status === 'active');
+    if (!entitled || hasFutureExpiry(current.expires_at)) return false;
+    setState((latest) => ({ ...latest, status: 'expired' }));
+    void load('foreground', true);
+    return true;
+  }, [load]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') void load('foreground');
+      if (nextState === 'active' && !expireLocally()) void load('foreground', false);
     });
     return () => subscription.remove();
-  }, [load]);
+  }, [load, expireLocally]);
+
+  useEffect(() => {
+    if (state.plan !== 'premium' || (state.status !== 'trial' && state.status !== 'active')) return undefined;
+    const expiresAtMs = state.expires_at ? Date.parse(state.expires_at) : NaN;
+    if (!Number.isFinite(expiresAtMs)) return undefined;
+    const timer = setTimeout(expireLocally, Math.min(Math.max(expiresAtMs - Date.now(), 0) + 100, MAX_TIMER_MS));
+    return () => clearTimeout(timer);
+  }, [state.plan, state.status, state.expires_at, expireLocally]);
 
   const purchase = useCallback(async (productId: SubscriptionProductId): Promise<void> => {
     const { data } = await supabase.auth.getSession();
@@ -221,7 +279,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     try {
       const entitlements = await getAvailablePurchases({ onlyIncludeActiveItemsIOS: true });
       for (const entitlement of entitlements) await verifyAndFinish(entitlement);
-      await load('mutation');
+      await load('mutation', true);
     } catch {
       setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
     }

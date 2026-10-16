@@ -27,7 +27,7 @@ export default function FavoritesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, typography, spacing } = useTheme();
-  const { state, removeFavorite, refresh } = useFavorites();
+  const { state, removeFavorite, refresh, revalidate } = useFavorites();
   const { setSelectedPeak } = useSelectedPeak();
 
   function handleSelectPeak(peak: Peak) {
@@ -39,8 +39,8 @@ export default function FavoritesScreen() {
   useFocusEffect(
     useCallback(() => {
       if (isAnonymous) return undefined;
-      refresh();
-    }, [isAnonymous, refresh]),
+      void revalidate();
+    }, [isAnonymous, revalidate]),
   );
 
   function renderItem({ item }: { item: Peak }) {

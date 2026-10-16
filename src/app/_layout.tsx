@@ -20,6 +20,7 @@ import { useAppSessionTracking } from '@/hooks/useAppSessionTracking';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { AccountGateProvider } from '@/contexts/AccountGateContext';
+import { FavoritesProvider } from '@/contexts/FavoritesContext';
 import i18n from '@/utils/i18n';
 import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
 
@@ -97,8 +98,10 @@ export default function RootLayout() {
             <SubscriptionProvider>
               <SelectedPeakProvider>
                 <AccountGateProvider>
-                  <AuthGuard />
-                  <AppStack />
+                  <FavoritesProvider>
+                    <AuthGuard />
+                    <AppStack />
+                  </FavoritesProvider>
                 </AccountGateProvider>
               </SelectedPeakProvider>
             </SubscriptionProvider>

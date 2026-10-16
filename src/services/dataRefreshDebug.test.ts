@@ -33,6 +33,15 @@ describe('debugDataRefresh', () => {
     });
   });
 
+  it('trace une revalidation favorites au focus sans données de session', () => {
+    debugDataRefresh('favorites', 'focus');
+
+    expect(debugSpy).toHaveBeenCalledWith('[data-refresh]', {
+      source: 'favorites', reason: 'focus', context: undefined,
+    });
+    expect(JSON.stringify(debugSpy.mock.calls)).not.toMatch(/mock-token|user-1/);
+  });
+
   it('reste silencieux lorsque DEBUG est désactivé', () => {
     mockDevConfig.DEBUG = false;
     debugDataRefresh('subscription', 'foreground');

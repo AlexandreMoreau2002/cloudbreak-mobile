@@ -4,6 +4,7 @@ import { render, fireEvent } from '@testing-library/react-native';
 
 const mockRemoveFavorite = jest.fn();
 const mockRefresh = jest.fn();
+const mockRevalidate = jest.fn();
 const mockUseAuth = jest.fn();
 let mockState: { status: string; data?: unknown[]; error?: string } = {
   status: 'success',
@@ -19,6 +20,7 @@ jest.mock('@/hooks/useFavorites', () => ({
     state: mockState,
     removeFavorite: mockRemoveFavorite,
     refresh: mockRefresh,
+    revalidate: mockRevalidate,
   }),
 }));
 
@@ -129,6 +131,14 @@ describe('FavoritesScreen', () => {
     const { getByText } = render(<FavoritesScreen />);
 
     expect(getByText('favorites.empty')).toBeTruthy();
+    expect(mockRefresh).not.toHaveBeenCalled();
+    expect(mockRevalidate).not.toHaveBeenCalled();
+  });
+
+  it('revalide au focus de Favorites pour un compte permanent', () => {
+    mockUseAuth.mockReturnValue({ isAnonymous: false });
+    render(<FavoritesScreen />);
+    expect(mockRevalidate).toHaveBeenCalledTimes(1);
     expect(mockRefresh).not.toHaveBeenCalled();
   });
 
