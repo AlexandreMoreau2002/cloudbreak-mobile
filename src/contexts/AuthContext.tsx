@@ -16,8 +16,8 @@ import {
   fetchMe,
   provisionUser,
   updateDisplayName,
-  updateUserSurvey,
   resetUserSurvey,
+  updateUserSurvey,
   type UserSurvey,
 } from '@/services/api/user';
 
