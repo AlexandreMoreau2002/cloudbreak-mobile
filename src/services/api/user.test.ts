@@ -8,6 +8,7 @@ import {
   deletePushToken,
   provisionUser,
   updateUserSurvey,
+  resetUserSurvey,
   fetchMe,
   updateUserPreferences,
   updateDisplayName,
@@ -183,6 +184,18 @@ describe('updateUserSurvey', () => {
       '/api/v1/user/survey', TOKEN, undefined, {
         method: 'PATCH', body: { skipped: true },
       },
+    );
+  });
+});
+
+describe('resetUserSurvey', () => {
+  it('appelle POST /api/v1/user/survey/reset', async () => {
+    const profile = { supabase_user_id: 'u1', auth_provider: 'email' };
+    mockApiFetch.mockResolvedValueOnce(profile);
+
+    await expect(resetUserSurvey(TOKEN)).resolves.toEqual(profile);
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/v1/user/survey/reset', TOKEN, undefined, { method: 'POST' },
     );
   });
 });
