@@ -344,6 +344,7 @@ export default {
     cautionBold: 'Predictions still calibrating.',
     cautionBody: ' The app is young: this score is an estimate, not a weather guarantee.',
     a11yRow: '%{name}: %{value}, %{status}. %{sentence}',
+    gate: 'Low cloud layer too fragmented (%{pct}%): no sea of clouds possible, whatever the rest.',
     name: { inversion: 'Temperature inversion', clouds: 'Clouds vs summit', wind: 'Wind', humidity: 'Humidity' },
     status: { high: 'favourable', medium: 'moderate', low: 'unfavourable', unknown: 'unavailable' },
     inversion: {

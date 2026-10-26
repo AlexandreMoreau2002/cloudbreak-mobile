@@ -129,4 +129,31 @@ describe('ScoreWhySheet', () => {
     const { getByTestId } = render(<ScoreWhySheet visible score={makeScore()} onDismiss={jest.fn()} />);
     expect(getByTestId('score-why-sheet')).toBeTruthy();
   });
+
+  describe('bloc hard gate nuages bas', () => {
+    const gateScore = (cond: Partial<ScoreResponse['conditions']>, over: Partial<ScoreResponse> = {}) => ({
+      ...makeScore(cond),
+      verdict: 'none' as const,
+      score: 0,
+      ...over,
+    });
+
+    it('affiche le bloc avec le pourcentage interpolé', () => {
+      const { getByTestId, getByText } = render(
+        <ScoreWhySheet visible score={gateScore({ cloud_cover_low_pct: 30 })} onDismiss={jest.fn()} />,
+      );
+      expect(getByTestId('score-why-gate')).toBeTruthy();
+      expect(getByText('scoreWhy.gate|pct=30')).toBeTruthy();
+    });
+
+    it.each([
+      ['cloud_cover_low_pct absent', gateScore({})],
+      ['nuages bas >= 45', gateScore({ cloud_cover_low_pct: 60 })],
+      ['verdict différent de none', gateScore({ cloud_cover_low_pct: 20 }, { verdict: 'low' })],
+      ['base >= sommet', gateScore({ cloud_cover_low_pct: 20 }, { cloud_base: 2100 })],
+    ])('masque le bloc : %s', (_label, score) => {
+      const { queryByTestId } = render(<ScoreWhySheet visible score={score} onDismiss={jest.fn()} />);
+      expect(queryByTestId('score-why-gate')).toBeNull();
+    });
+  });
 });

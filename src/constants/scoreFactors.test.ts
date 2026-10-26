@@ -1,6 +1,7 @@
 import type { ScoreResponse } from '@/services/mockData/types';
 import {
   CLOUDS_GAP_HIGH_M,
+  CLOUD_COVER_LOW_GATE_PCT,
   HUMIDITY_HIGH_PCT,
   HUMIDITY_MEDIUM_PCT,
   INVERSION_HIGH_C,
@@ -33,6 +34,7 @@ describe('seuils exportés', () => {
     expect(WIND_MEDIUM_KMH).toBe(20);
     expect(HUMIDITY_HIGH_PCT).toBe(85);
     expect(HUMIDITY_MEDIUM_PCT).toBe(70);
+    expect(CLOUD_COVER_LOW_GATE_PCT).toBe(45);
   });
 });
 
@@ -149,5 +151,48 @@ describe('getScoreFactors', () => {
     const f = getScoreFactors(score);
     expect(f.inversion.status).toBe('unknown');
     expect(f.clouds.status).toBe('high');
+  });
+});
+
+describe('getScoreFactors — hard gate nuages bas', () => {
+  const none = { verdict: 'none' as const, score: 0 };
+
+  it('actif si verdict none, nuages bas < 45 et base sous le sommet', () => {
+    const f = getScoreFactors(makeScore({ cloud_cover_low_pct: 30 }, none));
+    expect(f.lowCloudGate).toBe(true);
+    expect(f.cloudCoverLowPct).toBe(30);
+  });
+
+  it('inactif si cloud_cover_low_pct absent ou non numérique', () => {
+    expect(getScoreFactors(makeScore({}, none)).lowCloudGate).toBe(false);
+    expect(getScoreFactors(makeScore({ cloud_cover_low_pct: null }, none)).lowCloudGate).toBe(false);
+  });
+
+  it('inactif à 45 % et au-dessus (seuil exclusif)', () => {
+    expect(getScoreFactors(makeScore({ cloud_cover_low_pct: 45 }, none)).lowCloudGate).toBe(false);
+    expect(getScoreFactors(makeScore({ cloud_cover_low_pct: 80 }, none)).lowCloudGate).toBe(false);
+  });
+
+  it('inactif si le verdict n\'est pas none', () => {
+    expect(getScoreFactors(makeScore({ cloud_cover_low_pct: 10 }, { verdict: 'low' })).lowCloudGate).toBe(false);
+  });
+
+  it('inactif si la base des nuages est déjà au niveau ou au-dessus du sommet', () => {
+    expect(getScoreFactors(makeScore({ cloud_cover_low_pct: 10 }, { ...none, cloud_base: 2000 })).lowCloudGate).toBe(false);
+    expect(getScoreFactors(makeScore({ cloud_cover_low_pct: 10 }, { ...none, cloud_base: 2500 })).lowCloudGate).toBe(false);
+  });
+});
+
+describe('getScoreFactors — debug', () => {
+  it('logue en mode DEBUG', () => {
+    jest.resetModules();
+    jest.doMock('@/constants/devConfig', () => ({ DEBUG: true }));
+    const spy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('@/constants/scoreFactors') as typeof import('@/constants/scoreFactors');
+    mod.getScoreFactors(makeScore());
+    expect(spy).toHaveBeenCalledWith('[scoreFactors]', expect.any(Object));
+    spy.mockRestore();
+    jest.dontMock('@/constants/devConfig');
   });
 });

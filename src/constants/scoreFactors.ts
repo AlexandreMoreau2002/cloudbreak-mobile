@@ -3,7 +3,9 @@
  * Seuils d'affichage (distincts des bornes de calcul de backend/app/domain/score_components.py,
  * ex. INVERSION_STRONG = 5) — source unique côté mobile.
  */
+import { DEBUG } from '@/constants/devConfig';
 import type { ScoreResponse } from '@/services/mockData/types';
+import { getHumidity, getInversionDelta, getWind } from '@/utils/scoreConditions';
 
 export type FactorStatus = 'high' | 'medium' | 'low' | 'unknown';
 
@@ -13,6 +15,8 @@ export const WIND_HIGH_KMH = 10;
 export const WIND_MEDIUM_KMH = 20;
 export const HUMIDITY_HIGH_PCT = 85;
 export const HUMIDITY_MEDIUM_PCT = 70;
+/** Hard gate backend : sous ce taux de nuages bas, verdict « none » quoi qu'il arrive. */
+export const CLOUD_COVER_LOW_GATE_PCT = 45;
 
 export interface NumericFactor {
   status: FactorStatus;
@@ -31,6 +35,9 @@ export interface ScoreFactors {
   clouds: CloudsFactor;
   wind: NumericFactor;
   humidity: NumericFactor;
+  /** Verdict « none » dû à la couche de nuages basse trop fragmentée. */
+  lowCloudGate: boolean;
+  cloudCoverLowPct: number | null;
 }
 
 function round1(v: number | null): number | null {
@@ -69,17 +76,29 @@ export function getScoreFactors(score: ScoreResponse): ScoreFactors {
   // `conditions` peut manquer sur des réponses partielles malgré le type.
   const c: Partial<ScoreResponse['conditions']> = score.conditions ?? {};
   // Arrondi à 1 décimale : la valeur affichée et son statut doivent concorder.
-  const inversion = round1(c.inversion_delta_c ?? c.inversion_delta ?? null);
-  const wind = round1(c.wind_speed_kmh ?? c.wind_speed ?? null);
-  const humidity = round1(c.humidity_pct ?? c.humidity ?? null);
+  const inversion = round1(getInversionDelta(c));
+  const wind = round1(getWind(c));
+  const humidity = round1(getHumidity(c));
   const cloudBase = isNum(score.cloud_base) ? score.cloud_base : null;
   const summit = isNum(score.peak_altitude) ? score.peak_altitude : null;
   const gap = cloudBase !== null && summit !== null ? summit - cloudBase : null;
+  const cloudCoverLowPct = isNum(c.cloud_cover_low_pct) ? c.cloud_cover_low_pct : null;
+  // Base ≥ sommet : le facteur « nuages vs sommet » (rouge) explique déjà le 0 %.
+  const baseAboveSummit = gap !== null && gap <= 0;
+  const lowCloudGate =
+    score.verdict === 'none' &&
+    cloudCoverLowPct !== null &&
+    cloudCoverLowPct < CLOUD_COVER_LOW_GATE_PCT &&
+    !baseAboveSummit;
 
-  return {
+  const factors: ScoreFactors = {
     inversion: { status: getInversionStatus(inversion), value: inversion },
     clouds: { status: getCloudsStatus(gap), cloudBase, summit, gap },
     wind: { status: getWindStatus(wind), value: wind },
     humidity: { status: getHumidityStatus(humidity), value: humidity },
+    lowCloudGate,
+    cloudCoverLowPct,
   };
+  if (DEBUG) console.debug('[scoreFactors]', { verdict: score.verdict, factors });
+  return factors;
 }

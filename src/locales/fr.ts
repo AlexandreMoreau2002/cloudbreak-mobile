@@ -344,6 +344,7 @@ export default {
     cautionBold: 'Prédictions en calibrage.',
     cautionBody: " L'app est jeune : ce score est une estimation, pas une garantie météo.",
     a11yRow: '%{name} : %{value}, %{status}. %{sentence}',
+    gate: 'Couche de nuages basse trop fragmentée (%{pct}\u00A0%) : pas de mer de nuage possible, quel que soit le reste.',
     name: { inversion: 'Inversion thermique', clouds: 'Nuages vs sommet', wind: 'Vent', humidity: 'Humidité' },
     status: { high: 'favorable', medium: 'moyen', low: 'défavorable', unknown: 'indisponible' },
     inversion: {

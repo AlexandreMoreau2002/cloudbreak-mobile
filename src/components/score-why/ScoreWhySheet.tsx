@@ -98,6 +98,14 @@ export function ScoreWhySheet({ visible, score, onDismiss }: ScoreWhySheetProps)
         );
       })}
 
+      {factors.lowCloudGate && factors.cloudCoverLowPct !== null ? (
+        <View testID="score-why-gate" style={[styles.caution, styles.gate, { backgroundColor: accentSoftBg }]}>
+          <Text style={[styles.cautionText, { color: colors.textSecondary }]}>
+            {i18n.t('scoreWhy.gate', { pct: formatNumber(Math.round(factors.cloudCoverLowPct)) })}
+          </Text>
+        </View>
+      ) : null}
+
       <View testID="score-why-caution" style={[styles.caution, { backgroundColor: accentSoftBg }]}>
         <Text style={[styles.cautionText, { color: colors.textSecondary }]}>
           <Text style={[styles.cautionBold, { color: colors.textPrimary }]}>{i18n.t('scoreWhy.cautionBold')}</Text>
@@ -127,6 +135,7 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   sentence: { fontFamily: Typography.fontFamily.regular, fontSize: 12.5, lineHeight: 18, marginTop: 3 },
   caution: { borderRadius: 14, padding: 14, marginTop: 6 },
+  gate: { marginBottom: 4 },
   cautionText: { fontFamily: Typography.fontFamily.regular, fontSize: 12.5, lineHeight: 18 },
   cautionBold: { fontFamily: Typography.fontFamily.bold },
 });
