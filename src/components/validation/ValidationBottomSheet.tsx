@@ -1,16 +1,15 @@
 /**
  * ValidationBottomSheet — story 6.1, validation terrain d'une prédiction.
  *
- * Mêmes patterns d'animation que PaywallScreen (Modal + Animated, pas de
- * librairie externe). Un seul composant, contenu conditionné par `step`.
+ * Mécanique de sheet partagée : `@/components/bottom-sheet`. Un seul composant, contenu conditionné par `step`.
  */
-import { useEffect, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Typography } from '@/constants/typography';
 import { Radius, Spacing } from '@/constants/spacing';
+import { BottomSheet } from '@/components/bottom-sheet';
 import { LoadingSpinner } from '@/components/loading-spinner';
 
 type TerrainStep = 'searching' | 'ready' | 'denied' | 'success' | null;
@@ -42,20 +41,6 @@ export function ValidationBottomSheet({
 }: ValidationBottomSheetProps) {
   const { colors, scheme } = useTheme();
   const isDark = scheme === 'dark';
-  const overlayOpacity = useState(() => new Animated.Value(0))[0];
-  const sheetTranslateY = useState(() => new Animated.Value(600))[0];
-
-  useEffect(() => {
-    if (visible && step) {
-      Animated.parallel([
-        Animated.timing(overlayOpacity, { toValue: 1, duration: 250, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-        Animated.timing(sheetTranslateY, { toValue: 0, duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]).start();
-    } else {
-      overlayOpacity.setValue(0);
-      sheetTranslateY.setValue(600);
-    }
-  }, [visible, step, overlayOpacity, sheetTranslateY]);
 
   if (!step) return null;
 
@@ -162,38 +147,21 @@ export function ValidationBottomSheet({
   }
 
   return (
-    <Modal testID="terrain-modal" visible={visible} animationType="none" transparent statusBarTranslucent onRequestClose={onDismiss}>
-      <View style={styles.overlay} pointerEvents="box-none">
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(20,16,12,0.35)', opacity: overlayOpacity }]} pointerEvents="none" />
-        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} testID="terrain-overlay" />
-        <Animated.View
-          testID="terrain-sheet"
-          style={[styles.sheet, { backgroundColor: sheetBg, transform: [{ translateY: sheetTranslateY }] }]}
-        >
-          <View style={[styles.handle, { backgroundColor: 'rgba(26,26,26,0.18)' }]} />
-          {renderContent()}
-        </Animated.View>
-      </View>
-    </Modal>
+    <BottomSheet
+      visible={visible}
+      active={visible && !!step}
+      onDismiss={onDismiss}
+      testIDPrefix="terrain"
+      modalTestID="terrain-modal"
+      backgroundColor={sheetBg}
+      scrimColor="rgba(20,16,12,0.35)"
+    >
+      {renderContent()}
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end' },
-  sheet: {
-    borderTopLeftRadius: Radius.lg,
-    borderTopRightRadius: Radius.lg,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
-  },
-  handle: {
-    width: 44,
-    height: 5,
-    borderRadius: Radius.full,
-    alignSelf: 'center',
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
   centered: { alignItems: 'center', paddingVertical: Spacing.lg },
   spinner: { marginVertical: Spacing.sm },
   eyebrow: {

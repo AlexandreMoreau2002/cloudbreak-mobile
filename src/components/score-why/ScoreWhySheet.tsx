@@ -1,17 +1,17 @@
 /**
  * ScoreWhySheet — « Pourquoi ce score ? », 4 facteurs expliqués.
  *
- * Mêmes patterns que ValidationBottomSheet (Modal transparent + Animated,
- * pas de librairie externe). Seuils : `@/constants/scoreFactors`.
+ * Mécanique de sheet : `@/components/bottom-sheet`. Seuils : `@/constants/scoreFactors`.
  */
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { Colors } from '@/constants/colors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Typography } from '@/constants/typography';
 import type { ScoreResponse } from '@/services/mockData/types';
+import { BottomSheet } from '@/components/bottom-sheet';
 import { getScoreFactors, type FactorStatus } from '@/constants/scoreFactors';
 
 interface ScoreWhySheetProps {
@@ -50,97 +50,65 @@ function formatValue(key: FactorKey, factors: ReturnType<typeof getScoreFactors>
 }
 
 export function ScoreWhySheet({ visible, score, onDismiss }: ScoreWhySheetProps) {
-  const { colors, scheme } = useTheme();
-  const overlayOpacity = useState(() => new Animated.Value(0))[0];
-  const sheetTranslateY = useState(() => new Animated.Value(600))[0];
-
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(overlayOpacity, { toValue: 1, duration: 250, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-        Animated.timing(sheetTranslateY, { toValue: 0, duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]).start();
-    } else {
-      overlayOpacity.setValue(0);
-      sheetTranslateY.setValue(600);
-    }
-  }, [visible, overlayOpacity, sheetTranslateY]);
+  const { colors } = useTheme();
 
   const accentSoftBg = colors.accent + '1F';
-  const factors = getScoreFactors(score);
+  const factors = useMemo(() => getScoreFactors(score), [score]);
 
   return (
-    <Modal visible={visible} animationType="none" transparent statusBarTranslucent onRequestClose={onDismiss}>
-      <View style={styles.overlay} pointerEvents="box-none">
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.42)', opacity: overlayOpacity }]} pointerEvents="none" />
-        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} testID="score-why-overlay" />
-        <Animated.View
-          testID="score-why-sheet"
-          style={[styles.sheet, { backgroundColor: colors.surface, transform: [{ translateY: sheetTranslateY }] }]}
-        >
-          <View style={[styles.grabber, { backgroundColor: scheme === 'dark' ? 'rgba(247,245,241,0.25)' : 'rgba(26,26,26,0.18)' }]} />
-          <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>{i18n.t('scoreWhy.eyebrow')}</Text>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>
-            {i18n.t('scoreWhy.title', { score: score.score })}
-          </Text>
+    <BottomSheet visible={visible} onDismiss={onDismiss} testIDPrefix="score-why">
+      <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>{i18n.t('scoreWhy.eyebrow')}</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
+        {i18n.t('scoreWhy.title', { score: score.score })}
+      </Text>
 
-          {ROWS.map(({ key, icon }, index) => {
-            const status: FactorStatus = factors[key].status;
-            const statusColor = Colors.factorStatus[status];
-            const name = i18n.t(`scoreWhy.name.${key}`);
-            const value = formatValue(key, factors);
-            const sentence = i18n.t(`scoreWhy.${key}.${status}`);
-            return (
-              <View
-                key={key}
-                testID={`score-why-row-${key}`}
-                accessible
-                accessibilityLabel={i18n.t('scoreWhy.a11yRow', {
-                  name,
-                  value,
-                  status: i18n.t(`scoreWhy.status.${status}`),
-                  sentence,
-                })}
-                style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}
-              >
-                <View style={[styles.iconTile, { backgroundColor: accentSoftBg }]}>
-                  <Ionicons name={icon} size={18} color={colors.accent} />
-                </View>
-                <View style={styles.rowBody}>
-                  <View style={styles.rowHead}>
-                    <Text style={[styles.name, { color: colors.textPrimary }]}>{name}</Text>
-                    <View style={styles.valueWrap}>
-                      <Text style={[styles.value, { color: colors.textPrimary }]}>{value}</Text>
-                      <View style={[styles.dot, { backgroundColor: statusColor }]} />
-                    </View>
-                  </View>
-                  <Text style={[styles.sentence, { color: colors.textSecondary }]}>{sentence}</Text>
+      {ROWS.map(({ key, icon }, index) => {
+        const status: FactorStatus = factors[key].status;
+        const statusColor = Colors.factorStatus[status];
+        const name = i18n.t(`scoreWhy.name.${key}`);
+        const value = formatValue(key, factors);
+        const sentence = i18n.t(`scoreWhy.${key}.${status}`);
+        return (
+          <View
+            key={key}
+            testID={`score-why-row-${key}`}
+            accessible
+            accessibilityLabel={i18n.t('scoreWhy.a11yRow', {
+              name,
+              value,
+              status: i18n.t(`scoreWhy.status.${status}`),
+              sentence,
+            })}
+            style={[styles.row, index > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}
+          >
+            <View style={[styles.iconTile, { backgroundColor: accentSoftBg }]}>
+              <Ionicons name={icon} size={18} color={colors.accent} />
+            </View>
+            <View style={styles.rowBody}>
+              <View style={styles.rowHead}>
+                <Text style={[styles.name, { color: colors.textPrimary }]}>{name}</Text>
+                <View style={styles.valueWrap}>
+                  <Text style={[styles.value, { color: colors.textPrimary }]}>{value}</Text>
+                  <View style={[styles.dot, { backgroundColor: statusColor }]} />
                 </View>
               </View>
-            );
-          })}
-
-          <View testID="score-why-caution" style={[styles.caution, { backgroundColor: accentSoftBg }]}>
-            <Text style={[styles.cautionText, { color: colors.textSecondary }]}>
-              <Text style={[styles.cautionBold, { color: colors.textPrimary }]}>{i18n.t('scoreWhy.cautionBold')}</Text>
-              {i18n.t('scoreWhy.cautionBody')}
-            </Text>
+              <Text style={[styles.sentence, { color: colors.textSecondary }]}>{sentence}</Text>
+            </View>
           </View>
-        </Animated.View>
+        );
+      })}
+
+      <View testID="score-why-caution" style={[styles.caution, { backgroundColor: accentSoftBg }]}>
+        <Text style={[styles.cautionText, { color: colors.textSecondary }]}>
+          <Text style={[styles.cautionBold, { color: colors.textPrimary }]}>{i18n.t('scoreWhy.cautionBold')}</Text>
+          {i18n.t('scoreWhy.cautionBody')}
+        </Text>
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end' },
-  sheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 22,
-    paddingBottom: 32,
-  },
-  grabber: { width: 44, height: 5, borderRadius: 3, alignSelf: 'center', marginTop: 10, marginBottom: 16 },
   eyebrow: {
     fontFamily: Typography.fontFamily.semiBold,
     fontSize: 10,
