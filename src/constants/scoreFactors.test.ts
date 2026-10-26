@@ -26,7 +26,7 @@ function makeScore(conditions: Partial<ScoreResponse['conditions']> = {}, over: 
 }
 
 describe('seuils exportés', () => {
-  it('sont alignés sur le backend', () => {
+  it('sont les seuils d\'affichage mobile (distincts des bornes de calcul backend, ex. INVERSION_STRONG = 5)', () => {
     expect(INVERSION_HIGH_C).toBe(3);
     expect(CLOUDS_GAP_HIGH_M).toBe(150);
     expect(WIND_HIGH_KMH).toBe(10);

@@ -91,6 +91,7 @@ export function ScoreCard({
   const cardBg = isDark ? Colors.dark.surface : Colors.light.surface;
   const cardBorder = isDark ? '#FFFFFF12' : Colors.light.border;
   const cardTextDim = isDark ? Colors.dark.textSecondary : Colors.light.textSecondary;
+  const accentColor = isDark ? Colors.dark.accent : Colors.light.accent;
   const cardShadow = isDark ? '#000000' : '#A07D5D';
   const chipBg = isDark ? '#FFFFFF0D' : '#FFFFFFB5';
   const chipBorder = isDark ? '#FFFFFF14' : '#DCCEBB';
@@ -142,9 +143,9 @@ export function ScoreCard({
                 accessibilityRole="button"
                 accessibilityLabel={i18n.t('scoreWhy.help')}
                 hitSlop={14}
-                style={[styles.helpButton, { borderColor: Colors.light.accent }]}
+                style={[styles.helpButton, { borderColor: accentColor }]}
               >
-                <Text style={[styles.helpText, { color: Colors.light.accent }]}>?</Text>
+                <Text style={[styles.helpText, { color: accentColor }]}>?</Text>
               </Pressable>
             ) : null}
           </View>
