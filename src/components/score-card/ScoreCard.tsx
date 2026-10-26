@@ -141,7 +141,7 @@ export function ScoreCard({
                 onPress={onHelp}
                 accessibilityRole="button"
                 accessibilityLabel={i18n.t('scoreWhy.help')}
-                hitSlop={11}
+                hitSlop={14}
                 style={[styles.helpButton, { borderColor: Colors.light.accent }]}
               >
                 <Text style={[styles.helpText, { color: Colors.light.accent }]}>?</Text>
@@ -235,14 +235,13 @@ const styles = StyleSheet.create({
   },
   pillRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     gap: 8,
     alignSelf: 'flex-start',
   },
   helpButton: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    aspectRatio: 1,
+    borderRadius: Radius.full,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -250,7 +249,7 @@ const styles = StyleSheet.create({
   },
   helpText: {
     fontFamily: Typography.fontFamily.bold,
-    fontSize: 12,
+    fontSize: Typography.fontSize.xs,
   },
   pill: {
     alignSelf: 'flex-start',
