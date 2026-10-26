@@ -19,6 +19,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { CloudLayerViz } from '@/components/cloud-layer-viz';
 import { ConditionBadge } from '@/components/condition-badge';
 import type { ScoreResponse } from '@/services/mockData/types';
+import { getHumidity, getInversionPresent, getWind } from '@/utils/scoreConditions';
 
 const { background: CARD_BG, textPrimary: CARD_TEXT, textSecondary: CARD_TEXT_DIM } = Colors.dark;
 
@@ -27,17 +28,17 @@ interface ScoreDetailsProps {
 }
 
 function formatHumidity(score: ScoreResponse): string {
-  const humidity = score.conditions.humidity ?? score.conditions.humidity_pct;
+  const humidity = getHumidity(score.conditions);
   return humidity != null ? `${Math.round(humidity)}%` : 'N/A';
 }
 
 function formatWind(score: ScoreResponse): string {
-  const wind = score.conditions.wind_speed ?? score.conditions.wind_speed_kmh;
+  const wind = getWind(score.conditions);
   return wind != null ? `${Math.round(wind)} km/h` : 'N/A';
 }
 
 function formatInversion(score: ScoreResponse): string {
-  const present = score.conditions.inversion_present ?? score.conditions.inversion_detected;
+  const present = getInversionPresent(score.conditions);
   if (present == null) return 'N/A';
   return present ? 'Oui' : 'Non';
 }
