@@ -15,4 +15,13 @@ describe('colors', () => {
       low: '#F44336',
     });
   });
+
+  it('expose les couleurs de statut des facteurs', () => {
+    expect(Colors.factorStatus).toEqual({
+      high: '#5C9E6E',
+      medium: '#D4904A',
+      low: '#C25C4A',
+      unknown: '#9E9E9E',
+    });
+  });
 });

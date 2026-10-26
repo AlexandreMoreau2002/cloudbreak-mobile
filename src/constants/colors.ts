@@ -35,6 +35,13 @@ export const Colors = {
     medium: '#FF9800',  // 40-70% — 🟡 Ça peut le faire
     low: '#F44336',     // < 40% — 🔴 Pas ce coup-ci
   },
+  // Statuts des facteurs « Pourquoi ce score ? »
+  factorStatus: {
+    high: '#5C9E6E',
+    medium: '#D4904A',
+    low: '#C25C4A',
+    unknown: '#9E9E9E',
+  },
 } as const;
 
 export type ColorScheme = 'light' | 'dark';
