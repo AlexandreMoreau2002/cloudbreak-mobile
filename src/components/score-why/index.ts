@@ -1,0 +1,1 @@
+export { ScoreWhySheet } from './ScoreWhySheet';
