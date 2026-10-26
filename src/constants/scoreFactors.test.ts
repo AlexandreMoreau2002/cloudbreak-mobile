@@ -188,7 +188,6 @@ describe('getScoreFactors — debug', () => {
     jest.resetModules();
     jest.doMock('@/constants/devConfig', () => ({ DEBUG: true }));
     const spy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('@/constants/scoreFactors') as typeof import('@/constants/scoreFactors');
     mod.getScoreFactors(makeScore());
     expect(spy).toHaveBeenCalledWith('[scoreFactors]', expect.any(Object));
