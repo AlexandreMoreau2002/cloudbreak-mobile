@@ -239,6 +239,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     gap: 8,
     alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   helpButton: {
     aspectRatio: 1,
@@ -253,6 +254,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs,
   },
   pill: {
+    flexShrink: 1,
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,

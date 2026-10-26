@@ -102,6 +102,13 @@ describe('getHumidityStatus', () => {
 });
 
 describe('getScoreFactors', () => {
+  it('calcule le statut sur la valeur arrondie affichée', () => {
+    const f = getScoreFactors(makeScore({ inversion_delta_c: 2.96, wind_speed_kmh: 9.96, humidity_pct: 84.96 }));
+    expect(f.inversion).toEqual({ status: 'high', value: 3 });
+    expect(f.wind).toEqual({ status: 'medium', value: 10 });
+    expect(f.humidity).toEqual({ status: 'high', value: 85 });
+  });
+
   it('calcule les 4 facteurs à partir des champs préférés (_c, _kmh, _pct)', () => {
     const f = getScoreFactors(
       makeScore({ inversion_delta_c: 6, wind_speed_kmh: 12, humidity_pct: 94, inversion_delta: 1, wind_speed: 30, humidity: 10 }),

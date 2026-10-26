@@ -66,7 +66,6 @@ export function ScoreWhySheet({ visible, score, onDismiss }: ScoreWhySheetProps)
     }
   }, [visible, overlayOpacity, sheetTranslateY]);
 
-  const sheetBg = scheme === 'dark' ? Colors.dark.surface : Colors.light.surface;
   const accentSoftBg = colors.accent + '1F';
   const factors = getScoreFactors(score);
 
@@ -77,7 +76,7 @@ export function ScoreWhySheet({ visible, score, onDismiss }: ScoreWhySheetProps)
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} testID="score-why-overlay" />
         <Animated.View
           testID="score-why-sheet"
-          style={[styles.sheet, { backgroundColor: sheetBg, transform: [{ translateY: sheetTranslateY }] }]}
+          style={[styles.sheet, { backgroundColor: colors.surface, transform: [{ translateY: sheetTranslateY }] }]}
         >
           <View style={[styles.grabber, { backgroundColor: scheme === 'dark' ? 'rgba(247,245,241,0.25)' : 'rgba(26,26,26,0.18)' }]} />
           <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>{i18n.t('scoreWhy.eyebrow')}</Text>

@@ -1,6 +1,7 @@
 /**
  * Seuils des 4 facteurs « Pourquoi ce score ? ».
- * Alignés sur backend/app/domain/score_components.py — source unique côté mobile.
+ * Seuils d'affichage (distincts des bornes de calcul de backend/app/domain/score_components.py,
+ * ex. INVERSION_STRONG = 5) — source unique côté mobile.
  */
 import type { ScoreResponse } from '@/services/mockData/types';
 
@@ -30,6 +31,10 @@ export interface ScoreFactors {
   clouds: CloudsFactor;
   wind: NumericFactor;
   humidity: NumericFactor;
+}
+
+function round1(v: number | null): number | null {
+  return v === null ? null : Math.round(v * 10) / 10;
 }
 
 function isNum(v: number | null | undefined): v is number {
@@ -63,9 +68,10 @@ export function getHumidityStatus(pct: number | null | undefined): FactorStatus 
 export function getScoreFactors(score: ScoreResponse): ScoreFactors {
   // `conditions` peut manquer sur des réponses partielles malgré le type.
   const c: Partial<ScoreResponse['conditions']> = score.conditions ?? {};
-  const inversion = c.inversion_delta_c ?? c.inversion_delta ?? null;
-  const wind = c.wind_speed_kmh ?? c.wind_speed ?? null;
-  const humidity = c.humidity_pct ?? c.humidity ?? null;
+  // Arrondi à 1 décimale : la valeur affichée et son statut doivent concorder.
+  const inversion = round1(c.inversion_delta_c ?? c.inversion_delta ?? null);
+  const wind = round1(c.wind_speed_kmh ?? c.wind_speed ?? null);
+  const humidity = round1(c.humidity_pct ?? c.humidity ?? null);
   const cloudBase = isNum(score.cloud_base) ? score.cloud_base : null;
   const summit = isNum(score.peak_altitude) ? score.peak_altitude : null;
   const gap = cloudBase !== null && summit !== null ? summit - cloudBase : null;
