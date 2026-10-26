@@ -136,4 +136,11 @@ describe('getScoreFactors', () => {
     const f = getScoreFactors(makeScore({}, { cloud_base: undefined as unknown as number }));
     expect(f.clouds).toEqual({ status: 'unknown', cloudBase: null, summit: 2000, gap: null });
   });
+
+  it('tolère une réponse sans conditions', () => {
+    const score = { ...makeScore(), conditions: undefined } as unknown as ScoreResponse;
+    const f = getScoreFactors(score);
+    expect(f.inversion.status).toBe('unknown');
+    expect(f.clouds.status).toBe('high');
+  });
 });

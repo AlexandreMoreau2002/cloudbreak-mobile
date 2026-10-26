@@ -1223,6 +1223,26 @@ describe('HomeScreen', () => {
     expect(mockTrack).toHaveBeenCalledWith('peak_selected', { peak_id: 'fav-1', source: 'home_favorites' });
   });
 
+  it("ouvre et ferme la sheet « Pourquoi ce score ? » depuis la ScoreCard", () => {
+    mockUseSelectedPeak.mockReturnValue({
+      selectedPeak: DEFAULT_PEAK,
+      selectedDate: '2026-03-24',
+      selectedHour: 6,
+      setSelectedPeak: jest.fn(),
+      setSelectedDate: mockSetSelectedDate,
+      setSelectedHour: mockSetSelectedHour,
+    });
+    setupSuccess();
+
+    render(<HomeScreen />);
+    expect(screen.queryByTestId('score-why-sheet')).toBeNull();
+    fireEvent.press(screen.getByTestId('score-why-button'));
+    expect(screen.getByTestId('score-why-sheet')).toBeTruthy();
+    expect(mockTrack).toHaveBeenCalledWith('score_why_opened', { peak_id: DEFAULT_PEAK.id });
+    fireEvent.press(screen.getByTestId('score-why-overlay'));
+    expect(screen.queryByTestId('score-why-sheet')).toBeNull();
+  });
+
   it('appelle setSelectedHour quand on presse un chip horaire dans la ScoreCard', () => {
     mockUseSelectedPeak.mockReturnValue({
       selectedPeak: DEFAULT_PEAK,

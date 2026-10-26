@@ -6,6 +6,7 @@
  *   date           string        — ISO 8601 (ex: "2026-03-23")
  *   selectedHour   number?       — heure sélectionnée (affiche les chips si fourni)
  *   onSelectHour   function?     — callback sélection d'heure (affiche les chips si fourni)
+ *   onHelp         function?     — ouvre « Pourquoi ce score ? » (affiche le bouton ? si fourni)
  */
 import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
@@ -28,6 +29,7 @@ interface ScoreCardProps {
   selectedHour?: number;
   onSelectHour?: (hour: number) => void;
   onValidateTerrain?: () => void;
+  onHelp?: () => void;
 }
 
 function getScoreColor(verdict: ScoreResponse['verdict']): string {
@@ -71,6 +73,7 @@ export function ScoreCard({
   selectedHour,
   onSelectHour,
   onValidateTerrain,
+  onHelp,
 }: ScoreCardProps) {
   useLanguage();
   const { scheme } = useTheme();
@@ -126,10 +129,24 @@ export function ScoreCard({
             <Text style={[styles.scorePercent, { color: verdictColor }]}>%</Text>
           </View>
 
-          <View style={[styles.pill, { backgroundColor: pillBg }]}>
-            <Text style={[styles.pillText, { color: verdictColor }]}>
-              {getLabelText(score, isSunny)}
-            </Text>
+          <View style={styles.pillRow}>
+            <View style={[styles.pill, { backgroundColor: pillBg }]}>
+              <Text style={[styles.pillText, { color: verdictColor }]}>
+                {getLabelText(score, isSunny)}
+              </Text>
+            </View>
+            {onHelp ? (
+              <Pressable
+                testID="score-why-button"
+                onPress={onHelp}
+                accessibilityRole="button"
+                accessibilityLabel={i18n.t('scoreWhy.help')}
+                hitSlop={11}
+                style={[styles.helpButton, { borderColor: Colors.light.accent }]}
+              >
+                <Text style={[styles.helpText, { color: Colors.light.accent }]}>?</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {hasContextMessage ? (
@@ -215,6 +232,25 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.semiBold,
     fontSize: Typography.fontSize.lg,
     paddingBottom: 10,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+  },
+  helpButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  helpText: {
+    fontFamily: Typography.fontFamily.bold,
+    fontSize: 12,
   },
   pill: {
     alignSelf: 'flex-start',

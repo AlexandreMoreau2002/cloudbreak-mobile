@@ -187,6 +187,21 @@ describe('ScoreCard', () => {
     expect(__private__.getCompactVizVariant(makeScore({ verdict: 'medium' }))).toBe('ridge');
   });
 
+  it("n'affiche pas le bouton d'aide sans la prop onHelp", () => {
+    render(<ScoreCard score={makeScore({})} date="2026-03-23" />);
+    expect(screen.queryByTestId('score-why-button')).toBeNull();
+  });
+
+  it("affiche le bouton d'aide accessible et appelle onHelp", () => {
+    const onHelp = jest.fn();
+    render(<ScoreCard score={makeScore({})} date="2026-03-23" onHelp={onHelp} />);
+    const button = screen.getByTestId('score-why-button');
+    expect(button.props.accessibilityRole).toBe('button');
+    expect(button.props.accessibilityLabel).toBe('scoreWhy.help');
+    fireEvent.press(button);
+    expect(onHelp).toHaveBeenCalledTimes(1);
+  });
+
   it("n'affiche pas le bouton validation terrain sans la prop onValidateTerrain", () => {
     render(<ScoreCard score={makeScore({})} date="2026-03-23" />);
     expect(screen.queryByTestId('validate-terrain-button')).toBeNull();

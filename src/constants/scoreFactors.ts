@@ -61,7 +61,8 @@ export function getHumidityStatus(pct: number | null | undefined): FactorStatus 
 }
 
 export function getScoreFactors(score: ScoreResponse): ScoreFactors {
-  const c = score.conditions;
+  // `conditions` peut manquer sur des réponses partielles malgré le type.
+  const c: Partial<ScoreResponse['conditions']> = score.conditions ?? {};
   const inversion = c.inversion_delta_c ?? c.inversion_delta ?? null;
   const wind = c.wind_speed_kmh ?? c.wind_speed ?? null;
   const humidity = c.humidity_pct ?? c.humidity ?? null;

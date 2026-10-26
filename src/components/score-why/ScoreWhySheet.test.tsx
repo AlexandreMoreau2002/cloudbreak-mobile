@@ -110,7 +110,6 @@ describe('ScoreWhySheet', () => {
     const { getByTestId, UNSAFE_getByType } = render(<ScoreWhySheet visible score={makeScore()} onDismiss={onDismiss} />);
     fireEvent.press(getByTestId('score-why-overlay'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Modal } = require('react-native');
     UNSAFE_getByType(Modal).props.onRequestClose();
     expect(onDismiss).toHaveBeenCalledTimes(2);
