@@ -20,6 +20,7 @@ import { ErrorState } from '@/components/error-state';
 import { PeakHeader } from '@/components/peak-header';
 import { EmptyState } from '@/components/empty-state';
 import { usePaywall } from '@/contexts/PaywallContext';
+import { ScoreWhySheet } from '@/components/score-why';
 import { useTerrainPref } from '@/hooks/useTerrainPref';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HomeSkeleton } from '@/components/home-skeleton';
@@ -71,6 +72,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { session, isAnonymous, locationPermission } = useAuth();
   const { colors, typography, spacing } = useTheme();
+  const [whyOpen, setWhyOpen] = useState(false);
   const [quotaDismissed, setQuotaDismissed] = useState(false);
   const [rateLimitDismissed, setRateLimitDismissed] = useState(false);
   const [lastSuccessfulPeak, setLastSuccessfulPeak] = useState<Peak | null>(null);
@@ -172,6 +174,15 @@ export default function HomeScreen() {
   }, [displayScore, selectedPeak]);
 
   const hasDisplayScore = displayScore != null;
+
+  // Ferme la sheet « Pourquoi ce score ? » si le score disparaît (ajustement d'état pendant le rendu).
+  if (!hasDisplayScore && whyOpen) setWhyOpen(false);
+
+  const handleOpenWhy = () => {
+    track('score_why_opened', { peak_id: selectedPeak?.id });
+    setWhyOpen(true);
+  };
+
   const autoDetectTarget = useMemo(
     () => (selectedPeak && displayScore ? { lat: selectedPeak.lat, lng: selectedPeak.lng } : null),
     // Dépend volontairement des primitives (lat/lng/hasDisplayScore) plutôt que des objets
@@ -329,6 +340,7 @@ export default function HomeScreen() {
             selectedHour={selectedHour}
             onSelectHour={(h) => { userClickedHourRef.current = true; setSelectedHour(h); }}
             onValidateTerrain={handleValidateTerrain}
+            onHelp={handleOpenWhy}
           />
           <WeekStrip selectedDate={selectedDate} onSelectDate={handleSelectDate} dayScores={weekData?.bestByDate} />
           <ConditionsSection score={displayScore} />
@@ -454,6 +466,10 @@ export default function HomeScreen() {
       >
         {renderContent()}
       </ScrollView>
+
+      {displayScore ? (
+        <ScoreWhySheet visible={whyOpen} score={displayScore} onDismiss={() => setWhyOpen(false)} />
+      ) : null}
 
       <ValidationBottomSheet
         visible={terrain.step !== null}

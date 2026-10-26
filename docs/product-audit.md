@@ -31,6 +31,7 @@ _Dernière mise à jour : 2026-10-08_
 | SelectedPeakContext — sommet/date/heure partagés (story 3.4) | ✅ |
 | ScoreSkeleton — loader animé (story 3.4) | ✅ |
 | Détail conditions météo + fenêtre temporelle (story 3.5) | ✅ |
+| Sheet « Pourquoi ce score ? » (4 facteurs, seuils centralisés, explication du hard gate nuages bas) | ✅ |
 | Lever du soleil + indicateur de stabilité (story 3.5) | ✅ |
 | Permission géolocalisation opt-in (onboarding step 4 + lien Profil vers réglages iOS) — story 2.3 | ✅ |
 | WeekStrip — changement de jour sur l'écran principal (story 3.5) | ✅ |

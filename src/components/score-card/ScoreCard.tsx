@@ -6,6 +6,7 @@
  *   date           string        — ISO 8601 (ex: "2026-03-23")
  *   selectedHour   number?       — heure sélectionnée (affiche les chips si fourni)
  *   onSelectHour   function?     — callback sélection d'heure (affiche les chips si fourni)
+ *   onHelp         function?     — ouvre « Pourquoi ce score ? » (affiche le bouton ? si fourni)
  */
 import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
@@ -28,6 +29,7 @@ interface ScoreCardProps {
   selectedHour?: number;
   onSelectHour?: (hour: number) => void;
   onValidateTerrain?: () => void;
+  onHelp?: () => void;
 }
 
 function getScoreColor(verdict: ScoreResponse['verdict']): string {
@@ -71,6 +73,7 @@ export function ScoreCard({
   selectedHour,
   onSelectHour,
   onValidateTerrain,
+  onHelp,
 }: ScoreCardProps) {
   useLanguage();
   const { scheme } = useTheme();
@@ -88,6 +91,7 @@ export function ScoreCard({
   const cardBg = isDark ? Colors.dark.surface : Colors.light.surface;
   const cardBorder = isDark ? '#FFFFFF12' : Colors.light.border;
   const cardTextDim = isDark ? Colors.dark.textSecondary : Colors.light.textSecondary;
+  const accentColor = isDark ? Colors.dark.accent : Colors.light.accent;
   const cardShadow = isDark ? '#000000' : '#A07D5D';
   const chipBg = isDark ? '#FFFFFF0D' : '#FFFFFFB5';
   const chipBorder = isDark ? '#FFFFFF14' : '#DCCEBB';
@@ -126,10 +130,24 @@ export function ScoreCard({
             <Text style={[styles.scorePercent, { color: verdictColor }]}>%</Text>
           </View>
 
-          <View style={[styles.pill, { backgroundColor: pillBg }]}>
-            <Text style={[styles.pillText, { color: verdictColor }]}>
-              {getLabelText(score, isSunny)}
-            </Text>
+          <View style={styles.pillRow}>
+            <View style={[styles.pill, { backgroundColor: pillBg }]}>
+              <Text style={[styles.pillText, { color: verdictColor }]}>
+                {getLabelText(score, isSunny)}
+              </Text>
+            </View>
+            {onHelp ? (
+              <Pressable
+                testID="score-why-button"
+                onPress={onHelp}
+                accessibilityRole="button"
+                accessibilityLabel={i18n.t('scoreWhy.help')}
+                hitSlop={14}
+                style={[styles.helpButton, { borderColor: accentColor }]}
+              >
+                <Text style={[styles.helpText, { color: accentColor }]}>?</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {hasContextMessage ? (
@@ -216,7 +234,27 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.lg,
     paddingBottom: 10,
   },
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 8,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  helpButton: {
+    aspectRatio: 1,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  helpText: {
+    fontFamily: Typography.fontFamily.bold,
+    fontSize: Typography.fontSize.xs,
+  },
   pill: {
+    flexShrink: 1,
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,

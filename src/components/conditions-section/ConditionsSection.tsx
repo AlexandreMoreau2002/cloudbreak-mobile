@@ -2,6 +2,7 @@ import i18n from '@/utils/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { ScoreResponse } from '@/services/mockData/types';
+import { getHumidity, getInversionPresent, getWind } from '@/utils/scoreConditions';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export interface ConditionsSectionProps {
@@ -14,15 +15,13 @@ export function ConditionsSection({ score }: ConditionsSectionProps) {
   const conditions = score.conditions;
   if (!conditions) return null;
 
-  const humidityVal = conditions.humidity != null
-    ? `${Math.round(conditions.humidity)}%`
-    : (conditions.humidity_pct != null ? `${Math.round(conditions.humidity_pct)}%` : 'N/A');
+  const humidity = getHumidity(conditions);
+  const humidityVal = humidity != null ? `${Math.round(humidity)}%` : 'N/A';
 
-  const windVal = conditions.wind_speed != null
-    ? `${Math.round(conditions.wind_speed)} km/h`
-    : (conditions.wind_speed_kmh != null ? `${Math.round(conditions.wind_speed_kmh)} km/h` : 'N/A');
+  const wind = getWind(conditions);
+  const windVal = wind != null ? `${Math.round(wind)} km/h` : 'N/A';
 
-  const inversionPresent = conditions.inversion_present ?? conditions.inversion_detected ?? null;
+  const inversionPresent = getInversionPresent(conditions);
   const inversionVal = inversionPresent === true ? 'Oui' : inversionPresent === false ? 'Non' : 'N/A';
 
   const alertLabel = i18n.t('home.alertCtaTitle');
