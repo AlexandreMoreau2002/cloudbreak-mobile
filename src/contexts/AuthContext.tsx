@@ -632,8 +632,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOutLocally(): Promise<void> {
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
-    await clearTerrainState();
-    await syncTerrainGeofences(false);
+    // Best-effort : un échec de purge locale ou d'arrêt du geofencing ne doit jamais bloquer
+    // la déconnexion ni la suppression de compte (déjà effective côté serveur).
+    await clearTerrainState().catch(() => null);
+    await syncTerrainGeofences(false).catch(() => null);
   }
 
   async function clearLocalSession(): Promise<void> {
@@ -680,7 +682,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!token) throw new Error('Non authentifié');
     await deleteAccountService(token);
     await signOutLocally();
-    await AsyncStorage.clear();
+    await AsyncStorage.clear().catch(() => null);
   }
 
   return (
