@@ -244,17 +244,18 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
           ) : null}
-          <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <SettingsRow
-              icon="trash-outline"
-              label={i18n.t('profile.deleteAccount')}
-              onPress={handleOpenDeleteModal}
-              tone="danger"
-              isLast
-            />
-          </View>
         </>
       )}
+
+      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SettingsRow
+          icon="trash-outline"
+          label={i18n.t('profile.deleteAccount')}
+          onPress={handleOpenDeleteModal}
+          tone="danger"
+          isLast
+        />
+      </View>
 
       <DeleteAccountModal
         visible={deleteModalVisible}

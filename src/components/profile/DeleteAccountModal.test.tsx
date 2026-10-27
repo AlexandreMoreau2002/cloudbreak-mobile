@@ -160,4 +160,14 @@ describe('DeleteAccountModal', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(debugSpy).not.toHaveBeenCalled();
   });
+
+  it('sans email (invité) : pas de champ email et confirmation directe', () => {
+    const onConfirm = jest.fn();
+    const { getByText, queryByPlaceholderText } = render(
+      <DeleteAccountModal visible userEmail="" onCancel={jest.fn()} onConfirm={onConfirm} />,
+    );
+    expect(queryByPlaceholderText('profile.deleteAccountModal.emailPlaceholder')).toBeNull();
+    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
 });
