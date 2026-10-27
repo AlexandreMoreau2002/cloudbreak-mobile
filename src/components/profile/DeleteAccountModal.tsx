@@ -17,6 +17,8 @@ export function DeleteAccountModal({ visible, userEmail, onCancel, onConfirm, er
   const { colors } = useTheme();
   const [emailInput, setEmailInput] = useState('');
 
+  // Un invité (anonyme) n'a pas d'email : pas d'étape de saisie, la confirmation suffit.
+  const requiresEmail = userEmail !== '';
   const emailMatch = emailInput.trim() === userEmail;
 
   const handleConfirm = () => {
@@ -39,19 +41,23 @@ export function DeleteAccountModal({ visible, userEmail, onCancel, onConfirm, er
           <Text style={[styles.warning, { color: colors.textSecondary }]}>
             {i18n.t('profile.deleteAccountModal.warning')}
           </Text>
-          <Text style={[styles.label, { color: colors.textPrimary }]}>
-            {i18n.t('profile.deleteAccountModal.emailLabel')}
-          </Text>
-          <TextInput
-            style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.background }]}
-            placeholder={i18n.t('profile.deleteAccountModal.emailPlaceholder')}
-            placeholderTextColor={colors.textDisabled}
-            value={emailInput}
-            onChangeText={setEmailInput}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoCorrect={false}
-          />
+          {requiresEmail && (
+            <>
+              <Text style={[styles.label, { color: colors.textPrimary }]}>
+                {i18n.t('profile.deleteAccountModal.emailLabel')}
+              </Text>
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.background }]}
+                placeholder={i18n.t('profile.deleteAccountModal.emailPlaceholder')}
+                placeholderTextColor={colors.textDisabled}
+                value={emailInput}
+                onChangeText={setEmailInput}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoCorrect={false}
+              />
+            </>
+          )}
           {error && <Text style={styles.error}>{error}</Text>}
           <TouchableOpacity
             style={[styles.confirmBtn, (!emailMatch || loading) && styles.confirmBtnDisabled]}

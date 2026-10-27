@@ -621,6 +621,51 @@ describe('AuthContext', () => {
     expect(mockDeleteAccount).toHaveBeenCalledWith('token-123');
   });
 
+  it('deleteAccount aboutit et vide le stockage même si l\'arrêt du geofence rejette', async () => {
+    const fakeSession = { access_token: 'token-123', user: { id: '123' } };
+    mockGetSession.mockResolvedValueOnce({ data: { session: fakeSession } });
+    mockSyncTerrainGeofences.mockRejectedValueOnce(new Error('geofence boom'));
+    mockClearTerrainState.mockRejectedValueOnce(new Error('storage boom'));
+
+    const { getByTestId } = render(
+      <AuthProvider><TestConsumer /></AuthProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('session').props.children).toBe('connected'));
+    fireEvent.press(getByTestId('deleteAccount'));
+
+    await waitFor(() => expect(mockAsyncStorageClear).toHaveBeenCalledTimes(1));
+    expect(mockSyncTerrainGeofences).toHaveBeenCalledWith(false);
+  });
+
+  it('deleteAccount ne purge rien si la suppression serveur échoue', async () => {
+    const fakeSession = { access_token: 'token-123', user: { id: '123' } };
+    mockGetSession.mockResolvedValueOnce({ data: { session: fakeSession } });
+    mockDeleteAccount.mockRejectedValueOnce(new Error('500'));
+
+    function TestDeleteFails() {
+      const { session: s, deleteAccount: del } = useAuth();
+      return (
+        <>
+          <Text testID="session">{s ? 'connected' : 'none'}</Text>
+          <TouchableOpacity testID="deleteAccount" onPress={() => del().catch(() => null)} />
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <AuthProvider><TestDeleteFails /></AuthProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('session').props.children).toBe('connected'));
+    fireEvent.press(getByTestId('deleteAccount'));
+
+    await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalled());
+    expect(mockSyncTerrainGeofences).not.toHaveBeenCalled();
+    expect(mockClearTerrainState).not.toHaveBeenCalled();
+    expect(mockAsyncStorageClear).not.toHaveBeenCalled();
+  });
+
   it('useAuth lance une erreur hors AuthProvider', () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => render(<TestConsumer />)).toThrow('useAuth must be used within AuthProvider');

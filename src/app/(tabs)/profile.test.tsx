@@ -277,8 +277,28 @@ describe('ProfileScreen', () => {
     expect(getByText('profile.guest.createAccount')).toBeTruthy();
     expect(getByText('profile.guest.login')).toBeTruthy();
     expect(queryByText('profile.signOut')).toBeNull();
-    expect(queryByText('profile.deleteAccount')).toBeNull();
     expect(queryByText('test@example.com')).toBeNull();
+  });
+
+  it('propose la suppression du compte à un invité, sans étape de saisie email', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { getByText, queryByPlaceholderText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.deleteAccount'));
+
+    expect(getByText('profile.deleteAccountModal.title')).toBeTruthy();
+    expect(queryByPlaceholderText('profile.deleteAccountModal.emailPlaceholder')).toBeNull();
+    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('garde la CTA de création de compte avec la suppression pour un invité', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.deleteAccount')).toBeTruthy();
+    fireEvent.press(getByText('profile.guest.createAccount'));
+    expect(mockOpenAccount).toHaveBeenCalledWith('creation');
   });
 
   it('ouvre la création de compte depuis la carte invitée', () => {
