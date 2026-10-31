@@ -7,8 +7,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Cloudbreak – Mer de nuage',
   slug: 'cloudbreak',
   userInterfaceStyle: 'automatic',
+  // Textes de permission iOS localisés (InfoPlist.strings générés au prebuild depuis ces fichiers).
+  locales: {
+    fr: './locales/fr.json',
+    en: './locales/en.json',
+  },
   ios: {
     ...config.ios,
+    infoPlist: {
+      ...config.ios?.infoPlist,
+      // Langues réellement fournies (cf. `locales`).
+      CFBundleLocalizations: ['fr', 'en'],
+    },
     associatedDomains: getAssociatedDomains(
       process.env.EXPO_PUBLIC_LEGAL_BASE_URL ?? 'https://ops.cloudbreak-app.com',
     ),
