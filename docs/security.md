@@ -1,5 +1,20 @@
 # Security — Mobile
 
+## 2026-11-01 Audit pré-release — `npm audit --omit=dev` et durcissement du build
+
+### 🟢 RÉSOLU
+- `npm audit fix` (sans `--force`) + `npx expo install --fix` : 45 → 39 alertes (1 critique → 0, 9 hautes → 6). Le critique (`shell-quote`) et plusieurs hautes (`node-forge`, etc.) sont corrigées par mise à jour de dépendances transitives ; seuls 4 paquets Expo sont passés en patch (`expo-crypto`, `expo-dev-client`, `expo-location`, `expo-notifications`).
+- `MOCK_API` ne peut plus être actif en build release (garde `__DEV__`, comme `DEBUG` et `DEV_TOOLS_ENABLED`) ; le profil EAS `production` fixe explicitement les variables `EXPO_PUBLIC_*` (aucun secret).
+- Permissions iOS inutiles retirées de l'Info.plist (`NSFaceIDUsageDescription`, `NSMotionUsageDescription`).
+
+### 🔵 INFO — alertes restantes (justification)
+- **Toolchain de build uniquement** (jamais embarqué dans l'app iOS) : `@expo/cli`, `@expo/config*`, `zod` 3.x interne à `@expo/cli`, `brace-expansion` / `minimatch` (ESLint, Jest, glob des config plugins), `xcode`/`uuid`, `jest`, `@testing-library/react-native`. Elles s'exécutent sur la machine de dev / EAS avec des entrées maîtrisées (notre propre repo) ; les corriger demande `npm audit fix --force`, qui rétrograde Expo (breaking change) : refusé.
+- **`query-string` → `decode-uri-component` (via `expo-router`)** : alerte haute classée « runtime » car le parsing des query-strings de deep link s'exécute dans l'app. Impact limité à un déni de service local (ralentissement de l'app) en ouvrant un lien malformé ; aucune fuite ni exécution. Le correctif exige une montée d'`expo-router` hors de la plage SDK 57 : à reprendre au prochain SDK.
+
+### Verdict
+Aucun blocage release. Relancer `npm audit --omit=dev` à chaque bump de SDK.
+
+---
 ## 2026-10-12 Session invitée supprimée côté serveur
 
 ### 🔵 INFO
