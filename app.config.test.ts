@@ -10,14 +10,20 @@ function locationPluginOptions(): Record<string, unknown> | undefined {
   return Array.isArray(entry) ? entry[1] : undefined;
 }
 
-describe('app.config — plugin expo-location', () => {
-  it('active la localisation en arrière-plan iOS (UIBackgroundModes=location, requis par le geofencing)', () => {
-    expect(locationPluginOptions()?.isIosBackgroundLocationEnabled).toBe(true);
+describe('app.config — plugin expo-location (foreground uniquement)', () => {
+  it("n'active pas la localisation en arrière-plan iOS (pas de UIBackgroundModes=location)", () => {
+    expect(locationPluginOptions()?.isIosBackgroundLocationEnabled).toBe(false);
   });
 
-  it('fournit le texte de justification « Toujours »', () => {
-    expect(locationPluginOptions()?.locationAlwaysAndWhenInUsePermission).toEqual(
+  it('garde la justification « Pendant l\'utilisation »', () => {
+    expect(locationPluginOptions()?.locationWhenInUsePermission).toEqual(
       expect.stringContaining('sommet'),
     );
+  });
+
+  it("retire les clés « Toujours » de l'Info.plist", () => {
+    const options = locationPluginOptions();
+    expect(options?.locationAlwaysAndWhenInUsePermission).toBe(false);
+    expect(options?.locationAlwaysPermission).toBe(false);
   });
 });

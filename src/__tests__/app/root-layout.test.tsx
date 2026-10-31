@@ -82,7 +82,7 @@ jest.mock('@/hooks/useAppSessionTracking', () => ({
   useAppSessionTracking: jest.fn(),
 }));
 
-jest.mock('@/hooks/useTerrainGeofence', () => ({ useTerrainGeofence: jest.fn() }));
+jest.mock('@/hooks/useTerrainPrefSync', () => ({ useTerrainPrefSync: jest.fn() }));
 
 jest.mock('@/services/notificationHandler', () => {
   (globalThis as { __notificationHandlerLoaded?: boolean }).__notificationHandlerLoaded = true;

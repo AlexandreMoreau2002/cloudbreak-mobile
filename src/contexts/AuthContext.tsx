@@ -9,7 +9,6 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { DEBUG } from '@/constants/devConfig';
 import { supabase } from '@/services/supabaseClient';
 import { clearTerrainState } from '@/utils/terrainWatch';
-import { syncTerrainGeofences } from '@/services/terrainGeofence';
 import {
   deleteAccount as deleteAccountService,
   deletePushToken,
@@ -632,10 +631,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOutLocally(): Promise<void> {
     await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
-    // Best-effort : un échec de purge locale ou d'arrêt du geofencing ne doit jamais bloquer
+    // Best-effort : un échec de purge locale ne doit jamais bloquer
     // la déconnexion ni la suppression de compte (déjà effective côté serveur).
     await clearTerrainState().catch(() => null);
-    await syncTerrainGeofences(false).catch(() => null);
   }
 
   async function clearLocalSession(): Promise<void> {
