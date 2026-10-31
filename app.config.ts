@@ -17,7 +17,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-image',
     'expo-web-browser',
     'expo-apple-authentication',
-    'expo-secure-store',
+    // Pas de Face ID : le Keychain sans authentification biométrique suffit (aucun accès biométrique demandé).
+    ['expo-secure-store', { faceIDPermission: false }],
     './plugins/withIosSceneLifecycle',
     [
       'expo-location',
@@ -27,6 +28,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         locationAlwaysAndWhenInUsePermission: false,
         locationAlwaysPermission: false,
         isIosBackgroundLocationEnabled: false,
+        // Pas d'activité de mouvement : retire NSMotionUsageDescription (texte générique anglais).
+        motionUsagePermission: false,
       },
     ],
   ],
