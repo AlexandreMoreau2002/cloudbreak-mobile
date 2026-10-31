@@ -27,3 +27,21 @@ describe('app.config — plugin expo-location (foreground uniquement)', () => {
     expect(options?.locationAlwaysPermission).toBe(false);
   });
 });
+
+describe('app.config — plugins sans permissions inutiles', () => {
+  function pluginOptions(name: string): Record<string, unknown> | undefined {
+    const config = createConfig({ config: {} as never, projectRoot: '.' } as never);
+    const entry = (config.plugins as PluginEntry[]).find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === name,
+    );
+    return Array.isArray(entry) ? entry[1] : undefined;
+  }
+
+  it("retire NSFaceIDUsageDescription (expo-secure-store n'utilise pas Face ID)", () => {
+    expect(pluginOptions('expo-secure-store')?.faceIDPermission).toBe(false);
+  });
+
+  it('retire NSMotionUsageDescription (expo-location sans activité de mouvement)', () => {
+    expect(pluginOptions('expo-location')?.motionUsagePermission).toBe(false);
+  });
+});
