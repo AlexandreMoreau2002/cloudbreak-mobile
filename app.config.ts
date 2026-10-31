@@ -31,6 +31,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ['expo-secure-store', { faceIDPermission: false }],
     './plugins/withIosSceneLifecycle',
     [
+      'expo-splash-screen',
+      {
+        // DA : fond light #EFE8DC / dark #1A1A1A, mascotte de marque. `splash-icon.png` est le glyphe
+        // blanc du template Expo (hors marque, invisible sur crème). Sans image, le plugin ne relie
+        // pas la couleur au storyboard : l'image est donc obligatoire pour appliquer le fond.
+        backgroundColor: '#EFE8DC',
+        image: './assets/images/brand/mascot-full-light-cut.png',
+        imageWidth: 200,
+        dark: {
+          backgroundColor: '#1A1A1A',
+          image: './assets/images/brand/mascot-full-dark-cut.png',
+        },
+      },
+    ],
+    [
       'expo-location',
       {
         locationWhenInUsePermission: 'Pour confirmer ta présence au sommet.',
