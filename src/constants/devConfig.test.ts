@@ -12,7 +12,8 @@ describe('devConfig', () => {
     jest.resetModules();
   });
 
-  it('active MOCK_API seulement si la variable vaut true', () => {
+  it('active MOCK_API seulement si __DEV__ ET la variable valent true', () => {
+    (globalThis as { __DEV__?: boolean }).__DEV__ = true;
     process.env.EXPO_PUBLIC_MOCK_API = 'true';
 
     jest.isolateModules(() => {
@@ -21,7 +22,18 @@ describe('devConfig', () => {
     });
   });
 
+  it('désactive MOCK_API hors __DEV__ même si EXPO_PUBLIC_MOCK_API vaut true', () => {
+    (globalThis as { __DEV__?: boolean }).__DEV__ = false;
+    process.env.EXPO_PUBLIC_MOCK_API = 'true';
+
+    jest.isolateModules(() => {
+      const { MOCK_API } = require('@/constants/devConfig');
+      expect(MOCK_API).toBe(false);
+    });
+  });
+
   it('désactive MOCK_API sinon', () => {
+    (globalThis as { __DEV__?: boolean }).__DEV__ = true;
     process.env.EXPO_PUBLIC_MOCK_API = 'false';
 
     jest.isolateModules(() => {
