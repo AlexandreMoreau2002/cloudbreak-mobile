@@ -18,7 +18,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { DEBUG } from '@/constants/devConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { setTerrainPref } from '@/utils/terrainWatch';
-import { syncTerrainGeofences } from '@/services/terrainGeofence';
 import { fetchMe, updateNotificationPreferences } from '@/services/api/user';
 import type { AsyncState, NotificationPreferences } from '@/services/mockData/types';
 import { debugDataRefresh, type DataRefreshReason } from '@/services/dataRefreshDebug';
@@ -73,7 +72,6 @@ export function useNotificationPreferences() {
         await updateNotificationPreferences(token, { [key]: next[key] });
         if (key === 'notif_terrain') {
           await setTerrainPref(next[key]);
-          void syncTerrainGeofences(next[key]);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erreur inconnue';

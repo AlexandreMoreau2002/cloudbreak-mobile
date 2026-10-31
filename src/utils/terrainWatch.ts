@@ -1,34 +1,18 @@
 /**
- * terrainWatch — état local de la notification terrain (story 5.3), dans AsyncStorage
- * (données non sensibles) car la tâche de fond du geofencing ne peut pas appeler l'API.
+ * terrainWatch — état local de la validation terrain (story 5.3), dans AsyncStorage
+ * (données non sensibles).
  *
- * - sommets surveillés : les derniers sommets consultés (max 3, 48 h)
- * - cooldown : une notification par sommet toutes les 12 h
  * - préférence : copie locale de `notif_terrain` (vraie valeur = serveur)
- * - ouverture en attente : slug à ouvrir dans le sheet après un tap sur la notification
+ * - ouverture en attente : slug à ouvrir dans le sheet après un tap sur une notification
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { Peak } from '@/services/mockData/types';
-
-const WATCHED_KEY = 'terrainWatchedPeaks';
-const NOTIFIED_KEY = 'terrainNotifiedAt';
+// Anciennes clés (géorepérage retiré) : purgées par clearTerrainState sur les installs existantes.
+const LEGACY_KEYS = ['terrainWatchedPeaks', 'terrainNotifiedAt'];
 const PREF_KEY = 'terrainNotifPref';
 const PENDING_OPEN_KEY = 'pendingTerrainOpenSlug';
 
-export const MAX_WATCHED = 3;
-export const WATCH_TTL_MS = 48 * 60 * 60 * 1000;
-export const NOTIFY_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 export const PENDING_OPEN_TTL_MS = 10 * 60 * 1000;
-
-export interface WatchedPeak {
-  id: string;
-  slug: string;
-  name: string;
-  lat: number;
-  lng: number;
-  consultedAt: number;
-}
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
   try {
@@ -43,40 +27,8 @@ async function writeJson(key: string, value: unknown): Promise<void> {
   try {
     await AsyncStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // best-effort : la notification terrain n'est jamais critique
+    // best-effort : l'état terrain n'est jamais critique
   }
-}
-
-export async function getWatchedPeaks(now: number = Date.now()): Promise<WatchedPeak[]> {
-  const peaks = await readJson<WatchedPeak[]>(WATCHED_KEY, []);
-  return peaks.filter((p) => now - p.consultedAt <= WATCH_TTL_MS);
-}
-
-export async function rememberWatchedPeak(peak: Peak, now: number = Date.now()): Promise<void> {
-  const others = (await getWatchedPeaks(now)).filter((p) => p.id !== peak.id);
-  const entry: WatchedPeak = {
-    id: peak.id,
-    slug: peak.slug,
-    name: peak.name,
-    lat: peak.lat,
-    lng: peak.lng,
-    consultedAt: now,
-  };
-  await writeJson(WATCHED_KEY, [entry, ...others].slice(0, MAX_WATCHED));
-}
-
-export async function canNotify(peakId: string, now: number = Date.now()): Promise<boolean> {
-  const notified = await readJson<Record<string, number>>(NOTIFIED_KEY, {});
-  const last = notified[peakId];
-  return last === undefined || now - last >= NOTIFY_COOLDOWN_MS;
-}
-
-export async function markNotified(peakId: string, now: number = Date.now()): Promise<void> {
-  const notified = await readJson<Record<string, number>>(NOTIFIED_KEY, {});
-  const recent = Object.fromEntries(
-    Object.entries(notified).filter(([, at]) => now - at < NOTIFY_COOLDOWN_MS),
-  );
-  await writeJson(NOTIFIED_KEY, { ...recent, [peakId]: now });
 }
 
 export async function getTerrainPref(): Promise<boolean> {
@@ -114,7 +66,7 @@ export async function consumePendingTerrainOpen(
 export async function clearTerrainState(): Promise<void> {
   try {
     await Promise.all(
-      [WATCHED_KEY, NOTIFIED_KEY, PREF_KEY, PENDING_OPEN_KEY].map((key) =>
+      [...LEGACY_KEYS, PREF_KEY, PENDING_OPEN_KEY].map((key) =>
         AsyncStorage.removeItem(key),
       ),
     );

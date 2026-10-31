@@ -54,10 +54,6 @@ jest.mock('expo-apple-authentication', () => ({
   AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
 }), { virtual: true });
 
-const mockSyncTerrainGeofences = jest.fn().mockResolvedValue(undefined);
-jest.mock('@/services/terrainGeofence', () => ({
-  syncTerrainGeofences: (...args: unknown[]) => mockSyncTerrainGeofences(...args),
-}));
 
 const mockClearTerrainState = jest.fn().mockResolvedValue(undefined);
 jest.mock('@/utils/terrainWatch', () => ({
@@ -516,7 +512,6 @@ describe('AuthContext', () => {
     fireEvent.press(getByTestId('signOut'));
     expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
     await waitFor(() => expect(mockClearTerrainState).toHaveBeenCalledTimes(1));
-    expect(mockSyncTerrainGeofences).toHaveBeenCalledWith(false);
   });
 
   it('signOut ignore les erreurs supabase.auth.signOut', async () => {
@@ -598,7 +593,6 @@ describe('AuthContext', () => {
     await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalledWith('token-123'));
     expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(mockClearTerrainState).toHaveBeenCalledTimes(1);
-    expect(mockSyncTerrainGeofences).toHaveBeenCalledWith(false);
     expect(mockAsyncStorageClear).toHaveBeenCalledTimes(1);
   });
 
@@ -621,10 +615,9 @@ describe('AuthContext', () => {
     expect(mockDeleteAccount).toHaveBeenCalledWith('token-123');
   });
 
-  it('deleteAccount aboutit et vide le stockage même si l\'arrêt du geofence rejette', async () => {
+  it('deleteAccount aboutit et vide le stockage même si la purge locale du terrain rejette', async () => {
     const fakeSession = { access_token: 'token-123', user: { id: '123' } };
     mockGetSession.mockResolvedValueOnce({ data: { session: fakeSession } });
-    mockSyncTerrainGeofences.mockRejectedValueOnce(new Error('geofence boom'));
     mockClearTerrainState.mockRejectedValueOnce(new Error('storage boom'));
 
     const { getByTestId } = render(
@@ -635,7 +628,6 @@ describe('AuthContext', () => {
     fireEvent.press(getByTestId('deleteAccount'));
 
     await waitFor(() => expect(mockAsyncStorageClear).toHaveBeenCalledTimes(1));
-    expect(mockSyncTerrainGeofences).toHaveBeenCalledWith(false);
   });
 
   it('deleteAccount ne purge rien si la suppression serveur échoue', async () => {
@@ -661,7 +653,6 @@ describe('AuthContext', () => {
     fireEvent.press(getByTestId('deleteAccount'));
 
     await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalled());
-    expect(mockSyncTerrainGeofences).not.toHaveBeenCalled();
     expect(mockClearTerrainState).not.toHaveBeenCalled();
     expect(mockAsyncStorageClear).not.toHaveBeenCalled();
   });
@@ -1779,7 +1770,6 @@ describe('AuthContext', () => {
 
     expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(mockClearTerrainState).toHaveBeenCalledTimes(1);
-    expect(mockSyncTerrainGeofences).toHaveBeenCalledWith(false);
     expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
     expect(getAuth().isAnonymous).toBe(true);
   });

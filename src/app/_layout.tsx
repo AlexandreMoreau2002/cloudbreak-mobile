@@ -12,7 +12,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useNotificationTap } from '@/hooks/useNotificationTap';
 import { usePendingPeakLink } from '@/hooks/usePendingPeakLink';
-import { useTerrainGeofence } from '@/hooks/useTerrainGeofence';
+import { useTerrainPrefSync } from '@/hooks/useTerrainPrefSync';
 import { SelectedPeakProvider } from '@/contexts/SelectedPeakContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { usePushToken } from '@/hooks/usePushToken';
@@ -70,7 +70,7 @@ function AppStack() {
   const { locale } = useLanguage();
   useAppSessionTracking();
   usePushToken();
-  useTerrainGeofence();
+  useTerrainPrefSync();
   useNotificationTap();
 
   return <Stack key={locale} screenOptions={{ headerShown: false }} />;

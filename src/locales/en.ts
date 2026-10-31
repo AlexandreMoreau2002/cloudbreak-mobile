@@ -389,7 +389,5 @@ export default {
     successTitle: 'Thank you!',
     successBody: 'Your answer helps refine forecasts 🙏',
     close: 'Close',
-    notificationTitle: 'You made it to %{peak}!',
-    notificationBody: 'Cloud sea visible? 📸',
   },
 };

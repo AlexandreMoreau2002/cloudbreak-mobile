@@ -1,17 +1,10 @@
 import {
-  canNotify,
   clearTerrainState,
   consumePendingTerrainOpen,
   getTerrainPref,
-  getWatchedPeaks,
-  markNotified,
-  MAX_WATCHED,
-  NOTIFY_COOLDOWN_MS,
   PENDING_OPEN_TTL_MS,
-  rememberWatchedPeak,
   setPendingTerrainOpen,
   setTerrainPref,
-  WATCH_TTL_MS,
 } from '@/utils/terrainWatch';
 
 const mockStore = new Map<string, string>();
@@ -25,64 +18,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   }),
 }));
 
-const peak = (n: number) => ({
-  id: `p${n}`,
-  slug: `peak-${n}`,
-  name: `Peak ${n}`,
-  lat: 45 + n,
-  lng: 6,
-  altitude: 2000,
-});
-
 beforeEach(() => mockStore.clear());
-
-describe('watched peaks', () => {
-  it('mémorise un sommet et le relit', async () => {
-    await rememberWatchedPeak(peak(1), 1000);
-    const peaks = await getWatchedPeaks(1000);
-    expect(peaks).toEqual([
-      { id: 'p1', slug: 'peak-1', name: 'Peak 1', lat: 46, lng: 6, consultedAt: 1000 },
-    ]);
-  });
-
-  it('ne garde que les MAX_WATCHED plus récents, sans doublon', async () => {
-    for (let i = 1; i <= MAX_WATCHED + 1; i += 1) await rememberWatchedPeak(peak(i), i);
-    await rememberWatchedPeak(peak(MAX_WATCHED + 1), 99);
-    const ids = (await getWatchedPeaks(100)).map((p) => p.id);
-    expect(ids).toHaveLength(MAX_WATCHED);
-    expect(ids[0]).toBe(`p${MAX_WATCHED + 1}`);
-    expect(ids).not.toContain('p1');
-  });
-
-  it('écarte les sommets plus vieux que le TTL', async () => {
-    await rememberWatchedPeak(peak(1), 0);
-    expect(await getWatchedPeaks(WATCH_TTL_MS + 1)).toEqual([]);
-  });
-
-  it('retourne [] si le stockage est corrompu', async () => {
-    mockStore.set('terrainWatchedPeaks', '{not json');
-    expect(await getWatchedPeaks(0)).toEqual([]);
-  });
-});
-
-describe('cooldown', () => {
-  it('autorise la première notification puis bloque pendant le cooldown', async () => {
-    expect(await canNotify('p1', 1000)).toBe(true);
-    await markNotified('p1', 1000);
-    expect(await canNotify('p1', 1000 + NOTIFY_COOLDOWN_MS - 1)).toBe(false);
-    expect(await canNotify('p1', 1000 + NOTIFY_COOLDOWN_MS)).toBe(true);
-    expect(await canNotify('p2', 1001)).toBe(true);
-  });
-});
-
-describe('purge des cooldowns', () => {
-  it('supprime les entrées plus vieilles que le cooldown à chaque écriture', async () => {
-    await markNotified('old', 0);
-    await markNotified('recent', NOTIFY_COOLDOWN_MS + 10);
-    const stored = JSON.parse(mockStore.get('terrainNotifiedAt') ?? '{}');
-    expect(Object.keys(stored)).toEqual(['recent']);
-  });
-});
 
 describe('préférence terrain', () => {
   it('vaut true par défaut puis reflète la dernière valeur écrite', async () => {
@@ -120,16 +56,16 @@ describe('ouverture en attente', () => {
 });
 
 describe('clearTerrainState', () => {
-  it('supprime sommets, cooldowns, préférence et ouverture en attente', async () => {
-    await rememberWatchedPeak(peak(1), 1000);
-    await markNotified('p1', 1000);
+  it('supprime préférence, ouverture en attente et anciennes clés de géorepérage', async () => {
+    mockStore.set('terrainWatchedPeaks', '[]');
+    mockStore.set('terrainNotifiedAt', '{}');
     await setTerrainPref(false);
     await setPendingTerrainOpen('peak-1');
 
     await clearTerrainState();
 
-    expect(await getWatchedPeaks(1000)).toEqual([]);
-    expect(await canNotify('p1', 1001)).toBe(true);
+    expect(mockStore.has('terrainWatchedPeaks')).toBe(false);
+    expect(mockStore.has('terrainNotifiedAt')).toBe(false);
     expect(await getTerrainPref()).toBe(true);
     expect(await consumePendingTerrainOpen('peak-1')).toBe(false);
   });
