@@ -5,10 +5,11 @@
  * statiques locales (src/services/mockData/). Permet de dev mobile même si
  * le backend ou Supabase est down.
  *
- * Contrôlé par la variable d'environnement EXPO_PUBLIC_MOCK_API.
+ * Nécessite __DEV__ ET la variable d'environnement EXPO_PUBLIC_MOCK_API : impossible
+ * à activer dans un build release (même si la variable fuit dans l'env EAS).
  * Dans .env : EXPO_PUBLIC_MOCK_API=true
  */
-export const MOCK_API = process.env.EXPO_PUBLIC_MOCK_API === 'true';
+export const MOCK_API = __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true';
 
 /**
  * DEBUG : active les logs console.debug placés aux points clés (requêtes
