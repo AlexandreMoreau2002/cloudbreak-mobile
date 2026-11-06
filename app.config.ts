@@ -2,6 +2,31 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 const { getAssociatedDomains } = require('./plugins/associatedDomains');
 
+const DEV_SUPABASE_URL = 'https://yggehvcwxiqrkhsoxrxe.supabase.co';
+const DEV_SUPABASE_KEY = 'sb_publishable_kvTa5gayV_CeR2V9W08_CQ_oU0yPhak';
+
+// Local et staging pointent sur le Supabase de dev (valeurs par défaut). Un build `production`
+// ne doit jamais retomber dessus : les variables EAS sont alors obligatoires.
+function getSupabaseConfig() {
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (process.env.EAS_BUILD_PROFILE === 'production') {
+    const missing = [
+      !url && 'EXPO_PUBLIC_SUPABASE_URL',
+      !key && 'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      throw new Error(
+        `Build production refusé : variable(s) EAS manquante(s) (${missing.join(', ')}). ` +
+          'Un build production ne doit jamais pointer sur le Supabase de dev.',
+      );
+    }
+  }
+
+  return { supabaseUrl: url || DEV_SUPABASE_URL, supabaseKey: key || DEV_SUPABASE_KEY };
+}
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Cloudbreak – Mer de nuage',
@@ -60,7 +85,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   extra: {
     ...config.extra,
-    supabaseUrl: process.env.SUPABASE_URL ?? 'https://yggehvcwxiqrkhsoxrxe.supabase.co',
-    supabaseKey: process.env.SUPABASE_KEY ?? 'sb_publishable_kvTa5gayV_CeR2V9W08_CQ_oU0yPhak',
+    ...getSupabaseConfig(),
   },
 });
