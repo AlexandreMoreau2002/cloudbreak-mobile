@@ -80,3 +80,39 @@ native et ses tests propres avant d'être considéré comme livré.
 Avant une soumission App Store, il reste notamment à compléter les métadonnées/localisations de la
 fiche, les captures, les informations commerciales et les exigences de conformité Apple
 applicables à la version soumise.
+
+## Environnements de build
+
+| | Local (`expo run:ios`) | `staging` (TestFlight) | `production` (App Store) |
+|---|---|---|---|
+| Commande | `npx expo run:ios` / `npm start` | `eas build --profile staging --platform ios` | `eas build --profile production --platform ios` |
+| API | `.env` local (`EXPO_PUBLIC_API_URL`) | `https://dev-api.cloudbreak-app.com` | `https://api.cloudbreak-app.com` |
+| Site ops / liens universels | `.env` local | `https://dev-ops.cloudbreak-app.com` | `https://ops.cloudbreak-app.com` |
+| Supabase | dev (valeurs par défaut de `app.config.ts`) | dev (valeurs par défaut) | projet séparé, variables EAS obligatoires |
+| Apple (StoreKit) | Sandbox | Sandbox (backend `APPLE_ENVIRONMENT=Sandbox`) | Production |
+
+`staging` sert d'environnement de test de la release : mêmes binaires et distribution que la
+production (`distribution: store`, `autoIncrement`), mais branché sur le backend de dev. Pour le
+tester : `eas build --profile staging --platform ios`, puis `eas submit --profile staging
+--platform ios` (ou `--latest`) et installation via TestFlight.
+
+### Supabase par environnement
+
+`app.config.ts` lit `EXPO_PUBLIC_SUPABASE_URL` et `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (clé
+publishable, publique par nature, exposée dans `extra`). Sans variable, les valeurs du Supabase de
+dev sont utilisées (local et `staging`). Garde-fou : quand `EAS_BUILD_PROFILE=production`, la
+config **échoue** si l'une des deux variables manque, pour qu'un build de production ne pointe
+jamais sur le Supabase de dev.
+
+`eas.json` ne contient volontairement pas ces variables pour `production` (le projet Supabase de
+prod n'existe pas encore). À faire une fois créé, dans le dashboard EAS (environnement
+`production`) : `EXPO_PUBLIC_SUPABASE_URL` et `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+
+### Liens universels (Associated Domains)
+
+`plugins/associatedDomains.js` dérive le domaine de `EXPO_PUBLIC_LEGAL_BASE_URL`. Pour staging
+(`dev-ops.cloudbreak-app.com`, hôte non-prod), le domaine généré est
+`applinks:dev-ops.cloudbreak-app.com?mode=developer`. Ce mode n'est pris en compte que par les
+builds signés en développement ; sur un build TestFlight, iOS passe par le CDN Apple pour l'AASA
+(mise à jour parfois lente), donc les liens universels de staging peuvent être moins fiables que
+sur un build de dev.
