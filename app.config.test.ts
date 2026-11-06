@@ -92,3 +92,62 @@ describe('app.config — splash screen aux couleurs de la DA', () => {
     expect(existsSync(options.dark?.image ?? '')).toBe(true);
   });
 });
+
+describe('app.config — Supabase par environnement', () => {
+  const DEV_URL = 'https://yggehvcwxiqrkhsoxrxe.supabase.co';
+  const saved = { ...process.env };
+
+  function extra(): Record<string, unknown> {
+    return createConfig({ config: {} as never, projectRoot: '.' } as never).extra as Record<
+      string,
+      unknown
+    >;
+  }
+
+  beforeEach(() => {
+    delete process.env.EAS_BUILD_PROFILE;
+    delete process.env.EXPO_PUBLIC_SUPABASE_URL;
+    delete process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  });
+
+  afterAll(() => {
+    process.env = saved;
+  });
+
+  it('retombe sur le Supabase de dev en local', () => {
+    expect(extra().supabaseUrl).toBe(DEV_URL);
+    expect(extra().supabaseKey).toEqual(expect.stringMatching(/^sb_publishable_/));
+  });
+
+  it('retombe sur le Supabase de dev pour le profil staging', () => {
+    process.env.EAS_BUILD_PROFILE = 'staging';
+    expect(extra().supabaseUrl).toBe(DEV_URL);
+  });
+
+  it('lit les variables EXPO_PUBLIC_SUPABASE_* quand elles existent', () => {
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://prod.supabase.co';
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_prod';
+    expect(extra()).toMatchObject({
+      supabaseUrl: 'https://prod.supabase.co',
+      supabaseKey: 'sb_publishable_prod',
+    });
+  });
+
+  it('échoue en production si les variables Supabase sont absentes', () => {
+    process.env.EAS_BUILD_PROFILE = 'production';
+    expect(() => extra()).toThrow(/EXPO_PUBLIC_SUPABASE_URL/);
+  });
+
+  it("échoue en production si une seule des deux variables est posée", () => {
+    process.env.EAS_BUILD_PROFILE = 'production';
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://prod.supabase.co';
+    expect(() => extra()).toThrow(/EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+  });
+
+  it('accepte la production avec les deux variables', () => {
+    process.env.EAS_BUILD_PROFILE = 'production';
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://prod.supabase.co';
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_prod';
+    expect(extra().supabaseUrl).toBe('https://prod.supabase.co');
+  });
+});
