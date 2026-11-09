@@ -48,8 +48,8 @@ describe('app.config — plugins sans permissions inutiles', () => {
     expect(pluginOptions('expo-secure-store')?.faceIDPermission).toBe(false);
   });
 
-  it('retire NSMotionUsageDescription (expo-location sans activité de mouvement)', () => {
-    expect(pluginOptions('expo-location')?.motionUsagePermission).toBe(false);
+  it('fournit NSMotionUsageDescription (exigé par Apple, ITMS-90683)', () => {
+    expect(pluginOptions('expo-location')?.motionUsagePermission).toEqual(expect.any(String));
   });
 });
 
