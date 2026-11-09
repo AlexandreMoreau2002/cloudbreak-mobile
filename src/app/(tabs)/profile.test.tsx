@@ -1,4 +1,5 @@
 import React from 'react';
+import { Modal } from 'react-native';
 import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
 
 import ProfileScreen from '@/app/(tabs)/profile';
@@ -486,6 +487,24 @@ describe('ProfileScreen', () => {
     );
     fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
 
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('referme la modale de suppression et arrête le chargement quand deleteAccount réussit', async () => {
+    mockDeleteAccount.mockResolvedValueOnce(undefined);
+    const { getByText, getByPlaceholderText, UNSAFE_getByType } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.deleteAccount'));
+    expect(UNSAFE_getByType(Modal).props.visible).toBe(true);
+    fireEvent.changeText(
+      getByPlaceholderText('profile.deleteAccountModal.emailPlaceholder'),
+      'test@example.com',
+    );
+    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
+
+    await waitFor(() => {
+      expect(UNSAFE_getByType(Modal).props.visible).toBe(false);
+    });
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
   });
 

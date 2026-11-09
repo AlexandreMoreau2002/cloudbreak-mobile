@@ -681,6 +681,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await deleteAccountService(token);
     await signOutLocally();
     await AsyncStorage.clear().catch(() => null);
+    // Comme à la déconnexion : on repart sur un invité neuf, sans état « sans session ».
+    // Best-effort : le compte est déjà supprimé côté serveur, un échec ici ne doit pas
+    // faire croire à l'utilisateur que la suppression a échoué.
+    await replaceWithFreshGuestSession().catch(() => null);
   }
 
   return (
