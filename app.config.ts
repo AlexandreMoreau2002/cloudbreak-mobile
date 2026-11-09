@@ -78,8 +78,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         locationAlwaysAndWhenInUsePermission: false,
         locationAlwaysPermission: false,
         isIosBackgroundLocationEnabled: false,
-        // Pas d'activité de mouvement : retire NSMotionUsageDescription (texte générique anglais).
-        motionUsagePermission: false,
+        // L'app n'utilise pas les capteurs de mouvement, mais le binaire référence CoreMotion via
+        // expo-location : Apple exige une clé NSMotionUsageDescription (ITMS-90683, build 4).
+        // Texte réel localisé dans `locales/`; cette valeur sert de repli.
+        motionUsagePermission: 'Pour affiner ta position au sommet.',
       },
     ],
   ],

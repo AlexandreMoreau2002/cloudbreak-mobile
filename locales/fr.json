@@ -1,3 +1,4 @@
 {
-  "NSLocationWhenInUseUsageDescription": "Pour confirmer ta présence au sommet."
+  "NSLocationWhenInUseUsageDescription": "Pour confirmer ta présence au sommet.",
+  "NSMotionUsageDescription": "Pour affiner ta position au sommet."
 }
