@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const CODE_LENGTH = 6;
@@ -25,7 +25,8 @@ export function CodeInput({ value, onChange, error = false }: CodeInputProps) {
       setDigits(next);
       lastEmittedValue.current = clean;
       onChange(clean);
-      refs.current[Math.min(clean.length - 1, CODE_LENGTH - 1)]?.focus();
+      if (clean.length === CODE_LENGTH) Keyboard.dismiss();
+      else refs.current[Math.min(clean.length - 1, CODE_LENGTH - 1)]?.focus();
       return;
     }
     const next = [...digits];
@@ -34,7 +35,8 @@ export function CodeInput({ value, onChange, error = false }: CodeInputProps) {
     const nextValue = next.join('');
     lastEmittedValue.current = nextValue;
     onChange(nextValue);
-    if (clean && index < CODE_LENGTH - 1) refs.current[index + 1]?.focus();
+    if (nextValue.length === CODE_LENGTH) Keyboard.dismiss();
+    else if (clean && index < CODE_LENGTH - 1) refs.current[index + 1]?.focus();
   }
   return <View testID="code-input-row" style={styles.row}>{digits.map((digit, index) => <TextInput
     key={index} ref={(ref) => { refs.current[index] = ref; }} testID={`code-input-${index}`}
