@@ -5,6 +5,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import i18n from '@/utils/i18n';
 import { DEBUG } from '@/constants/devConfig';
 import { CodeInput } from '@/components/account';
+import { KeyboardDismissView } from '@/components/account/KeyboardDismissView';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAccountGate } from '@/contexts/AccountGateContext';
@@ -89,7 +90,7 @@ export default function VerifyScreen() {
   if (!email || !password) return null;
 
   return (
-    <View
+    <KeyboardDismissView
       style={[
         styles.container,
         { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom + 42 },
@@ -177,7 +178,7 @@ export default function VerifyScreen() {
           <Text style={[styles.modify, { color: colors.textSecondary }]}>{i18n.t('verify.modify')}</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardDismissView>
   );
 }
 

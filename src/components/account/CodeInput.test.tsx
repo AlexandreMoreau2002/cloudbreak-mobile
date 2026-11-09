@@ -1,3 +1,4 @@
+import { Keyboard } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 import { CodeInput } from '@/components/account/CodeInput';
 jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ colors: { textPrimary: '#111', surface: '#fff', accent: '#b28c6e', border: '#ddd' }, typography: { fontFamily: { semiBold: 'System' } } }) }));
@@ -41,5 +42,15 @@ describe('CodeInput', () => {
     fireEvent(getByTestId('code-input-3'), 'keyPress', { nativeEvent: { key: 'Backspace' } });
 
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('CodeInput — fermeture du clavier', () => {
+  it('ferme le clavier quand les six chiffres sont saisis', () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => undefined);
+    const { getByTestId } = render(<CodeInput value="" onChange={jest.fn()} />);
+    fireEvent.changeText(getByTestId('code-input-0'), '123456');
+    expect(dismiss).toHaveBeenCalled();
+    dismiss.mockRestore();
   });
 });
