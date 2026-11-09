@@ -84,6 +84,9 @@ export default function ProfileScreen() {
     setDeleteError(null);
     try {
       await deleteAccount();
+      // Succès : la session est déjà remplacée, on referme la modale (sinon le loader tourne à l'infini).
+      setDeleteLoading(false);
+      setDeleteModalVisible(false);
     } catch {
       setDeleteError(i18n.t('profile.deleteAccountModal.errorGeneric'));
       setDeleteLoading(false);
