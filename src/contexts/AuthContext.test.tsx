@@ -596,6 +596,52 @@ describe('AuthContext', () => {
     expect(mockAsyncStorageClear).toHaveBeenCalledTimes(1);
   });
 
+  it('deleteAccount ouvre une session invitée neuve après avoir vidé le stockage', async () => {
+    const fakeSession = { access_token: 'token-123', user: { id: '123' } };
+    mockGetSession.mockResolvedValueOnce({ data: { session: fakeSession } });
+
+    const { getByTestId } = render(
+      <AuthProvider><TestConsumer /></AuthProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('session').props.children).toBe('connected'));
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'guest', user: { id: 'guest-1', is_anonymous: true } } },
+    });
+    fireEvent.press(getByTestId('deleteAccount'));
+
+    await waitFor(() => expect(mockSignInAnonymously).toHaveBeenCalledTimes(1));
+    expect(mockAsyncStorageClear.mock.invocationCallOrder[0])
+      .toBeLessThan(mockSignInAnonymously.mock.invocationCallOrder[0]);
+    await waitFor(() => expect(getByTestId('isAnonymous').props.children).toBe('true'));
+  });
+
+  it('deleteAccount aboutit sans erreur même si la session invitée échoue', async () => {
+    const fakeSession = { access_token: 'token-123', user: { id: '123' } };
+    mockGetSession.mockResolvedValueOnce({ data: { session: fakeSession } });
+    mockSignInAnonymously.mockResolvedValue({ error: new Error('indisponible') });
+    let resolved = false;
+
+    function TestDeleteResolves() {
+      const { session, deleteAccount: del } = useAuth();
+      return (
+        <>
+          <Text testID="session">{session ? 'connected' : 'disconnected'}</Text>
+          <TouchableOpacity testID="deleteAccount" onPress={() => del().then(() => { resolved = true; })} />
+        </>
+      );
+    }
+    const { getByTestId } = render(
+      <AuthProvider><TestDeleteResolves /></AuthProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('session').props.children).toBe('connected'));
+    fireEvent.press(getByTestId('deleteAccount'));
+
+    await waitFor(() => expect(resolved).toBe(true));
+    expect(mockAsyncStorageClear).toHaveBeenCalledTimes(1);
+  });
+
   it('deleteAccount vide le stockage local même si signOut rejette', async () => {
     const fakeSession = {
       access_token: 'token-123',
