@@ -13,6 +13,7 @@
     "staging": {
       "distribution": "store",
       "autoIncrement": true,
+      "environment": "preview",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://dev-api.cloudbreak-app.com",
         "EXPO_PUBLIC_LEGAL_BASE_URL": "https://dev-ops.cloudbreak-app.com",
