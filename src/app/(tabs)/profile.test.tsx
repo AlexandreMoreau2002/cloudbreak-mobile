@@ -1,0 +1,645 @@
+import React from 'react';
+import { Modal } from 'react-native';
+import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
+
+import ProfileScreen from '@/app/(tabs)/profile';
+import type { AsyncState } from '@/services/mockData/types';
+
+const mockSaveDisplayName = jest.fn();
+const mockRefreshDisplayName = jest.fn();
+let mockDisplayNameState: AsyncState<string | null> = { status: 'success', data: 'Alex' };
+jest.mock('@/hooks/useDisplayName', () => ({
+  useDisplayName: () => ({ state: mockDisplayNameState, save: mockSaveDisplayName, refresh: mockRefreshDisplayName }),
+}));
+
+const mockPush = jest.fn();
+const mockOpenAccount = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+  useFocusEffect: (callback: () => void) => callback(),
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 12, right: 0, bottom: 0, left: 0 }),
+}));
+
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: () => null,
+}));
+
+jest.mock('@/utils/i18n', () => ({
+  __esModule: true,
+  default: { t: (key: string) => key },
+}));
+
+jest.mock('@/services/analytics', () => ({ track: jest.fn() }));
+
+jest.mock('@/constants/devConfig', () => ({ DEV_TOOLS_ENABLED: true }));
+
+const mockSignOut = jest.fn();
+const mockSignOutToAnonymous = jest.fn().mockResolvedValue(null);
+const mockDeleteAccount = jest.fn();
+const mockToggleScheme = jest.fn();
+const mockToggleLocale = jest.fn();
+const mockReplaySurvey = jest.fn();
+let mockSession: { user: { email?: string; is_anonymous?: boolean } } | null = { user: { email: 'test@example.com' } };
+
+const mockRefreshLocationPermission = jest.fn();
+let mockLocationPermission: 'undetermined' | 'granted' | 'denied' = 'denied';
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    signOut: mockSignOut,
+    signOutToAnonymous: mockSignOutToAnonymous,
+    deleteAccount: mockDeleteAccount,
+    session: mockSession,
+    replaySurvey: mockReplaySurvey,
+    locationPermission: mockLocationPermission,
+    refreshLocationPermission: mockRefreshLocationPermission,
+  }),
+}));
+
+const mockShowPaywall = jest.fn();
+jest.mock('@/contexts/PaywallContext', () => ({
+  usePaywall: () => ({ showPaywall: mockShowPaywall }),
+}));
+
+jest.mock('@/contexts/AccountGateContext', () => ({
+  useAccountGate: () => ({ openAccount: mockOpenAccount }),
+}));
+
+const mockSetSelectedPeak = jest.fn();
+let mockSelectedPeak: { name: string } | null = null;
+jest.mock('@/contexts/SelectedPeakContext', () => ({
+  useSelectedPeak: () => ({
+    selectedPeak: mockSelectedPeak,
+    setSelectedPeak: mockSetSelectedPeak,
+  }),
+}));
+
+const mockResetOnboarding = jest.fn();
+jest.mock('@/contexts/OnboardingContext', () => ({
+  useOnboarding: () => ({
+    completed: true,
+    hydrated: true,
+    completeOnboarding: jest.fn(),
+    resetOnboarding: mockResetOnboarding,
+  }),
+}));
+
+let mockLocale: 'fr' | 'en' = 'fr';
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: mockLocale, toggleLocale: mockToggleLocale }),
+}));
+
+const mockOpenLegalLink = jest.fn();
+jest.mock('@/hooks/useLegalLinks', () => ({
+  useLegalLinks: () => ({ openLegalLink: mockOpenLegalLink }),
+}));
+
+const mockOpenLocationSettings = jest.fn();
+jest.mock('@/hooks/useLocationSettingsLink', () => ({
+  useLocationSettingsLink: () => ({ openLocationSettings: mockOpenLocationSettings }),
+}));
+
+const mockToggleNewsletter = jest.fn();
+let mockNewsletter = {
+  optedIn: false,
+  state: { status: 'success' as const, data: false },
+  toggle: mockToggleNewsletter,
+};
+jest.mock('@/hooks/useNewsletterConsent', () => ({
+  useNewsletterConsent: () => mockNewsletter,
+}));
+
+let mockNotificationState = {
+  status: 'success' as const,
+  data: {
+    notif_favorites: false,
+    notif_regional: false,
+    notif_terrain: false,
+  },
+};
+jest.mock('@/hooks/useNotificationPreferences', () => ({
+  useNotificationPreferences: () => ({ state: mockNotificationState }),
+}));
+
+let mockScheme = 'light';
+jest.mock('@/contexts/ThemeContext', () => ({
+  useTheme: () => ({
+    scheme: mockScheme,
+    toggleScheme: mockToggleScheme,
+    colors: {
+      background: '#EFE8DC',
+      surface: '#F7F5F1',
+      border: '#E9E4DA',
+      accent: '#B28C6E',
+      textPrimary: '#1A1A1A',
+      textSecondary: '#5E5E5E',
+    },
+    typography: {
+      fontFamily: { regular: 'regular', semiBold: 'semiBold', bold: 'bold' },
+      fontSize: { lg: 22, sm: 14 },
+    },
+    spacing: { md: 16, sm: 8 },
+  }),
+}));
+
+describe('ProfileScreen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockDisplayNameState = { status: 'success', data: 'Alex' };
+    mockScheme = 'light';
+    mockLocale = 'fr';
+    mockSession = { user: { email: 'test@example.com' } };
+    mockSignOutToAnonymous.mockResolvedValue(null);
+    mockLocationPermission = 'denied';
+    mockSelectedPeak = null;
+    mockNotificationState = {
+      status: 'success',
+      data: {
+        notif_favorites: false,
+        notif_regional: false,
+        notif_terrain: false,
+      },
+    };
+    mockNewsletter = {
+      optedIn: false,
+      state: { status: 'success', data: false },
+      toggle: mockToggleNewsletter,
+    };
+  });
+
+  it('s\'affiche sans erreur', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.title')).toBeTruthy();
+  });
+
+  it('opens inline editing from the identity card with no display-name account setting', () => {
+    const screen = render(<ProfileScreen />);
+    expect(screen.getByText('Alex')).toBeTruthy();
+    expect(screen.queryByText('profile.displayName.setting')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'profile.displayName.edit' }));
+    fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
+    fireEvent(screen.getByTestId('display-name-input'), 'keyPress', { nativeEvent: { key: 'Escape' } });
+    expect(mockSaveDisplayName).not.toHaveBeenCalled();
+    expect(screen.getByText('Alex')).toBeTruthy();
+    expect(screen.queryByTestId('display-name-input')).toBeNull();
+  });
+
+  it('cache l’édition aux invités et aux sessions absentes', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const screen = render(<ProfileScreen />);
+    expect(screen.queryByText('profile.displayName.setting')).toBeNull();
+    mockSession = null;
+    screen.rerender(<ProfileScreen />);
+    expect(screen.queryByText('profile.displayName.setting')).toBeNull();
+  });
+
+  it('closes inline editing and shows the confirmed name after saving', async () => {
+    let resolveSave!: (saved: boolean) => void;
+    mockSaveDisplayName.mockReturnValueOnce(new Promise((resolve) => { resolveSave = resolve; }));
+    const screen = render(<ProfileScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'profile.displayName.edit' }));
+    fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
+    fireEvent.press(screen.getByTestId('display-name-save'));
+    expect(mockSaveDisplayName).toHaveBeenCalledWith('New');
+    mockDisplayNameState = { status: 'loading', data: 'Alex' };
+    screen.rerender(<ProfileScreen />);
+    mockDisplayNameState = { status: 'success', data: 'New' };
+    screen.rerender(<ProfileScreen />);
+    await act(async () => { resolveSave(true); });
+    expect(screen.getByText('New')).toBeTruthy();
+    expect(screen.queryByTestId('display-name-input')).toBeNull();
+  });
+
+  it('ne ferme pas l’édition sur un GET réussi pendant un PATCH encore en cours', async () => {
+    let resolveSave!: (saved: boolean) => void;
+    mockSaveDisplayName.mockReturnValueOnce(new Promise((resolve) => { resolveSave = resolve; }));
+    const screen = render(<ProfileScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'profile.displayName.edit' }));
+    fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
+    fireEvent.press(screen.getByTestId('display-name-save'));
+    mockDisplayNameState = { status: 'success', data: 'Alex' };
+    screen.rerender(<ProfileScreen />);
+    expect(screen.getByTestId('display-name-input').props.value).toBe('New');
+    await act(async () => { resolveSave(false); });
+    expect(screen.getByTestId('display-name-input').props.value).toBe('New');
+  });
+
+  it('conserve le nom précédent et la saisie après échec de sauvegarde', async () => {
+    mockSaveDisplayName.mockResolvedValueOnce(false);
+    const screen = render(<ProfileScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'profile.displayName.edit' }));
+    fireEvent.changeText(screen.getByTestId('display-name-input'), 'New');
+    fireEvent.press(screen.getByTestId('display-name-save'));
+    mockDisplayNameState = { status: 'loading', data: 'Alex' };
+    screen.rerender(<ProfileScreen />);
+    mockDisplayNameState = { status: 'error', data: 'Alex', error: 'raw' };
+    screen.rerender(<ProfileScreen />);
+    await waitFor(() => expect(screen.getByTestId('display-name-save')).not.toBeDisabled());
+    expect(screen.getByText('profile.displayName.error')).toBeTruthy();
+    expect(screen.getByTestId('display-name-input').props.value).toBe('New');
+    fireEvent(screen.getByTestId('display-name-input'), 'keyPress', { nativeEvent: { key: 'Escape' } });
+    expect(screen.getByText('Alex')).toBeTruthy();
+  });
+
+  it('utilise les états partagés au chargement initial et permet de réessayer', () => {
+    mockDisplayNameState = { status: 'loading' };
+    const screen = render(<ProfileScreen />);
+    expect(screen.getByTestId('loading-spinner')).toBeTruthy();
+    mockDisplayNameState = { status: 'error', error: 'raw' };
+    screen.rerender(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('display-name-retry'));
+    expect(mockRefreshDisplayName).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche la carte utilisateur avec email', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('test@example.com')).toBeTruthy();
+  });
+
+  it('affiche le profil sans email quand la session est absente', () => {
+    mockSession = null;
+
+    const { getByText, queryByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.title')).toBeTruthy();
+    expect(queryByText('test@example.com')).toBeNull();
+  });
+
+  it('affiche la carte invitée sans actions sensibles', () => {
+    mockSession = { user: { is_anonymous: true } };
+
+    const { getByText, queryByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.guest.title')).toBeTruthy();
+    expect(getByText('profile.guest.subtitle')).toBeTruthy();
+    expect(getByText('profile.guest.createAccount')).toBeTruthy();
+    expect(getByText('profile.guest.login')).toBeTruthy();
+    expect(queryByText('profile.signOut')).toBeNull();
+    expect(queryByText('test@example.com')).toBeNull();
+  });
+
+  it('propose la suppression du compte à un invité, sans étape de saisie email', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { getByText, queryByPlaceholderText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.deleteAccount'));
+
+    expect(getByText('profile.deleteAccountModal.title')).toBeTruthy();
+    expect(queryByPlaceholderText('profile.deleteAccountModal.emailPlaceholder')).toBeNull();
+    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('garde la CTA de création de compte avec la suppression pour un invité', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.deleteAccount')).toBeTruthy();
+    fireEvent.press(getByText('profile.guest.createAccount'));
+    expect(mockOpenAccount).toHaveBeenCalledWith('creation');
+  });
+
+  it('ouvre la création de compte depuis la carte invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.guest.createAccount'));
+
+    expect(mockOpenAccount).toHaveBeenCalledWith('creation');
+  });
+
+  it('ouvre la connexion depuis la carte invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.guest.login'));
+
+    expect(mockOpenAccount).toHaveBeenCalledWith('login');
+  });
+
+  it('affiche le banner pro', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.proBannerTitle')).toBeTruthy();
+  });
+
+  it('ouvre le paywall avec le trigger profile_banner au clic sur le banner pro', () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.proBannerTitle'));
+    expect(mockShowPaywall).toHaveBeenCalledWith('profile_banner');
+  });
+
+  it('affiche la ligne apparence en mode light', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.appearance')).toBeTruthy();
+    expect(getByText('profile.appearanceLight')).toBeTruthy();
+  });
+
+  it('affiche la ligne apparence en mode dark', () => {
+    mockScheme = 'dark';
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.appearanceDark')).toBeTruthy();
+  });
+
+  it('appelle toggleScheme au clic sur la ligne apparence', () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.appearance'));
+    expect(mockToggleScheme).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche la ligne langue avec la valeur courante en locale fr', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.language')).toBeTruthy();
+    expect(getByText('profile.languageFrLabel')).toBeTruthy();
+  });
+
+  it('affiche la valeur langue en locale en', () => {
+    mockLocale = 'en';
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.languageEnLabel')).toBeTruthy();
+  });
+
+  it('appelle toggleLocale au clic sur la ligne langue', () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.language'));
+    expect(mockToggleLocale).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche la ligne Notifications dans Préférences et navigue vers l\'écran dédié', () => {
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.notifications'));
+
+    expect(mockPush).toHaveBeenCalledWith('/notifications');
+  });
+
+  it('affiche la ligne Sommet par défaut en lecture seule avec le sommet sélectionné', () => {
+    mockSelectedPeak = { name: 'Mont Blanc' };
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.defaultPeak')).toBeTruthy();
+    expect(getByText('Mont Blanc')).toBeTruthy();
+  });
+
+  it('affiche le footer avec la version de l\'app', () => {
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText(/Cloudbreak v/)).toBeTruthy();
+  });
+
+  it('la ligne Déconnexion est en tone danger sans fond de pastille', () => {
+    const { getByText } = render(<ProfileScreen />);
+    const label = getByText('profile.signOut');
+
+    expect(label.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ color: '#C25C4A' })]),
+    );
+  });
+
+  it('affiche le bouton de déconnexion', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.signOut')).toBeTruthy();
+  });
+
+  it('crée une vraie session invitée au clic sur se déconnecter', async () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.signOut'));
+    await waitFor(() => expect(mockSignOutToAnonymous).toHaveBeenCalledTimes(1));
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('tracks signed_out then calls signOut', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.signOut'));
+    expect(track).toHaveBeenCalledWith('signed_out');
+    expect(mockSignOutToAnonymous).toHaveBeenCalledTimes(1);
+  });
+
+  it('propose de réessayer si la session invitée ne peut pas être créée', async () => {
+    mockSignOutToAnonymous.mockResolvedValueOnce(new Error('Anonymous sign-ins are disabled'));
+    const { getByText, getByTestId } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.signOut'));
+    await waitFor(() => expect(getByTestId('profile-signout-error')).toBeTruthy());
+
+    fireEvent.press(getByTestId('profile-signout-retry'));
+    await waitFor(() => expect(mockSignOutToAnonymous).toHaveBeenCalledTimes(2));
+  });
+
+  it('tracks theme_toggled then calls toggleScheme', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.appearance'));
+    expect(track).toHaveBeenCalledWith('theme_toggled', { scheme: 'dark' });
+    expect(mockToggleScheme).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks theme_toggled vers light quand le scheme courant est dark', () => {
+    mockScheme = 'dark';
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.appearance'));
+    expect(track).toHaveBeenCalledWith('theme_toggled', { scheme: 'light' });
+  });
+
+  it('tracks language_toggled then calls toggleLocale', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.language'));
+    expect(track).toHaveBeenCalledWith('language_toggled', { locale: 'en' });
+    expect(mockToggleLocale).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks language_toggled vers fr quand la locale courante est en', () => {
+    mockLocale = 'en';
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.language'));
+    expect(track).toHaveBeenCalledWith('language_toggled', { locale: 'fr' });
+  });
+
+  it('tracks delete_account_initiated when opening the delete modal', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.deleteAccount'));
+    expect(track).toHaveBeenCalledWith('delete_account_initiated');
+  });
+
+  it('ouvre puis ferme la modale de suppression de compte', () => {
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.deleteAccount'));
+    expect(getByText('profile.deleteAccountModal.title')).toBeTruthy();
+
+    fireEvent.press(getByText('profile.deleteAccountModal.cancel'));
+    expect(mockDeleteAccount).not.toHaveBeenCalled();
+  });
+
+  it('branche la confirmation de suppression sur deleteAccount', () => {
+    const { getByText, getByPlaceholderText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.deleteAccount'));
+    fireEvent.changeText(
+      getByPlaceholderText('profile.deleteAccountModal.emailPlaceholder'),
+      'test@example.com',
+    );
+    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
+
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('referme la modale de suppression et arrête le chargement quand deleteAccount réussit', async () => {
+    mockDeleteAccount.mockResolvedValueOnce(undefined);
+    const { getByText, getByPlaceholderText, UNSAFE_getByType } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.deleteAccount'));
+    expect(UNSAFE_getByType(Modal).props.visible).toBe(true);
+    fireEvent.changeText(
+      getByPlaceholderText('profile.deleteAccountModal.emailPlaceholder'),
+      'test@example.com',
+    );
+    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
+
+    await waitFor(() => {
+      expect(UNSAFE_getByType(Modal).props.visible).toBe(false);
+    });
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche une erreur et arrête le chargement si deleteAccount rejette', async () => {
+    mockDeleteAccount.mockRejectedValueOnce(new Error('Server error'));
+    const { getByText, getByPlaceholderText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.deleteAccount'));
+    fireEvent.changeText(
+      getByPlaceholderText('profile.deleteAccountModal.emailPlaceholder'),
+      'test@example.com',
+    );
+    fireEvent.press(getByText('profile.deleteAccountModal.confirm'));
+
+    await waitFor(() => {
+      expect(getByText('profile.deleteAccountModal.errorGeneric')).toBeTruthy();
+    });
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche la ligne newsletter avec la valeur désactivée par défaut', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.newsletter')).toBeTruthy();
+    expect(getByText('profile.newsletterOff')).toBeTruthy();
+  });
+
+  it('affiche "Activée" quand le consentement newsletter est donné', () => {
+    mockNewsletter = {
+      optedIn: true,
+      state: { status: 'success', data: true },
+      toggle: mockToggleNewsletter,
+    };
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('profile.newsletterOn')).toBeTruthy();
+  });
+
+  it('bascule le consentement newsletter et le tracke au clic', () => {
+    const { track } = jest.requireMock('@/services/analytics');
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('profile.newsletter'));
+    expect(track).toHaveBeenCalledWith('newsletter_consent_toggled', { opted_in: true });
+    expect(mockToggleNewsletter).toHaveBeenCalledTimes(1);
+  });
+
+  it('masque la ligne newsletter pour une session invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { queryByText } = render(<ProfileScreen />);
+    expect(queryByText('profile.newsletter')).toBeNull();
+  });
+
+  it('affiche la section légale avec les trois entrées', () => {
+    const { getByText } = render(<ProfileScreen />);
+    expect(getByText('legal.sectionTitle')).toBeTruthy();
+    expect(getByText('legal.privacy')).toBeTruthy();
+    expect(getByText('legal.cgu')).toBeTruthy();
+    expect(getByText('legal.support')).toBeTruthy();
+  });
+
+  it('ouvre la politique de confidentialité au clic', () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('legal.privacy'));
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak-app.com/fr/privacy');
+  });
+
+  it("ouvre les conditions d'utilisation au clic", () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('legal.cgu'));
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('https://ops.cloudbreak-app.com/fr/cgu');
+  });
+
+  it('ouvre le lien mailto du support au clic', () => {
+    const { getByText } = render(<ProfileScreen />);
+    fireEvent.press(getByText('legal.support'));
+    expect(mockOpenLegalLink).toHaveBeenCalledWith('mailto:contact@cloudbreak-app.com');
+  });
+
+  it('branche les boutons DEV sur le sandbox et le reset du sommet sélectionné', () => {
+    const { getByText } = render(<ProfileScreen />);
+
+    fireEvent.press(getByText('profile.devSandbox'));
+    expect(mockPush).toHaveBeenCalledWith('/sandbox');
+
+    fireEvent.press(getByText('profile.devResetPeak'));
+    expect(mockSetSelectedPeak).toHaveBeenCalledWith(null);
+
+    fireEvent.press(getByText('profile.devReplayOnboarding'));
+    expect(mockResetOnboarding).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the location row with "Désactivée" when permission is denied and opens settings on press', () => {
+    mockLocationPermission = 'denied';
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.locationDenied')).toBeTruthy();
+    fireEvent.press(getByText('profile.location'));
+
+    expect(mockOpenLocationSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows "Activée" when permission is granted', () => {
+    mockLocationPermission = 'granted';
+    const { getByText } = render(<ProfileScreen />);
+
+    expect(getByText('profile.locationAllowed')).toBeTruthy();
+  });
+
+  it('refreshes the location permission when the screen regains focus', () => {
+    render(<ProfileScreen />);
+    expect(mockRefreshLocationPermission).toHaveBeenCalled();
+  });
+
+  it('rejoue le sondage : réinitialise côté serveur puis ouvre /survey', async () => {
+    mockReplaySurvey.mockResolvedValue(null);
+    const { getByTestId } = render(<ProfileScreen />);
+
+    fireEvent.press(getByTestId('dev-replay-survey'));
+
+    await waitFor(() => expect(mockReplaySurvey).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/survey'));
+  });
+
+  it("n'ouvre pas /survey si la réinitialisation échoue", async () => {
+    mockReplaySurvey.mockResolvedValue(new Error('boom'));
+    const { getByTestId } = render(<ProfileScreen />);
+
+    fireEvent.press(getByTestId('dev-replay-survey'));
+
+    await waitFor(() => expect(mockReplaySurvey).toHaveBeenCalledTimes(1));
+    expect(mockPush).not.toHaveBeenCalledWith('/survey');
+  });
+
+  it('masque le bouton de rejeu du sondage pour une session invitée', () => {
+    mockSession = { user: { is_anonymous: true } };
+    const { queryByTestId } = render(<ProfileScreen />);
+
+    expect(queryByTestId('dev-replay-survey')).toBeNull();
+  });
+});

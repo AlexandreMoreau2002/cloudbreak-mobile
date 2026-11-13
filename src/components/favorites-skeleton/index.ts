@@ -1,0 +1,1 @@
+export { FavoritesSkeleton } from './FavoritesSkeleton';

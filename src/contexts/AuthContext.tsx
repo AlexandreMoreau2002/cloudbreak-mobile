@@ -1,0 +1,710 @@
+import * as Crypto from 'expo-crypto';
+import { Platform } from 'react-native';
+import * as Location from 'expo-location';
+import { AuthError, Session } from '@supabase/supabase-js';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+
+import { DEBUG } from '@/constants/devConfig';
+import { supabase } from '@/services/supabaseClient';
+import { clearTerrainState } from '@/utils/terrainWatch';
+import {
+  deleteAccount as deleteAccountService,
+  deletePushToken,
+  fetchMe,
+  provisionUser,
+  updateDisplayName,
+  resetUserSurvey,
+  updateUserSurvey,
+  type UserSurvey,
+} from '@/services/api/user';
+
+function isNetworkError(e: unknown): boolean {
+  if (!(e instanceof Error)) return false;
+  const code = (e as Error & { code?: string }).code;
+  if (code === 'NETWORK_UNREACHABLE' || code === 'NETWORK_TIMEOUT') return true;
+  const msg = e.message.toLowerCase();
+  return msg.includes('network request failed') || msg.includes('failed to fetch');
+}
+
+export function isRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const { code, message, status } = error as {
+    code?: unknown;
+    message?: unknown;
+    status?: unknown;
+  };
+  return status === 429
+    || (typeof code === 'string' && code.toLowerCase() === 'over_email_send_rate_limit')
+    || (typeof message === 'string' && message.toLowerCase().includes('rate limit'));
+}
+
+const PROVISIONING_ERROR_MESSAGES = new Set(['provisioning_failed', 'email_upgrade_provisioning_failed']);
+
+export function isProvisioningError(message: string): boolean {
+  return PROVISIONING_ERROR_MESSAGES.has(message.trim().toLowerCase());
+}
+
+function logPasswordResetResult(error: unknown): void {
+  if (!DEBUG) return;
+  const { code, status } = (error && typeof error === 'object' ? error : {}) as {
+    code?: unknown;
+    status?: unknown;
+  };
+  console.debug('[AuthContext] password reset result', {
+    hasError: Boolean(error),
+    code: typeof code === 'string' ? code : null,
+    status: typeof status === 'number' ? status : null,
+  });
+}
+
+// Message exact renvoyé par Supabase quand le JWT appartient à un utilisateur supprimé.
+const DELETED_USER_MESSAGE = 'user from sub claim in jwt does not exist';
+
+const TERMINAL_SESSION_ERROR_CODES = new Set([
+  'bad_jwt',
+  'invalid_jwt',
+  'refresh_token_not_found',
+  'session_not_found',
+  'user_not_found',
+]);
+
+const TERMINAL_SESSION_ERROR_MESSAGES = new Set([
+  'auth session missing!',
+  'invalid jwt',
+  'jwt expired',
+  'user not found',
+  DELETED_USER_MESSAGE,
+]);
+
+function isTerminalSessionError(error: unknown): boolean {
+  if (!(error instanceof AuthError)) return false;
+  const code = error.code?.toLowerCase();
+  if (code && TERMINAL_SESSION_ERROR_CODES.has(code)) return true;
+  return TERMINAL_SESSION_ERROR_MESSAGES.has(error.message.trim().toLowerCase());
+}
+
+function isDeletedUserError(error: unknown): boolean {
+  if (!(error instanceof AuthError) || error.status !== 403) return false;
+  return error.code?.toLowerCase() === 'user_not_found'
+    || error.message.trim().toLowerCase() === DELETED_USER_MESSAGE;
+}
+
+export type LocationPermissionStatus = 'undetermined' | 'granted' | 'denied';
+
+export interface SurveyAnswers {
+  acquisitionSource?: UserSurvey['acquisitionSource'];
+  practice?: UserSurvey['practice'];
+  newsletterOptIn?: boolean;
+  skipped?: boolean;
+}
+
+export type AppleAuthIntent = 'creation' | 'connexion';
+export type AppleAuthResult = AuthError | 'cancelled' | null;
+type AuthEmailLocale = 'fr' | 'en';
+
+// Délai max d'attente du DELETE du push token au logout (hors ligne, le fetch peut durer 10 s).
+const PUSH_TOKEN_RELEASE_TIMEOUT_MS = 2500;
+const DISPLAY_NAME_MAX = 24;
+// Contrôles, séparateurs de ligne, non assignés et surcharges bidirectionnelles : refusés par le serveur.
+const DISPLAY_NAME_FORBIDDEN = /[\p{Cc}\p{Co}\p{Cn}\p{Zl}\p{Zp}\u202A-\u202E\u2066-\u2069]/gu;
+
+function cleanNamePart(part?: string | null): string {
+  return (part ?? '').replace(DISPLAY_NAME_FORBIDDEN, '').replace(/\s+/g, ' ').trim();
+}
+
+export function appleDisplayName(
+  fullName?: Partial<Pick<AppleAuthentication.AppleAuthenticationFullName, 'givenName' | 'familyName'>> | null,
+): string | null {
+  const givenName = cleanNamePart(fullName?.givenName);
+  const complete = [givenName, cleanNamePart(fullName?.familyName)].filter(Boolean).join(' ');
+  // Un nom plus long que la limite retombe sur le prénom seul, tronqué si besoin.
+  const name = Array.from(complete).length <= DISPLAY_NAME_MAX
+    ? complete
+    : Array.from(givenName || complete).slice(0, DISPLAY_NAME_MAX).join('').trim();
+  return name || null;
+}
+
+interface AuthState {
+  loading: boolean;
+  session: Session | null;
+  isAnonymous: boolean;
+  authServiceUnavailable: boolean;
+  locationPermission: LocationPermissionStatus;
+}
+
+interface AuthContextValue extends AuthState {
+  profileRevision: number;
+  signUp: (email: string, password: string) => Promise<AuthError | null>;
+  signIn: (email: string, password: string) => Promise<AuthError | null>;
+  ensureAnonymousSession: () => Promise<AuthError | null>;
+  requestPasswordReset: (email: string, locale: AuthEmailLocale) => Promise<AuthError | null>;
+  completePasswordReset: (email: string, code: string, newPassword: string) => Promise<AuthError | null>;
+  beginEmailUpgrade: (email: string, locale: AuthEmailLocale) => Promise<AuthError | null>;
+  completeEmailUpgrade: (email: string, password: string, code: string) => Promise<AuthError | null>;
+  retryProvisioning: () => Promise<AuthError | null>;
+  resendEmailUpgrade: (email: string, locale: AuthEmailLocale) => Promise<AuthError | null>;
+  signInWithApple: (intent: AppleAuthIntent) => Promise<AppleAuthResult>;
+  saveSurvey: (answer: SurveyAnswers) => Promise<AuthError | null>;
+  replaySurvey: () => Promise<AuthError | null>;
+  signOutToAnonymous: () => Promise<AuthError | null>;
+  signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  setLocationPermission: (status: LocationPermissionStatus) => void;
+  refreshLocationPermission: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+type AuthOperationStage =
+  | 'anonymous_sign_in'
+  | 'email_otp_start'
+  | 'email_otp_verify'
+  | 'email_otp_resend'
+  | 'email_password_set'
+  | 'password_reset_request'
+  | 'password_reset_verify'
+  | 'password_set'
+  | 'email_provision_session'
+  | 'email_provision_api'
+  | 'permanent_provision'
+  | 'apple_identity_link'
+  | 'apple_id_token_sign_in';
+
+type AuthOperationOutcome = 'success' | 'auth_error' | 'network_error' | 'unexpected_error' | 'session_recovered';
+
+function logAuthOperation(stage: AuthOperationStage, outcome: AuthOperationOutcome): void {
+  // Intentionally contains no e-mail, OTP, access token or Supabase error message.
+  if (DEBUG) console.debug('[AuthContext] auth operation', { stage, outcome });
+}
+
+// Rattachements d'un invité : un invité supprimé côté Supabase peut être remplacé en silence puis
+// l'action rejouée. Les étapes mot de passe / reset visent des comptes permanents : jamais réparées.
+// La connexion Apple ne peut pas déclencher ce 403 (signInWithIdToken n'envoie pas le JWT de session).
+const SELF_HEALING_STAGES: ReadonlySet<AuthOperationStage> = new Set<AuthOperationStage>([
+  'email_otp_start',
+  'apple_identity_link',
+]);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [profileRevision, setProfileRevision] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [authServiceUnavailable, setAuthServiceUnavailable] = useState(false);
+  const [locationPermission, setLocationPermission] = useState<LocationPermissionStatus>('undetermined');
+  const anonymousSessionInFlight = useRef<Promise<AuthError | null> | null>(null);
+  const sessionGeneration = useRef(0);
+  const isAnonymous = session?.user.is_anonymous === true;
+
+  async function runAuthOperationOnce(
+    stage: AuthOperationStage,
+    operation: () => Promise<{ error: AuthError | null }>,
+  ): Promise<AuthError | null> {
+    try {
+      const { error } = await operation();
+      if (error) {
+        const outcome = isNetworkError(error) ? 'network_error' : 'auth_error';
+        if (outcome === 'network_error') setAuthServiceUnavailable(true);
+        logAuthOperation(stage, outcome);
+      } else {
+        logAuthOperation(stage, 'success');
+      }
+      return error;
+    } catch (error) {
+      const outcome = isNetworkError(error) ? 'network_error' : 'unexpected_error';
+      if (outcome === 'network_error') setAuthServiceUnavailable(true);
+      logAuthOperation(stage, outcome);
+      return error instanceof AuthError
+        ? error
+        : new AuthError('Service d\'authentification indisponible');
+    }
+  }
+
+  // Un invité supprimé côté Supabase est remplacé en silence, puis l'action est rejouée UNE fois.
+  // Seuls les rattachements (Apple, e-mail) sont concernés, et seulement depuis une session
+  // invitée : un compte permanent n'est jamais transformé en invité ici.
+  async function runAuthOperation(
+    stage: AuthOperationStage,
+    operation: () => Promise<{ error: AuthError | null }>,
+    options: { onRecovered?: () => Promise<void> } = {},
+  ): Promise<AuthError | null> {
+    const error = await runAuthOperationOnce(stage, operation);
+    if (!error || !isAnonymous || !SELF_HEALING_STAGES.has(stage) || !isDeletedUserError(error)) {
+      return error;
+    }
+    try {
+      if (await replaceWithFreshGuestSession()) return error;
+      logAuthOperation(stage, 'session_recovered');
+      await options.onRecovered?.();
+      return await runAuthOperationOnce(stage, operation);
+    } catch {
+      return error;
+    }
+  }
+
+  const refreshLocationPermission = useCallback(async (): Promise<void> => {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    setLocationPermission(status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined');
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    const bootstrapGeneration = sessionGeneration.current;
+    const isCurrentBootstrap = () => isActive && sessionGeneration.current === bootstrapGeneration;
+
+    async function initializeSession(): Promise<void> {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!isCurrentBootstrap()) return;
+        const storedSession = data.session;
+        if (!storedSession) {
+          setSession(null);
+          return;
+        }
+
+        try {
+          const { data: userData, error } = await supabase.auth.getUser();
+          if (!isCurrentBootstrap()) return;
+          if (error && !isTerminalSessionError(error)) {
+            setAuthServiceUnavailable(true);
+            setSession(storedSession);
+            return;
+          }
+          if (!error && userData.user) {
+            setSession(storedSession);
+            return;
+          }
+        } catch {
+          if (!isCurrentBootstrap()) return;
+          // A rejected SDK call gives no proof that the remote identity was deleted.
+          // Preserve the existing session and make the temporary service state visible.
+          setAuthServiceUnavailable(true);
+          setSession(storedSession);
+          return;
+        }
+
+        if (!isCurrentBootstrap()) return;
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
+        if (!isCurrentBootstrap()) return;
+        setSession(null);
+      } catch (error) {
+        if (!isCurrentBootstrap()) return;
+        if (isNetworkError(error)) setAuthServiceUnavailable(true);
+        setSession(null);
+      } finally {
+        if (isActive) setLoading(false);
+      }
+    }
+
+    void initializeSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (!isActive) return;
+      if (_event === 'INITIAL_SESSION') return;
+      if (DEBUG) console.debug('[AuthContext] auth state change', { event: _event, isAnonymous: newSession?.user.is_anonymous ?? null });
+      sessionGeneration.current += 1;
+      setSession(newSession);
+    });
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
+    void refreshLocationPermission();
+
+    return () => {
+      isActive = false;
+      listener.subscription.unsubscribe();
+    };
+  }, [refreshLocationPermission]);
+
+  async function signUp(email: string, password: string): Promise<AuthError | null> {
+    try {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error && isNetworkError(error)) setAuthServiceUnavailable(true);
+      return error;
+    } catch {
+      setAuthServiceUnavailable(true);
+      return new AuthError('Service d\'authentification indisponible');
+    }
+  }
+
+  async function signIn(email: string, password: string): Promise<AuthError | null> {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error && isNetworkError(error)) setAuthServiceUnavailable(true);
+      if (error) return error;
+      if (data?.session) {
+        setSession(data.session);
+        return provisionPermanentSession(data.session.access_token);
+      }
+      return null;
+    } catch {
+      setAuthServiceUnavailable(true);
+      return new AuthError('Service d\'authentification indisponible');
+    }
+  }
+
+  async function provisionPermanentSession(
+    token: string,
+    stage: AuthOperationStage = 'permanent_provision',
+  ): Promise<AuthError | null> {
+    try {
+      await provisionUser(token);
+      logAuthOperation(stage, 'success');
+      return null;
+    } catch (error) {
+      const outcome = isNetworkError(error) ? 'network_error' : 'unexpected_error';
+      if (outcome === 'network_error') setAuthServiceUnavailable(true);
+      logAuthOperation(stage, outcome);
+      return error instanceof AuthError ? error : new AuthError('PROVISIONING_FAILED');
+    }
+  }
+
+  async function provisionCurrentPermanentSession(displayName: string | null = null): Promise<AuthError | null> {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const currentSession = data.session;
+      if (!currentSession || currentSession.user.is_anonymous === true) {
+        logAuthOperation('email_provision_session', 'auth_error');
+        return new AuthError('EMAIL_UPGRADE_PROVISIONING_UNAVAILABLE');
+      }
+      setSession(currentSession);
+      logAuthOperation('email_provision_session', 'success');
+      const provisioningError = await provisionPermanentSession(currentSession.access_token, 'email_provision_api');
+      if (provisioningError) return provisioningError;
+      if (displayName !== null) {
+        // Apple provides the name only once. This optional profile update must not
+        // invalidate a successful login, and its value/error must never be logged.
+        // A name already chosen by the user is never replaced by the Apple one.
+        try {
+          const me = await fetchMe(currentSession.access_token);
+          if (!me?.display_name) {
+            await updateDisplayName(currentSession.access_token, displayName);
+            setProfileRevision((revision) => revision + 1);
+          }
+        } catch {
+          // Optional step: the login stays successful.
+        }
+      }
+      return null;
+    } catch (error) {
+      const outcome = isNetworkError(error) ? 'network_error' : 'unexpected_error';
+      if (outcome === 'network_error') setAuthServiceUnavailable(true);
+      logAuthOperation('email_provision_session', outcome);
+      return error instanceof AuthError
+        ? error
+        : new AuthError('Provisioning du compte impossible');
+    }
+  }
+
+  function requireAnonymousSession(): AuthError | null {
+    if (session?.user.is_anonymous === true) return null;
+    return new AuthError('EMAIL_UPGRADE_UNAVAILABLE');
+  }
+
+  async function signInAnonymouslyWithLock(): Promise<AuthError | null> {
+    if (anonymousSessionInFlight.current) return anonymousSessionInFlight.current;
+    if (DEBUG) console.debug('[AuthContext] ensureAnonymousSession → signInAnonymously');
+    let promise!: Promise<AuthError | null>;
+    promise = (async () => {
+      try {
+        return await runAuthOperation('anonymous_sign_in', () => supabase.auth.signInAnonymously());
+      } finally {
+        if (anonymousSessionInFlight.current === promise) anonymousSessionInFlight.current = null;
+      }
+    })();
+    anonymousSessionInFlight.current = promise;
+    return promise;
+  }
+
+  async function ensureAnonymousSession(): Promise<AuthError | null> {
+    if (session) return null;
+    return signInAnonymouslyWithLock();
+  }
+
+  async function syncEmailLocale(locale: AuthEmailLocale): Promise<void> {
+    try {
+      const { error } = await supabase.auth.updateUser({ data: { locale } });
+      if (error && DEBUG) console.debug('[AuthContext] email locale sync unavailable');
+    } catch {
+      if (DEBUG) console.debug('[AuthContext] email locale sync unavailable');
+    }
+  }
+
+  async function beginEmailUpgrade(email: string, locale: AuthEmailLocale): Promise<AuthError | null> {
+    // Ajoute l'e-mail au compte anonyme courant → Supabase envoie un OTP (type email_change).
+    const unavailableError = requireAnonymousSession();
+    if (unavailableError) return unavailableError;
+    if (DEBUG) console.debug('[AuthContext] beginEmailUpgrade');
+    await syncEmailLocale(locale);
+    return runAuthOperation(
+      'email_otp_start',
+      () => supabase.auth.updateUser({ email }),
+      { onRecovered: () => syncEmailLocale(locale) },
+    );
+  }
+
+  async function requestPasswordReset(
+    email: string,
+    _locale: AuthEmailLocale,
+  ): Promise<AuthError | null> {
+    if (DEBUG) console.debug('[AuthContext] requestPasswordReset');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      logPasswordResetResult(error);
+      if (error) {
+        const outcome = isNetworkError(error) ? 'network_error' : 'auth_error';
+        if (outcome === 'network_error') setAuthServiceUnavailable(true);
+        logAuthOperation('password_reset_request', outcome);
+      } else {
+        logAuthOperation('password_reset_request', 'success');
+      }
+      return error;
+    } catch (error) {
+      logPasswordResetResult(error);
+      const outcome = isNetworkError(error) ? 'network_error' : 'unexpected_error';
+      if (outcome === 'network_error') setAuthServiceUnavailable(true);
+      logAuthOperation('password_reset_request', outcome);
+      return error instanceof AuthError
+        ? error
+        : new AuthError('Service d\'authentification indisponible');
+    }
+  }
+
+  async function completePasswordReset(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<AuthError | null> {
+    if (DEBUG) console.debug('[AuthContext] completePasswordReset', { codeLength: code.length });
+    const verificationError = await runAuthOperation('password_reset_verify', () =>
+      supabase.auth.verifyOtp({ email, token: code, type: 'recovery' }),
+    );
+    if (verificationError) return verificationError;
+    const passwordError = await runAuthOperation('password_set', () =>
+      supabase.auth.updateUser({ password: newPassword }),
+    );
+    if (passwordError) return passwordError;
+    return provisionCurrentPermanentSession();
+  }
+
+  async function completeEmailUpgrade(
+    email: string,
+    password: string,
+    code: string
+  ): Promise<AuthError | null> {
+    const unavailableError = requireAnonymousSession();
+    if (unavailableError) return unavailableError;
+    if (DEBUG) console.debug('[AuthContext] completeEmailUpgrade', { codeLength: code.length });
+    const verificationError = await runAuthOperation('email_otp_verify', () =>
+      supabase.auth.verifyOtp({ email, token: code, type: 'email_change' }),
+    );
+    if (verificationError) return verificationError;
+    const passwordError = await runAuthOperation('email_password_set', () => supabase.auth.updateUser({ password }));
+    if (passwordError) return passwordError;
+    const provisioningError = await provisionCurrentPermanentSession();
+    return provisioningError ? new AuthError('EMAIL_UPGRADE_PROVISIONING_FAILED') : null;
+  }
+
+  async function resendEmailUpgrade(email: string, locale: AuthEmailLocale): Promise<AuthError | null> {
+    const unavailableError = requireAnonymousSession();
+    if (unavailableError) return unavailableError;
+    if (DEBUG) console.debug('[AuthContext] resendEmailUpgrade');
+    await syncEmailLocale(locale);
+    return runAuthOperation('email_otp_resend', () =>
+      supabase.auth.resend({ email, type: 'email_change' }),
+    );
+  }
+
+  async function retryProvisioning(): Promise<AuthError | null> {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const currentSession = data.session;
+      if (!currentSession || currentSession.user.is_anonymous === true) {
+        return new AuthError('EMAIL_UPGRADE_PROVISIONING_UNAVAILABLE');
+      }
+      setSession(currentSession);
+      const provisioningError = await provisionPermanentSession(currentSession.access_token);
+      return provisioningError ? new AuthError('EMAIL_UPGRADE_PROVISIONING_FAILED') : null;
+    } catch (error) {
+      if (isNetworkError(error)) setAuthServiceUnavailable(true);
+      return new AuthError('EMAIL_UPGRADE_PROVISIONING_FAILED');
+    }
+  }
+
+  async function signInWithApple(intent: AppleAuthIntent): Promise<AppleAuthResult> {
+    if (Platform.OS !== 'ios') {
+      return new AuthError('Sign in with Apple est indisponible sur cette plateforme');
+    }
+
+    try {
+      const randomBytes = await Crypto.getRandomBytesAsync(32);
+      const rawNonce = Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+        { encoding: Crypto.CryptoEncoding.HEX }
+      );
+      const credential = await AppleAuthentication.signInAsync({
+        nonce: hashedNonce,
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      const displayName = appleDisplayName(credential.fullName);
+      if (!credential.identityToken) {
+        return new AuthError('Apple n\'a pas retourné de jeton d\'identité');
+      }
+
+      const appleCredentials = {
+        provider: 'apple' as const,
+        token: credential.identityToken,
+        nonce: rawNonce,
+      };
+      if (DEBUG) console.debug('[AuthContext] signInWithApple', { intent });
+      const authError = intent === 'creation'
+        ? await runAuthOperation('apple_identity_link', () => supabase.auth.linkIdentity(appleCredentials))
+        : await runAuthOperation('apple_id_token_sign_in', () => supabase.auth.signInWithIdToken(appleCredentials));
+      if (authError) return authError;
+      // Auth state callbacks are asynchronous; always read the session after
+      // the provider call so provisioning uses the session Supabase actually
+      // established (and preserves the anonymous UUID for linkIdentity).
+      return provisionCurrentPermanentSession(displayName);
+    } catch (error) {
+      if (
+        typeof error === 'object'
+        && error !== null
+        && 'code' in error
+        && error.code === 'ERR_REQUEST_CANCELED'
+      ) {
+        return 'cancelled';
+      }
+      if (isNetworkError(error)) setAuthServiceUnavailable(true);
+      return error instanceof AuthError
+        ? error
+        : new AuthError('Service d\'authentification indisponible');
+    }
+  }
+
+  async function saveSurvey(answer: SurveyAnswers): Promise<AuthError | null> {
+    const token = session?.access_token;
+    if (!token || session?.user.is_anonymous === true) return new AuthError('Non authentifié');
+    try {
+      await updateUserSurvey(token, answer);
+      return null;
+    } catch (error) {
+      if (isNetworkError(error)) setAuthServiceUnavailable(true);
+      return error instanceof AuthError ? error : new AuthError(
+        error instanceof Error ? error.message : 'Enregistrement du sondage impossible',
+      );
+    }
+  }
+
+  async function replaySurvey(): Promise<AuthError | null> {
+    const token = session?.access_token;
+    if (!token || session?.user.is_anonymous === true) return new AuthError('Non authentifié');
+    try {
+      await resetUserSurvey(token);
+      return null;
+    } catch (error) {
+      if (isNetworkError(error)) setAuthServiceUnavailable(true);
+      return error instanceof AuthError ? error : new AuthError(
+        error instanceof Error ? error.message : 'Réinitialisation du sondage impossible',
+      );
+    }
+  }
+
+  // Renvoie null (et non une promesse) quand il n'y a rien à libérer : le signOut Supabase
+  // reste ainsi déclenché de façon synchrone pour une session absente ou anonyme.
+  function releasePushToken(): Promise<void> | null {
+    const accessToken = session?.access_token;
+    if (!accessToken || isAnonymous) return null;
+    // Best-effort : le token doit quitter le compte avant la perte du JWT, mais une panne
+    // réseau ne doit jamais empêcher la déconnexion.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, PUSH_TOKEN_RELEASE_TIMEOUT_MS);
+    });
+    const release = deletePushToken(accessToken).catch(() => undefined);
+    return Promise.race([release, timeout]).finally(() => clearTimeout(timer));
+  }
+
+  async function signOutLocally(): Promise<void> {
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
+    // Best-effort : un échec de purge locale ne doit jamais bloquer
+    // la déconnexion ni la suppression de compte (déjà effective côté serveur).
+    await clearTerrainState().catch(() => null);
+  }
+
+  async function clearLocalSession(): Promise<void> {
+    await signOutLocally();
+    setSession(null);
+  }
+
+  // Remplace la session courante par un nouvel invité SANS passer par un état « sans session » :
+  // signInAnonymously écrase la session stockée puis émet SIGNED_IN (aucun SIGNED_OUT intermédiaire).
+  async function replaceWithFreshGuestSession(): Promise<AuthError | null> {
+    const error = await signInAnonymouslyWithLock();
+    if (error) return error;
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.user.is_anonymous) {
+      return new AuthError('Session anonyme non confirmée');
+    }
+    setSession(data.session);
+    return null;
+  }
+
+  async function startFreshGuestSession(): Promise<AuthError | null> {
+    // Toujours clore la session courante d'abord : on ne doit jamais laisser
+    // l'utilisateur bloqué sur son ancien compte si la session invitée échoue.
+    await clearLocalSession();
+    return replaceWithFreshGuestSession();
+  }
+
+  async function signOutToAnonymous(): Promise<AuthError | null> {
+    if (DEBUG) console.debug('[AuthContext] signOutToAnonymous → clear session then new guest session');
+    // Le token push doit quitter le compte avant la perte du JWT (best-effort, borné).
+    const release = releasePushToken();
+    if (release) await release;
+    return startFreshGuestSession();
+  }
+
+  async function signOut(): Promise<void> {
+    const release = releasePushToken();
+    if (release) await release;
+    await signOutLocally();
+  }
+
+  async function deleteAccount(): Promise<void> {
+    const token = session?.access_token;
+    if (!token) throw new Error('Non authentifié');
+    await deleteAccountService(token);
+    await signOutLocally();
+    await AsyncStorage.clear().catch(() => null);
+    // Comme à la déconnexion : on repart sur un invité neuf, sans état « sans session ».
+    // Best-effort : le compte est déjà supprimé côté serveur, un échec ici ne doit pas
+    // faire croire à l'utilisateur que la suppression a échoué.
+    await replaceWithFreshGuestSession().catch(() => null);
+  }
+
+  return (
+    <AuthContext.Provider
+      value={{
+        session, loading, isAnonymous, authServiceUnavailable, locationPermission, profileRevision,
+        signUp, signIn, signOut, deleteAccount,
+        ensureAnonymousSession, requestPasswordReset, completePasswordReset,
+        beginEmailUpgrade, completeEmailUpgrade,
+        resendEmailUpgrade, retryProvisioning, signInWithApple, saveSurvey, replaySurvey, signOutToAnonymous,
+        setLocationPermission, refreshLocationPermission,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}

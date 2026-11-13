@@ -1,0 +1,154 @@
+/**
+ * api/user — appels profil utilisateur, favoris et notifications.
+ *
+ * Usage :
+ *   import { addFavorite } from '@/services/api/user';
+ */
+import { MOCK_API, DEBUG } from '@/constants/devConfig';
+import { apiFetch, _delay } from '@/services/fetchService';
+import type { FavoriteResponse, NotificationPreferences } from '@/services/mockData/types';
+
+export interface UserProfile {
+  supabase_user_id: string;
+  auth_provider: string;
+  display_name?: string | null;
+  created_at?: string;
+  converted_at?: string;
+  survey_completed_at?: string | null;
+  survey_skipped_at?: string | null;
+  acquisition_source?: string | null;
+  practice?: string | null;
+  newsletter_opt_in?: boolean | null;
+}
+
+export interface UserSurvey {
+  acquisitionSource?: 'app_store' | 'google_search' | 'instagram' | 'tiktok' | 'word_of_mouth' | 'other';
+  practice?: 'hiker' | 'trail_runner' | 'paraglider' | 'photographer' | 'mountaineer' | 'other';
+  newsletterOptIn?: boolean;
+  skipped?: boolean;
+}
+
+export async function provisionUser(token: string): Promise<UserProfile> {
+  return apiFetch<UserProfile>('/api/v1/user/provision', token, undefined, { method: 'POST' });
+}
+
+export async function updateUserSurvey(token: string, survey: UserSurvey): Promise<UserProfile> {
+  if (survey.skipped === true) {
+    return apiFetch<UserProfile>('/api/v1/user/survey', token, undefined, {
+      method: 'PATCH', body: { skipped: true },
+    });
+  }
+  const body = {
+    ...(survey.acquisitionSource === undefined ? {} : { acquisition_source: survey.acquisitionSource }),
+    ...(survey.practice === undefined ? {} : { practice: survey.practice }),
+    ...(survey.newsletterOptIn === undefined ? {} : { newsletter_opt_in: survey.newsletterOptIn }),
+    ...(survey.skipped === undefined ? {} : { skipped: survey.skipped }),
+  };
+  return apiFetch<UserProfile>('/api/v1/user/survey', token, undefined, { method: 'PATCH', body });
+}
+
+export async function resetUserSurvey(token: string): Promise<UserProfile> {
+  return apiFetch<UserProfile>('/api/v1/user/survey/reset', token, undefined, { method: 'POST' });
+}
+
+export interface UserMe {
+  id: string;
+  is_anonymous: boolean;
+  provisioned: boolean;
+  display_name?: string | null;
+  survey_completed_at?: string | null;
+  survey_skipped_at?: string | null;
+  newsletter_opt_in?: boolean | null;
+  notif_favorites?: boolean;
+  notif_regional?: boolean;
+  notif_terrain?: boolean;
+}
+
+export async function fetchMe(token: string): Promise<UserMe> {
+  return apiFetch<UserMe>('/api/v1/user/me', token);
+}
+
+export async function updateDisplayName(
+  token: string,
+  displayName: string | null,
+): Promise<UserProfile> {
+  return apiFetch<UserProfile>('/api/v1/user/display-name', token, undefined, {
+    method: 'PATCH', body: { display_name: displayName },
+  });
+}
+
+export async function updateUserPreferences(
+  token: string,
+  newsletterOptIn: boolean,
+): Promise<UserProfile> {
+  return apiFetch<UserProfile>('/api/v1/user/preferences', token, undefined, {
+    method: 'PATCH',
+    body: { newsletter_opt_in: newsletterOptIn },
+  });
+}
+
+export async function updateNotificationPreferences(
+  token: string,
+  prefs: Partial<NotificationPreferences>,
+): Promise<void> {
+  if (MOCK_API) {
+    if (DEBUG) console.debug('[api/user] MOCK updateNotificationPreferences', prefs);
+    await _delay(100);
+    return;
+  }
+  await apiFetch<void>('/api/v1/user/notifications', token, undefined, {
+    method: 'PATCH',
+    body: prefs,
+  });
+}
+
+export async function updatePushToken(
+  token: string,
+  push_token: string,
+  locale: 'fr' | 'en',
+): Promise<void> {
+  if (MOCK_API) {
+    if (DEBUG) console.debug('[api/user] MOCK updatePushToken');
+    await _delay(100);
+    return;
+  }
+  await apiFetch<void>('/api/v1/user/push-token', token, undefined, {
+    method: 'POST',
+    body: { push_token, locale },
+  });
+}
+
+export async function deletePushToken(token: string): Promise<void> {
+  if (MOCK_API) {
+    if (DEBUG) console.debug('[api/user] MOCK deletePushToken');
+    await _delay(100);
+    return;
+  }
+  await apiFetch<void>('/api/v1/user/push-token', token, undefined, { method: 'DELETE' });
+}
+
+export async function addFavorite(token: string, peak_id: string): Promise<FavoriteResponse> {
+  if (MOCK_API) {
+    if (DEBUG) console.debug('[api/user] MOCK addFavorite', { peak_id });
+    await _delay(100);
+    return {
+      id: `fav-mock-${peak_id}`,
+      peak_id,
+      peak: { id: peak_id, name: 'Mock Peak', slug: 'mock-peak', lat: 0, lng: 0, altitude: 1000 },
+      created_at: new Date().toISOString(),
+    };
+  }
+  return apiFetch<FavoriteResponse>('/api/v1/user/favorites', token, undefined, {
+    method: 'POST',
+    body: { peak_id },
+  });
+}
+
+export async function deleteAccount(token: string): Promise<void> {
+  if (MOCK_API) {
+    if (DEBUG) console.debug('[api/user] MOCK deleteAccount');
+    await _delay(500);
+    return;
+  }
+  await apiFetch<void>('/api/v1/user', token, undefined, { method: 'DELETE' });
+}

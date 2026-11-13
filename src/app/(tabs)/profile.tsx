@@ -1,0 +1,353 @@
+import Constants from 'expo-constants';
+import { useCallback, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+import i18n from '@/utils/i18n';
+import { track } from '@/services/analytics';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { LEGAL_URLS } from '@/constants/legalUrls';
+import { useLegalLinks } from '@/hooks/useLegalLinks';
+import { ErrorState } from '@/components/error-state';
+import { usePaywall } from '@/contexts/PaywallContext';
+import { useDisplayName } from '@/hooks/useDisplayName';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { DEV_TOOLS_ENABLED } from '@/constants/devConfig';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useAccountGate } from '@/contexts/AccountGateContext';
+import { AsyncStateView } from '@/components/async-state-view';
+import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
+import { useNewsletterConsent } from '@/hooks/useNewsletterConsent';
+import { useLocationSettingsLink } from '@/hooks/useLocationSettingsLink';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
+import { DeleteAccountModal, GuestAccountCard, ProBanner, SettingsRow, UserCard } from '@/components/profile';
+
+export default function ProfileScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { showPaywall } = usePaywall();
+  const { openAccount } = useAccountGate();
+  const { session, signOutToAnonymous, deleteAccount, locationPermission, refreshLocationPermission, replaySurvey } = useAuth();
+  const { selectedPeak, setSelectedPeak } = useSelectedPeak();
+  const { resetOnboarding } = useOnboarding();
+  const { locale, toggleLocale } = useLanguage();
+  const { openLegalLink } = useLegalLinks();
+  const { openLocationSettings } = useLocationSettingsLink();
+  const { colors, typography, scheme, toggleScheme } = useTheme();
+  const { optedIn: newsletterOptIn, state: newsletterState, toggle: toggleNewsletter } = useNewsletterConsent();
+  const { state: notifState } = useNotificationPreferences();
+  const { state: displayNameState, save: saveDisplayName, refresh: refreshDisplayName } = useDisplayName();
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [signOutError, setSignOutError] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshLocationPermission();
+    }, [refreshLocationPermission]),
+  );
+
+  async function handleSignOut() {
+    track('signed_out');
+    setSignOutError(false);
+    const error = await signOutToAnonymous();
+    if (error) setSignOutError(true);
+  }
+
+  function handleToggleTheme() {
+    const nextScheme = scheme === 'light' ? 'dark' : 'light';
+    track('theme_toggled', { scheme: nextScheme });
+    toggleScheme();
+  }
+
+  function handleToggleLanguage() {
+    const nextLocale = locale === 'fr' ? 'en' : 'fr';
+    track('language_toggled', { locale: nextLocale });
+    toggleLocale();
+  }
+
+  function handleToggleNewsletter() {
+    track('newsletter_consent_toggled', { opted_in: !newsletterOptIn });
+    void toggleNewsletter();
+  }
+
+  function handleOpenDeleteModal() {
+    track('delete_account_initiated');
+    setDeleteModalVisible(true);
+  }
+
+  const handleDeleteConfirm = async () => {
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount();
+      // Succès : la session est déjà remplacée, on referme la modale (sinon le loader tourne à l'infini).
+      setDeleteLoading(false);
+      setDeleteModalVisible(false);
+    } catch {
+      setDeleteError(i18n.t('profile.deleteAccountModal.errorGeneric'));
+      setDeleteLoading(false);
+    }
+  };
+
+  const email = session?.user?.email ?? '';
+  const isAnonymous = session?.user?.is_anonymous === true;
+  const notifSummaryOn =
+    notifState.status === 'success' &&
+    notifState.data !== undefined &&
+    (notifState.data.notif_favorites || notifState.data.notif_regional || notifState.data.notif_terrain);
+
+  async function handleReplaySurvey() {
+    const error = await replaySurvey();
+    if (!error) router.push('/survey' as import('expo-router').Href);
+  }
+
+  return (
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+    >
+      <Text style={[styles.eyebrow, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+        {i18n.t('profile.eyebrow')}
+      </Text>
+      <Text style={[styles.title, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold }]}>
+        {i18n.t('profile.title')}
+      </Text>
+
+      {isAnonymous ? (
+        <GuestAccountCard
+          onCreateAccount={() => openAccount('creation')}
+          onLogin={() => openAccount('login')}
+        />
+      ) : (
+        <AsyncStateView
+          isLoading={displayNameState.status === 'loading' && displayNameState.data === undefined}
+          error={displayNameState.status === 'error' && displayNameState.data === undefined ? displayNameState.error : null}
+          isEmpty={false}
+          emptyComponent={null}
+          errorComponent={<ErrorState title={i18n.t('profile.displayName.error')} action={{ label: i18n.t('common.retry'), onPress: () => void refreshDisplayName() }} actionTestID="display-name-retry" />}
+        >
+          <UserCard
+            key={session?.user?.id ?? 'no-session'}
+            email={email}
+            displayName={displayNameState.data ?? null}
+            state={displayNameState}
+            onSave={saveDisplayName}
+            disabled={!session}
+          />
+        </AsyncStateView>
+      )}
+
+      <ProBanner
+        label={i18n.t('profile.proBannerLabel')}
+        title={i18n.t('profile.proBannerTitle')}
+        subtitle={i18n.t('profile.proBannerSubtitle')}
+        onPress={() => showPaywall('profile_banner')}
+      />
+
+      <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+        {i18n.t('profile.sectionPreferences')}
+      </Text>
+      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SettingsRow
+          icon="sunny-outline"
+          label={i18n.t('profile.appearance')}
+          value={scheme === 'light' ? i18n.t('profile.appearanceLight') : i18n.t('profile.appearanceDark')}
+          onPress={handleToggleTheme}
+        />
+        <SettingsRow
+          icon="language-outline"
+          label={i18n.t('profile.language')}
+          value={locale === 'fr' ? i18n.t('profile.languageFrLabel') : i18n.t('profile.languageEnLabel')}
+          onPress={handleToggleLanguage}
+        />
+        <SettingsRow
+          icon="notifications-outline"
+          label={i18n.t('profile.notifications')}
+          value={
+            notifSummaryOn
+              ? i18n.t('profile.notificationsOn')
+              : i18n.t('profile.notificationsOff')
+          }
+          onPress={() => router.push('/notifications' as import('expo-router').Href)}
+        />
+        <SettingsRow
+          icon="navigate-outline"
+          label={i18n.t('profile.location')}
+          value={locationPermission === 'granted' ? i18n.t('profile.locationAllowed') : i18n.t('profile.locationDenied')}
+          onPress={openLocationSettings}
+        />
+        {!isAnonymous && (
+          <SettingsRow
+            icon="mail-outline"
+            label={i18n.t('profile.newsletter')}
+            value={
+              newsletterState.status === 'loading'
+                ? i18n.t('common.loading')
+                : newsletterOptIn
+                  ? i18n.t('profile.newsletterOn')
+                  : i18n.t('profile.newsletterOff')
+            }
+            onPress={handleToggleNewsletter}
+          />
+        )}
+        <SettingsRow
+          icon="pin-outline"
+          label={i18n.t('profile.defaultPeak')}
+          value={selectedPeak?.name}
+          isLast
+        />
+      </View>
+
+      <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+        {i18n.t('legal.sectionTitle')}
+      </Text>
+      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SettingsRow
+          icon="shield-checkmark-outline"
+          label={i18n.t('legal.privacy')}
+          onPress={() => openLegalLink(LEGAL_URLS.privacy)}
+        />
+        <SettingsRow
+          icon="document-text-outline"
+          label={i18n.t('legal.cgu')}
+          onPress={() => openLegalLink(LEGAL_URLS.cgu)}
+        />
+        <SettingsRow
+          icon="mail-outline"
+          label={i18n.t('legal.support')}
+          onPress={() => openLegalLink(LEGAL_URLS.support)}
+          isLast
+        />
+      </View>
+
+      {!isAnonymous && (
+        <>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+            {i18n.t('profile.sectionAccount')}
+          </Text>
+          <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <SettingsRow
+              icon="log-out-outline"
+              label={i18n.t('profile.signOut')}
+              onPress={() => void handleSignOut()}
+              tone="danger"
+              isLast
+            />
+          </View>
+          {signOutError ? (
+            <View style={styles.signOutErrorBox}>
+              <Text testID="profile-signout-error" style={styles.signOutError}>{i18n.t('profile.signOutError')}</Text>
+              <TouchableOpacity testID="profile-signout-retry" onPress={() => void handleSignOut()}>
+                <Text style={[styles.signOutRetry, { color: colors.accent }]}>{i18n.t('common.retry')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </>
+      )}
+
+      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SettingsRow
+          icon="trash-outline"
+          label={i18n.t('profile.deleteAccount')}
+          onPress={handleOpenDeleteModal}
+          tone="danger"
+          isLast
+        />
+      </View>
+
+      <DeleteAccountModal
+        visible={deleteModalVisible}
+        userEmail={email}
+        onCancel={() => { setDeleteModalVisible(false); setDeleteError(null); }}
+        onConfirm={handleDeleteConfirm}
+        error={deleteError}
+        loading={deleteLoading}
+      />
+
+      <Text style={[styles.footer, { color: colors.textSecondary }]}>
+        {`Cloudbreak v${Constants.expoConfig?.version ?? '1.0.0'}`}
+      </Text>
+
+      {DEV_TOOLS_ENABLED && (
+        <>
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: colors.border }]}
+            onPress={() => router.push('/sandbox' as import('expo-router').Href)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.devText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+              {i18n.t('profile.devSandbox')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: '#C25C4A' }]}
+            onPress={() => setSelectedPeak(null)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
+              {i18n.t('profile.devResetPeak')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: '#C25C4A' }]}
+            onPress={() => void resetOnboarding()}
+            activeOpacity={0.7}
+            testID="dev-reset-onboarding"
+          >
+            <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
+              {i18n.t('profile.devReplayOnboarding')}
+            </Text>
+          </TouchableOpacity>
+          {session?.user.is_anonymous !== true && (
+            <TouchableOpacity
+              style={[styles.devButton, { borderColor: '#C25C4A' }]}
+              onPress={() => void handleReplaySurvey()}
+              activeOpacity={0.7}
+              testID="dev-replay-survey"
+            >
+              <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
+                {i18n.t('profile.devReplaySurvey')}
+              </Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: '#C25C4A' }]}
+            onPress={() => void signOutToAnonymous()}
+            activeOpacity={0.7}
+            testID="dev-reset-session"
+          >
+            <Text style={[styles.devText, { color: '#C25C4A', fontFamily: typography.fontFamily.regular }]}>
+              {i18n.t('profile.devResetSession')}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  content: { paddingHorizontal: 24, paddingBottom: 48, gap: 12 },
+
+  eyebrow: { fontSize: 11, letterSpacing: 1.5, lineHeight: Math.round(11 * 1.5) },
+  title: { fontSize: 32, marginBottom: 4, lineHeight: Math.round(32 * 1.2) },
+
+  sectionLabel: { fontSize: 11, letterSpacing: 1.5, lineHeight: Math.round(11 * 1.5), marginTop: 8 },
+
+  group: { borderWidth: 1, borderRadius: 16, overflow: 'hidden' },
+
+  signOutErrorBox: { paddingHorizontal: 16, paddingBottom: 14, gap: 4 },
+  signOutError: { color: '#C25C4A', fontSize: 13 },
+  signOutRetry: { fontSize: 13, fontWeight: '600' },
+
+  footer: { textAlign: 'center', fontSize: 11, letterSpacing: 1, marginTop: 12 },
+
+  devButton: { borderWidth: 1, borderRadius: 12, borderStyle: 'dashed', padding: 12, alignItems: 'center', marginTop: 8 },
+  devText: { fontSize: 12, lineHeight: Math.round(12 * 1.5) },
+});

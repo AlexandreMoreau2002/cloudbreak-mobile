@@ -1,0 +1,312 @@
+import { AppState } from 'react-native';
+import type { Purchase, ProductSubscription } from 'react-native-iap';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  endConnection,
+  fetchProducts,
+  finishTransaction,
+  getAvailablePurchases,
+  initConnection,
+  purchaseErrorListener,
+  purchaseUpdatedListener,
+  requestPurchase,
+} from 'react-native-iap';
+
+import { DEBUG } from '@/constants/devConfig';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/services/supabaseClient';
+import { debugDataRefresh, type DataRefreshReason } from '@/services/dataRefreshDebug';
+import {
+  fetchSubscription,
+  verifySubscription,
+  type SubscriptionResponse,
+} from '@/services/api/subscription';
+
+const PRODUCT_IDS = [
+  'com.alexandremoreau.cloudbreak.premium.monthly',
+  'com.alexandremoreau.cloudbreak.premium.annual',
+] as const;
+const SUBSCRIPTION_FRESHNESS_MS = 60 * 1000;
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
+export type SubscriptionProductId = (typeof PRODUCT_IDS)[number];
+
+export interface StoreKitProduct {
+  id: SubscriptionProductId;
+  displayPrice: string;
+  period: 'month' | 'year' | null;
+  hasFreeTrial: boolean;
+}
+
+export interface SubscriptionState extends SubscriptionResponse {
+  loading: boolean;
+  error: 'store_unavailable' | 'purchase_failed' | 'verification_failed' | null;
+}
+
+interface SubscriptionContextValue {
+  state: SubscriptionState;
+  products: StoreKitProduct[];
+  isPremium: boolean;
+  purchase: (productId: SubscriptionProductId) => Promise<void>;
+  restore: () => Promise<void>;
+  refresh: () => Promise<void>;
+  waitForProduct: (productId: SubscriptionProductId) => Promise<boolean>;
+}
+
+const FREE_STATE: SubscriptionState = {
+  plan: 'free',
+  status: 'none',
+  expires_at: null,
+  loading: false,
+  error: null,
+};
+
+const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
+
+function mapProduct(product: ProductSubscription): StoreKitProduct | null {
+  if (product.platform !== 'ios' || !PRODUCT_IDS.includes(product.id as SubscriptionProductId) || !product.displayPrice) return null;
+  const period = product.subscriptionPeriodUnitIOS === 'month'
+    ? 'month'
+    : product.subscriptionPeriodUnitIOS === 'year' ? 'year' : null;
+  return {
+    id: product.id as SubscriptionProductId,
+    displayPrice: product.displayPrice,
+    period,
+    hasFreeTrial: product.introductoryPricePaymentModeIOS === 'free-trial'
+      && product.introductoryPriceNumberOfPeriodsIOS === '1'
+      && product.introductoryPriceSubscriptionPeriodIOS === 'week',
+  };
+}
+
+function isCancellation(error: { code?: string } | null | undefined): boolean {
+  return error?.code === 'E_USER_CANCELLED' || error?.code === 'user-cancelled';
+}
+
+function hasFutureExpiry(expiresAt: string | null): boolean {
+  if (!expiresAt) return false;
+  const expiresAtMs = Date.parse(expiresAt);
+  return Number.isFinite(expiresAtMs) && expiresAtMs > Date.now();
+}
+
+export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
+  const { isAnonymous, session } = useAuth();
+  const [state, setState] = useState<SubscriptionState>(FREE_STATE);
+  const [products, setProducts] = useState<StoreKitProduct[]>([]);
+  const sessionRef = useRef(session);
+  const stateRef = useRef(state);
+  const lastFetchedAtRef = useRef<number | null>(null);
+  const inFlightRef = useRef<Promise<void> | null>(null);
+  const inFlightGenerationRef = useRef<number | null>(null);
+  const requestGenerationRef = useRef(0);
+  const productsRef = useRef<StoreKitProduct[]>([]);
+  const storeInitialisationRef = useRef<Promise<void> | null>(null);
+  const isPermanent = Boolean(session && !isAnonymous);
+  const userId = isPermanent ? session?.user?.id ?? null : null;
+
+  useEffect(() => { sessionRef.current = session; }, [session]);
+  useEffect(() => { productsRef.current = products; }, [products]);
+
+  const load = useCallback(async (reason: DataRefreshReason, force: boolean): Promise<void> => {
+    while (inFlightRef.current) {
+      const pending = inFlightRef.current;
+      if (!force || inFlightGenerationRef.current === requestGenerationRef.current) return pending;
+      await pending;
+    }
+    const currentSession = sessionRef.current;
+    if (!currentSession?.user || currentSession.user.is_anonymous) {
+      setState(FREE_STATE);
+      return;
+    }
+    if (!force && lastFetchedAtRef.current !== null
+      && Date.now() - lastFetchedAtRef.current < SUBSCRIPTION_FRESHNESS_MS) return;
+
+    const generation = ++requestGenerationRef.current;
+    setState((current) => ({ ...current, loading: true, error: null }));
+    debugDataRefresh('subscription', reason);
+    const request = fetchSubscription(currentSession.access_token)
+      .then((subscription) => {
+        if (generation !== requestGenerationRef.current) return;
+        lastFetchedAtRef.current = Date.now();
+        setState({ ...subscription, loading: false, error: null });
+      })
+      .catch(() => {
+        if (generation === requestGenerationRef.current) {
+          setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
+        }
+      })
+      .finally(() => {
+        if (inFlightRef.current === request) {
+          inFlightRef.current = null;
+          inFlightGenerationRef.current = null;
+        }
+      });
+    inFlightRef.current = request;
+    inFlightGenerationRef.current = generation;
+    return request;
+  }, []);
+
+  const refresh = useCallback(() => load('manual', true), [load]);
+
+  const verifyAndFinish = useCallback(async (purchase: Purchase): Promise<void> => {
+    const { data } = await supabase.auth.getSession();
+    const currentSession = data.session;
+    if (!currentSession?.user || currentSession.user.is_anonymous || !purchase.purchaseToken) {
+      setState((current) => ({ ...current, loading: false, error: 'verification_failed' }));
+      return;
+    }
+    try {
+      const subscription = await verifySubscription(currentSession.access_token, purchase.purchaseToken);
+      await finishTransaction({ purchase, isConsumable: false });
+      if (sessionRef.current?.user?.id !== currentSession.user.id) return;
+      requestGenerationRef.current += 1;
+      lastFetchedAtRef.current = Date.now();
+      setState({ ...subscription, loading: false, error: null });
+    } catch {
+      setState((current) => ({ ...current, loading: false, error: 'verification_failed' }));
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const purchaseSubscription = purchaseUpdatedListener((purchase) => { void verifyAndFinish(purchase); });
+    const errorSubscription = purchaseErrorListener((error) => {
+      setState((current) => ({
+        ...current,
+        loading: false,
+        error: isCancellation(error) ? null : 'purchase_failed',
+      }));
+    });
+
+    async function initialiseStore(): Promise<void> {
+      try {
+        const connected = await initConnection();
+        if (DEBUG) console.debug('[subscription] initConnection', { connected });
+        if (!connected || !active) throw new Error('StoreKit unavailable');
+        if (DEBUG) console.debug('[subscription] fetchProducts call', { skus: [...PRODUCT_IDS] });
+        const nativeProducts = await fetchProducts({ skus: [...PRODUCT_IDS], type: 'subs' });
+        if (DEBUG) console.debug('[subscription] fetchProducts raw', { count: nativeProducts?.length ?? 0, isArray: Array.isArray(nativeProducts) });
+        if (DEBUG) (nativeProducts ?? []).forEach((product) => console.debug('[subscription] product raw', {
+          id: product.id,
+          platform: (product as ProductSubscription).platform,
+          displayPrice: (product as ProductSubscription).displayPrice,
+        }));
+        if (!active) return;
+        const mappedProducts = (nativeProducts ?? []).flatMap((product) => {
+          const mapped = mapProduct(product as ProductSubscription);
+          return mapped ? [mapped] : [];
+        });
+        if (DEBUG) console.debug('[subscription] products mapped', { count: mappedProducts.length, ids: mappedProducts.map((product) => product.id) });
+        setProducts(mappedProducts);
+      } catch (error) {
+        if (DEBUG) console.debug('[subscription] store unavailable', { message: error instanceof Error ? error.message : String(error) });
+        if (active) setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
+      }
+    }
+
+    storeInitialisationRef.current = initialiseStore();
+    return () => {
+      active = false;
+      purchaseSubscription.remove();
+      errorSubscription.remove();
+      void endConnection();
+    };
+  }, [verifyAndFinish]);
+
+  useEffect(() => {
+    requestGenerationRef.current += 1;
+    inFlightRef.current = null;
+    inFlightGenerationRef.current = null;
+    lastFetchedAtRef.current = null;
+    if (userId) void load('mount-or-session', true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
+    else setState(FREE_STATE);
+  }, [userId, load]);
+
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  /** Marque le droit expiré en local et force la relecture (un renouvellement a pu avoir lieu). */
+  const expireLocally = useCallback((): boolean => {
+    const current = stateRef.current;
+    const entitled = current.plan === 'premium' && (current.status === 'trial' || current.status === 'active');
+    if (!entitled || hasFutureExpiry(current.expires_at)) return false;
+    setState((latest) => ({ ...latest, status: 'expired' }));
+    void load('foreground', true);
+    return true;
+  }, [load]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && !expireLocally()) void load('foreground', false);
+    });
+    return () => subscription.remove();
+  }, [load, expireLocally]);
+
+  useEffect(() => {
+    if (state.plan !== 'premium' || (state.status !== 'trial' && state.status !== 'active')) return undefined;
+    const expiresAtMs = state.expires_at ? Date.parse(state.expires_at) : NaN;
+    if (!Number.isFinite(expiresAtMs)) return undefined;
+    const timer = setTimeout(expireLocally, Math.min(Math.max(expiresAtMs - Date.now(), 0) + 100, MAX_TIMER_MS));
+    return () => clearTimeout(timer);
+  }, [state.plan, state.status, state.expires_at, expireLocally]);
+
+  const purchase = useCallback(async (productId: SubscriptionProductId): Promise<void> => {
+    const { data } = await supabase.auth.getSession();
+    const currentSession = data.session;
+    if (!currentSession?.user || currentSession.user.is_anonymous || !productsRef.current.some((product) => product.id === productId)) {
+      setState((current) => ({ ...current, error: 'store_unavailable' }));
+      return;
+    }
+    setState((current) => ({ ...current, loading: true, error: null }));
+    try {
+      await requestPurchase({
+        type: 'subs',
+        request: { apple: { sku: productId, appAccountToken: currentSession.user.id } },
+      });
+    } catch (error) {
+      if (!isCancellation(error as { code?: string })) {
+        setState((current) => ({ ...current, loading: false, error: 'purchase_failed' }));
+      } else {
+        setState((current) => ({ ...current, loading: false }));
+      }
+    }
+  }, []);
+
+  const restore = useCallback(async (): Promise<void> => {
+    const { data } = await supabase.auth.getSession();
+    const currentSession = data.session;
+    if (!currentSession?.user || currentSession.user.is_anonymous) return;
+    setState((current) => ({ ...current, loading: true, error: null }));
+    try {
+      const entitlements = await getAvailablePurchases({ onlyIncludeActiveItemsIOS: true });
+      for (const entitlement of entitlements) await verifyAndFinish(entitlement);
+      await load('mutation', true);
+    } catch {
+      setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
+    }
+  }, [load, verifyAndFinish]);
+
+  const waitForProduct = useCallback(async (productId: SubscriptionProductId): Promise<boolean> => {
+    await storeInitialisationRef.current;
+    return productsRef.current.some((product) => product.id === productId);
+  }, []);
+
+  const value = useMemo(() => ({
+    state,
+    products,
+    purchase,
+    restore,
+    refresh,
+    waitForProduct,
+    isPremium: state.plan === 'premium'
+      && (state.status === 'trial' || state.status === 'active')
+      && hasFutureExpiry(state.expires_at),
+  }), [products, purchase, refresh, restore, state, waitForProduct]);
+
+  return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;
+}
+
+export function useSubscription(): SubscriptionContextValue {
+  const value = useContext(SubscriptionContext);
+  if (!value) throw new Error('useSubscription must be used within SubscriptionProvider');
+  return value;
+}

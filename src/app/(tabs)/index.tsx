@@ -1,0 +1,568 @@
+/**
+ * HomeScreen — écran principal, affiche le score mer de nuage du sommet sélectionné.
+ */
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, type Href } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useIsFocused } from 'expo-router/react-navigation';
+import { Alert, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import i18n from '@/utils/i18n';
+import { track } from '@/services/analytics';
+import { OPS_BASE_URL } from '@/constants/opsUrl';
+import { useAuth } from '@/contexts/AuthContext';
+import { useWeekData } from '@/hooks/useWeekData';
+import { useTheme } from '@/contexts/ThemeContext';
+import { ScoreCard } from '@/components/score-card';
+import { WeekStrip } from '@/components/week-strip';
+import { useFavorites } from '@/hooks/useFavorites';
+import { ErrorState } from '@/components/error-state';
+import { PeakHeader } from '@/components/peak-header';
+import { EmptyState } from '@/components/empty-state';
+import { usePaywall } from '@/contexts/PaywallContext';
+import { ScoreWhySheet } from '@/components/score-why';
+import { useTerrainPref } from '@/hooks/useTerrainPref';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { HomeSkeleton } from '@/components/home-skeleton';
+import { OfflineBanner } from '@/components/offline-banner';
+import { FavoritesGrid } from '@/components/favorites-grid';
+import { useAccountGate } from '@/contexts/AccountGateContext';
+import { ValidationBottomSheet } from '@/components/validation';
+import { useSelectedPeak } from '@/contexts/SelectedPeakContext';
+import { localizeScoreResponse } from '@/services/mockData/score';
+import { useTerrainValidation } from '@/hooks/useTerrainValidation';
+import { useTerrainAutoDetect } from '@/hooks/useTerrainAutoDetect';
+import { ConditionsSection } from '@/components/conditions-section';
+import type { Peak, ScoreResponse } from '@/services/mockData/types';
+import { usePendingTerrainOpen } from '@/hooks/usePendingTerrainOpen';
+
+const SEARCH_ROUTE = '/(tabs)/search' as Href;
+
+export function getShareForecastUrl(slug: string | null): string | null {
+  return slug ? `${OPS_BASE_URL}/sommet/${slug}` : null;
+}
+
+export async function shareForecast(
+  slug: string | null,
+  shareImpl?: typeof Share.share,
+  alertImpl?: typeof Alert.alert,
+): Promise<void> {
+  const shareUrl = getShareForecastUrl(slug);
+  if (!shareUrl) {
+    return;
+  }
+
+  const resolvedShareImpl = shareImpl ?? Share.share;
+  const resolvedAlertImpl = alertImpl ?? Alert.alert;
+
+  try {
+    await resolvedShareImpl({
+      message: shareUrl,
+      url: shareUrl,
+    });
+  } catch {
+    resolvedAlertImpl(i18n.t('home.shareFailedTitle'), shareUrl);
+  }
+}
+
+export default function HomeScreen() {
+  useLanguage();
+  const router = useRouter();
+  const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
+  const { session, isAnonymous, locationPermission } = useAuth();
+  const { colors, typography, spacing } = useTheme();
+  const [whyOpen, setWhyOpen] = useState(false);
+  const [quotaDismissed, setQuotaDismissed] = useState(false);
+  const [rateLimitDismissed, setRateLimitDismissed] = useState(false);
+  const [lastSuccessfulPeak, setLastSuccessfulPeak] = useState<Peak | null>(null);
+  const { selectedPeak, setSelectedPeak, selectedDate, selectedHour, setSelectedDate, setSelectedHour } = useSelectedPeak();
+
+  const token = session?.access_token ?? null;
+  const { data: weekData, loading: weekLoading, error: weekError, quotaExceeded, rateLimited, fromCache, isOffline, cachedAt, refresh } = useWeekData(selectedPeak?.id ?? null, token);
+
+  const { showPaywall } = usePaywall();
+  const { requireAccount } = useAccountGate();
+  const userClickedHourRef = useRef(false);
+  const quotaEpisodeHandledRef = useRef(false);
+
+  // Sommet différent sélectionné → la carte quota doit pouvoir se réafficher pour lui aussi
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
+    setQuotaDismissed(false);
+    setRateLimitDismissed(false);
+  }, [selectedPeak?.id]);
+
+  useEffect(() => {
+    if (!rateLimited) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- réarme la carte après une réponse fraîche réussie
+      setRateLimitDismissed(false);
+    }
+  }, [rateLimited]);
+
+  useEffect(() => {
+    if (!quotaExceeded) {
+      quotaEpisodeHandledRef.current = false;
+      return;
+    }
+    if (!isFocused || quotaEpisodeHandledRef.current) return;
+
+    // Consommer l'épisode avant la navigation : le changement de segments modifie
+    // les callbacks AccountGate, mais ne doit pas rouvrir le parcours compte.
+    quotaEpisodeHandledRef.current = true;
+    if (isAnonymous || session?.user?.is_anonymous) requireAccount({ kind: 'quota', retry: refresh });
+    else showPaywall('quota');
+  }, [quotaExceeded, refresh, requireAccount, isAnonymous, isFocused, session?.user?.is_anonymous, showPaywall]);
+
+  useEffect(() => {
+    if (quotaExceeded && selectedPeak) {
+      track('quota_badge_viewed', { peak_id: selectedPeak.id });
+    }
+  }, [quotaExceeded, selectedPeak]);
+
+  // Auto-sync selectedDate + selectedHour — corrige si la date ou l'heure n'a pas de données
+  useEffect(() => {
+    if (!weekData) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const hasDateData = weekData.byDate[selectedDate] && Object.keys(weekData.byDate[selectedDate]).length > 0;
+    const effectiveDate = hasDateData ? selectedDate : today;
+    if (!hasDateData) setSelectedDate(effectiveDate);
+    const hourHasData = weekData.byDate[effectiveDate]?.[selectedHour] != null;
+    if (!hourHasData && !userClickedHourRef.current) {
+      const best = weekData.bestByDate[effectiveDate];
+      const newHour = best && best.score > 0 ? best.hour : 6;
+      setSelectedHour(newHour);
+    }
+    userClickedHourRef.current = false;
+  }, [weekData, selectedDate, selectedHour, setSelectedDate, setSelectedHour]);
+
+  const { state: favoritesState, addFavorite, removeFavorite, revalidate } = useFavorites();
+  const favorites: Peak[] = favoritesState.status === 'success' ? favoritesState.data || [] : [];
+
+  // Vérifie la fraîcheur des favoris au retour sur Home (ex: ajout/suppression
+  // depuis l'onglet Favoris), sans forcer une requête si le cache est récent.
+  useFocusEffect(
+    useCallback(() => {
+      void revalidate();
+    }, [revalidate]),
+  );
+
+  const terrain = useTerrainValidation({ token, locationPermission });
+  const terrainEnabled = useTerrainPref();
+
+  // Si la date sélectionnée n'a pas de données (cache périmé / date hors fenêtre),
+  // on se rabat sur aujourd'hui
+  const today = new Date().toISOString().slice(0, 10);
+  const effectiveDate =
+    weekData && (!weekData.byDate[selectedDate] || Object.keys(weekData.byDate[selectedDate]).length === 0)
+      ? today
+      : selectedDate;
+  const rawDisplayScore: ScoreResponse | null = weekData?.byDate[effectiveDate]?.[selectedHour] ?? null;
+  const displayScore: ScoreResponse | null = rawDisplayScore
+    ? localizeScoreResponse(rawDisplayScore)
+    : null;
+  const isLoading = weekLoading && displayScore == null;
+  const isRefreshing = weekLoading && displayScore != null;
+
+  // Retient le dernier sommet affiché avec succès — permet d'y revenir si un
+  // sommet sans cache tombe sur le quota (voir handleDismissQuota)
+  useEffect(() => {
+    if (displayScore && selectedPeak) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement/reset d'état déclenché par un changement de dépendance (pattern existant, comportement couvert par les tests)
+      setLastSuccessfulPeak(selectedPeak);
+    }
+  }, [displayScore, selectedPeak]);
+
+  const hasDisplayScore = displayScore != null;
+
+  // Ferme la sheet « Pourquoi ce score ? » si le score disparaît (ajustement d'état pendant le rendu).
+  if (!hasDisplayScore && whyOpen) setWhyOpen(false);
+
+  const handleOpenWhy = () => {
+    track('score_why_opened', { peak_id: selectedPeak?.id });
+    setWhyOpen(true);
+  };
+
+  const autoDetectTarget = useMemo(
+    () => (selectedPeak && displayScore ? { lat: selectedPeak.lat, lng: selectedPeak.lng } : null),
+    // Dépend volontairement des primitives (lat/lng/hasDisplayScore) plutôt que des objets
+    // complets pour éviter une tempête de resubscription du GPS watcher à chaque re-render
+    // non lié (cf. revue de code story 6.1).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedPeak?.lat, selectedPeak?.lng, hasDisplayScore],
+  );
+
+  useTerrainAutoDetect({
+    locationPermission,
+    target: autoDetectTarget,
+    onNear: terrain.open,
+    enabled: terrainEnabled,
+  });
+
+  usePendingTerrainOpen({
+    slug: selectedPeak?.slug ?? null,
+    ready: displayScore?.prediction_id != null,
+    onOpen: terrain.open,
+  });
+
+  function handleValidateTerrain() {
+    track('terrain_validation_opened', { peak_id: selectedPeak?.id, source: 'manual' });
+    terrain.open();
+  }
+
+  function handleTerrainAnswer(result: boolean) {
+    if (!displayScore?.prediction_id) return;
+    terrain.answer(result, { predictionId: displayScore.prediction_id });
+  }
+
+  function isFavorite(peakId: string): boolean {
+    return favorites.some((p) => p.id === peakId);
+  }
+
+  function handleGoToSearch() {
+    router.push(SEARCH_ROUTE);
+  }
+
+  function handleSelectDate(date: string, method: 'tap' | 'swipe') {
+    track('score_date_changed', { date, method });
+    setSelectedDate(date);
+    const best = weekData?.bestByDate[date];
+    setSelectedHour(best && best.score > 0 ? best.hour : 6);
+  }
+
+  function handleSelectFavoritePeak(peak: Peak) {
+    track('peak_selected', { peak_id: peak.id, source: 'home_favorites' });
+    setSelectedPeak(peak);
+  }
+
+  /* istanbul ignore next - le bouton partage n'est rendu que si un sommet est sélectionné */
+  function handleShare() {
+    if (selectedPeak) track('forecast_shared', { peak_id: selectedPeak.id });
+    return shareForecast(selectedPeak?.slug ?? null);
+  }
+
+  function handleToggleFavorite(peakId: string) {
+    /* istanbul ignore next - aucun sommet n'affiche ce bouton */
+    if (isFavorite(peakId)) {
+      removeFavorite(peakId);
+      return;
+    }
+    if (isAnonymous || session?.user?.is_anonymous) {
+      requireAccount({ kind: 'favorite', peakId });
+      return;
+    }
+    addFavorite(peakId);
+  }
+
+  function handleQuotaAction() {
+    if (isAnonymous || session?.user?.is_anonymous) {
+      requireAccount({ kind: 'quota', retry: refresh });
+      return;
+    }
+    showPaywall('quota');
+  }
+
+  function handleDismissQuota() {
+    /* istanbul ignore next - la carte quota n'est rendue que si un sommet est sélectionné */
+    if (selectedPeak) track('quota_dismissed', { peak_id: selectedPeak.id });
+    // Pas de cache pour ce sommet mais un autre a déjà été chargé avec succès
+    // aujourd'hui → on y revient plutôt que d'afficher une erreur trompeuse
+    if (!displayScore && lastSuccessfulPeak && lastSuccessfulPeak.id !== selectedPeak?.id) {
+      setSelectedPeak(lastSuccessfulPeak);
+      return;
+    }
+    setQuotaDismissed(true);
+  }
+
+  function handleDismissRateLimit() {
+    setRateLimitDismissed(true);
+  }
+
+  function renderRateLimitState(canDismiss = true) {
+    if (!rateLimited || (canDismiss && rateLimitDismissed)) return null;
+    return (
+      <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+        <ErrorState
+          icon="time-outline"
+          title={i18n.t('home.rateLimitTitle')}
+          message={i18n.t('home.rateLimitMessage')}
+          action={{ label: i18n.t('common.retry'), onPress: refresh }}
+          actionTestID="rate-limit-retry-button"
+          secondaryAction={canDismiss ? { label: i18n.t('home.notNow'), onPress: handleDismissRateLimit } : undefined}
+        />
+      </View>
+    );
+  }
+
+  function renderContent() {
+    if (!selectedPeak) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="cloud-outline" size={64} color={colors.textDisabled} style={{ marginBottom: spacing.lg }} />
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: typography.fontFamily.bold, fontSize: typography.fontSize.lg }]}>
+            {i18n.t('home.selectPeak')}
+          </Text>
+          <Text style={[styles.emptyHint, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm }]}>
+            {i18n.t('home.selectPeakHint')}
+          </Text>
+          <TouchableOpacity
+            style={[styles.ctaButton, { backgroundColor: colors.accent }]}
+            onPress={handleGoToSearch}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.ctaText, { color: colors.surface, fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm }]}>
+              {i18n.t('home.goToSearch')}
+            </Text>
+          </TouchableOpacity>
+          <FavoritesGrid favorites={favorites} onSelectPeak={handleSelectFavoritePeak} />
+        </View>
+      );
+    }
+
+    if (isLoading) {
+      return (
+        <View style={styles.forecastStack}>
+          <HomeSkeleton />
+        </View>
+      );
+    }
+
+    if (displayScore) {
+      return (
+        <View style={[styles.forecastStack, isRefreshing && { opacity: 0.7 }]}>
+          {isOffline && cachedAt ? <OfflineBanner cachedAt={cachedAt} /> : null}
+          {renderRateLimitState()}
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
+          <ScoreCard
+            score={displayScore}
+            date={selectedDate}
+            contextMessage={displayScore.context_message}
+            selectedHour={selectedHour}
+            onSelectHour={(h) => { userClickedHourRef.current = true; setSelectedHour(h); }}
+            onValidateTerrain={handleValidateTerrain}
+            onHelp={handleOpenWhy}
+          />
+          <WeekStrip selectedDate={selectedDate} onSelectDate={handleSelectDate} dayScores={weekData?.bestByDate} />
+          <ConditionsSection score={displayScore} />
+          <FavoritesGrid favorites={favorites} onSelectPeak={handleSelectFavoritePeak} />
+        </View>
+      );
+    }
+
+    if (weekError) {
+      if (weekError === 'RATE_LIMIT_EXCEEDED') {
+        return (
+          <View style={styles.forecastStack}>
+            <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
+            {renderRateLimitState(false)}
+          </View>
+        );
+      }
+
+      if (weekError === 'QUOTA_EXCEEDED') {
+        if (!quotaDismissed) {
+          return (
+            <View style={styles.forecastStack}>
+              <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
+              <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <ErrorState
+                  icon="lock-closed-outline"
+                  title={i18n.t('paywall.quotaTitle')}
+                  message={i18n.t('home.quotaUpgrade')}
+                  action={{ label: i18n.t('home.discoverPro'), onPress: handleQuotaAction }}
+                  actionTestID="quota-open-paywall-button"
+                  secondaryAction={{ label: i18n.t('home.notNow'), onPress: handleDismissQuota }}
+                />
+              </View>
+            </View>
+          );
+        }
+
+        // Dismiss sans cache pour ce sommet ni sommet précédent à proposer :
+        // état neutre honnête (quota), jamais l'erreur réseau générique
+        return (
+          <View style={styles.forecastStack}>
+            <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
+            <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              <ErrorState
+                icon="cloud-outline"
+                title={i18n.t('home.quotaNoCacheTitle')}
+                message={i18n.t('home.quotaNoCacheMessage')}
+                action={{ label: i18n.t('home.goToSearch'), onPress: handleGoToSearch }}
+              />
+            </View>
+          </View>
+        );
+      }
+
+      if (weekError === 'OFFLINE_NO_CACHE') {
+        return (
+          <View style={styles.forecastStack}>
+            <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
+            <EmptyState
+              icon="cloud-offline-outline"
+              title={i18n.t('home.offlineNoCacheTitle')}
+              subtitle={i18n.t('home.offlineNoCacheMessage')}
+            />
+          </View>
+        );
+      }
+
+      return (
+        <View style={styles.forecastStack}>
+          <PeakHeader peak={selectedPeak} isFavorite={isFavorite(selectedPeak.id)} onToggleFavorite={handleToggleFavorite} onShare={handleShare} />
+          <View style={[styles.errorCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <ErrorState
+              title={i18n.t('home.errorGeneric')}
+              message={i18n.t('common.networkHint')}
+            />
+          </View>
+        </View>
+      );
+    }
+
+    // Filet de sécurité : weekData existe mais heure sans données (cache partiel) → skeleton le temps du redirect
+    if (weekData) {
+      return (
+        <View style={styles.forecastStack}>
+          <HomeSkeleton />
+        </View>
+      );
+    }
+
+    return null;
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <Pressable
+          style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={handleGoToSearch}
+        >
+          <Ionicons name="search-outline" size={16} color={colors.textSecondary} />
+          <Text style={[styles.searchBarText, { color: colors.textSecondary, fontFamily: typography.fontFamily.regular }]}>
+            {i18n.t('home.searchPlaceholder')}
+          </Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        testID="home-scroll-view"
+        style={styles.content}
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingBottom: Math.max(insets.bottom + 40, 56) },
+        ]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            testID="home-refresh-control"
+            refreshing={weekLoading && (fromCache || weekError === 'OFFLINE_NO_CACHE')}
+            onRefresh={refresh}
+            tintColor={colors.accent}
+          />
+        }
+      >
+        {renderContent()}
+      </ScrollView>
+
+      {displayScore ? (
+        <ScoreWhySheet visible={whyOpen} score={displayScore} onDismiss={() => setWhyOpen(false)} />
+      ) : null}
+
+      <ValidationBottomSheet
+        visible={terrain.step !== null}
+        step={terrain.step}
+        noGps={terrain.noGps}
+        submitting={terrain.submitting}
+        peakName={selectedPeak?.name ?? ''}
+        score={displayScore?.score ?? 0}
+        verdict={displayScore?.verdict ?? 'none'}
+        onAnswer={handleTerrainAnswer}
+        onValidateManually={terrain.validateManually}
+        onDismiss={terrain.dismiss}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    paddingBottom: 8,
+    paddingHorizontal: 24,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    maxWidth: 520,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#000000',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  searchBarText: {
+    fontSize: 14,
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    minHeight: 520,
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyHint: {
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  ctaButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 32,
+  },
+  ctaText: {
+    letterSpacing: 1,
+  },
+  forecastStack: {
+    width: '100%',
+    gap: 12,
+    alignSelf: 'center',
+    maxWidth: 540,
+  },
+  errorCard: {
+    borderWidth: 1,
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    alignItems: 'center',
+  },
+  quotaCounterBadge: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    alignSelf: 'center',
+  },
+  quotaCounterText: {
+    textAlign: 'center',
+  },
+});

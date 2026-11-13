@@ -1,0 +1,1 @@
+export { FavoritesGrid } from './FavoritesGrid';

@@ -1,0 +1,1 @@
+export { ScoreDetails } from './ScoreDetails';

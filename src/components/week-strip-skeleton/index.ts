@@ -1,0 +1,1 @@
+export { WeekStripSkeleton } from './WeekStripSkeleton';

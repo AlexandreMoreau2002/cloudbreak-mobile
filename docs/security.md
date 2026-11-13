@@ -1,0 +1,364 @@
+# Security — Mobile
+
+## 2026-11-01 Audit pré-release — `npm audit --omit=dev` et durcissement du build
+
+### 🟢 RÉSOLU
+- `npm audit fix` (sans `--force`) + `npx expo install --fix` : 45 → 39 alertes (1 critique → 0, 9 hautes → 6). Le critique (`shell-quote`) et plusieurs hautes (`node-forge`, etc.) sont corrigées par mise à jour de dépendances transitives ; seuls 4 paquets Expo sont passés en patch (`expo-crypto`, `expo-dev-client`, `expo-location`, `expo-notifications`).
+- `MOCK_API` ne peut plus être actif en build release (garde `__DEV__`, comme `DEBUG` et `DEV_TOOLS_ENABLED`) ; le profil EAS `production` fixe explicitement les variables `EXPO_PUBLIC_*` (aucun secret).
+- Permissions iOS inutiles retirées de l'Info.plist (`NSFaceIDUsageDescription`, `NSMotionUsageDescription`).
+
+### 🔵 INFO — alertes restantes (justification)
+- **Toolchain de build uniquement** (jamais embarqué dans l'app iOS) : `@expo/cli`, `@expo/config*`, `zod` 3.x interne à `@expo/cli`, `brace-expansion` / `minimatch` (ESLint, Jest, glob des config plugins), `xcode`/`uuid`, `jest`, `@testing-library/react-native`. Elles s'exécutent sur la machine de dev / EAS avec des entrées maîtrisées (notre propre repo) ; les corriger demande `npm audit fix --force`, qui rétrograde Expo (breaking change) : refusé.
+- **`query-string` → `decode-uri-component` (via `expo-router`)** : alerte haute classée « runtime » car le parsing des query-strings de deep link s'exécute dans l'app. Impact limité à un déni de service local (ralentissement de l'app) en ouvrant un lien malformé ; aucune fuite ni exécution. Le correctif exige une montée d'`expo-router` hors de la plage SDK 57 : à reprendre au prochain SDK.
+
+### Verdict
+Aucun blocage release. Relancer `npm audit --omit=dev` à chaque bump de SDK.
+
+---
+## 2026-10-12 Session invitée supprimée côté serveur
+
+### 🔵 INFO
+- **[AuthContext.tsx — isDeletedUserError]** Un 403 Supabase est reconnu comme « invité supprimé » par le code `user_not_found` **ou** par le message exact `User from sub claim in JWT does not exist`. Le motif large « sub claim » est retiré : il capturait aussi `bad_jwt` (« missing sub claim »). Le même message exact est reconnu au démarrage (`getUser()` dans `initializeSession`) : démarrage et exécution détectent le même cas.
+- **[AuthContext.tsx — SELF_HEALING_STAGES]** Seules deux étapes sont réparées : `email_otp_start` (ajout d'e-mail, `updateUser`) et `apple_identity_link` (création de compte Apple, `linkIdentity`), et uniquement si la session courante est anonyme : un compte permanent n'est jamais transformé en invité. La **connexion** Apple (`signInWithIdToken`, étape `apple_id_token_sign_in`) n'est pas concernée : dans `@supabase/auth-js` 2.108.2, `signInWithIdToken` n'envoie pas le JWT de la session (seuls `linkIdentity` et `updateUser` l'envoient), donc un invité supprimé ne peut pas provoquer ce 403 sur la connexion. Les étapes mot de passe et reset ne sont jamais réparées.
+- **[AuthContext.tsx — replaceWithFreshGuestSession]** La réparation **remplace** la session sans jamais la vider : `signInAnonymously` fait un `POST /signup` sans JWT, puis écrase la session stockée et émet `SIGNED_IN` (aucun `SIGNED_OUT` intermédiaire). `session` n'est donc jamais `null` pendant la réparation et `AuthGuard` ne réagit pas : aucun drapeau ni pause n'est nécessaire.
+- **[AuthContext.tsx — rejeu]** L'action est rejouée **une seule fois** par construction : pas de boucle. Pour l'e-mail, la locale est renvoyée sur le nouvel invité (`onRecovered`).
+- **[AuthContext.tsx — erreurs]** Si la création du nouvel invité échoue ou lève une exception, l'erreur d'**origine** de l'action est renvoyée et l'ancienne session (morte) reste en place, comme avant le correctif.
+- **[logAuthOperation]** Le log se limite à `{ stage, outcome }` : jamais de token, d'e-mail ni de message Supabase brut. Un log `auth_error` précède `session_recovered` (attendu).
+- **Stockage** : aucune nouvelle donnée stockée ; la session invitée neuve réutilise le Keychain (`expo-secure-store`) existant.
+- **Stockage** : aucune nouvelle donnée stockée ; la session invitée neuve réutilise le Keychain (`expo-secure-store`) existant.
+
+### Verdict
+SECURE — la réparation ne contourne aucune vérification serveur (Supabase émet lui-même le nouvel invité), est bornée à un rejeu et n'élargit pas la surface de données.
+
+---
+
+## 2026-10-09 Story 3.6 — Universal Links
+
+### 🔵 INFO
+- **[pendingPeakLink.ts]** Le slug du sommet est mémorisé dans AsyncStorage sous la clé `pendingPeakSlug`. C'est une donnée non sensible (identifiant public d'un sommet), effacée dès sa consommation par `usePendingPeakLink` ; aucun token, e-mail ni donnée personnelle n'y transite.
+- **[pendingPeakLink.ts / sommet/[slug].tsx]** Le slug provient d'une URL non fiable (lien externe). Il est validé par `isValidPeakSlug` (`^[a-z0-9-]{1,100}$`) avant tout stockage ; un slug invalide est ignoré, jamais écrit ni envoyé à l'API.
+- **[usePendingPeakLink.ts]** Le slug validé n'est utilisé que comme paramètre de `fetchPeakBySlug` (appel authentifié habituel). Les logs debug (`DEBUG` uniquement) ne contiennent aucune donnée personnelle.
+- **[app.config.ts / plugins/associatedDomains.js]** `ios.associatedDomains` est dérivé de l'hôte ops de l'environnement (`EXPO_PUBLIC_LEGAL_BASE_URL`) et ne déclare que des domaines `applinks:` en https ; aucun secret côté app (l'AASA, public, est servi par `ops`). Le mode `?mode=developer` n'est ajouté que pour un hôte autre que `ops.cloudbreak-app.com` : un build de production (hôte par défaut) ne l'embarque jamais.
+
+### Verdict
+SECURE — entrée externe validée avant stockage, donnée stockée non sensible et éphémère, aucun secret ajouté côté app. Validation réelle sur iPhone en attente du déploiement ops.
+
+---
+
+## 2026-10-08 Story 2.9 — Nom d’usage
+
+- `display_name` est une donnée personnelle : lecture et modification via l’API
+  authentifiée uniquement, sans stockage local persistant, logs ni analytics.
+- Le nom absent affiche un placeholder localisé ; l’avatar utilise seulement la première lettre
+  de l’e-mail déjà visible sur la carte. L’adresse n’est pas transformée en nom d’usage.
+- Le nom Apple est envoyé uniquement après le provisioning d’une session permanente.
+  Une réponse Apple sans nom ne modifie jamais le nom existant. Une erreur de cette
+  initialisation facultative ne bloque pas la connexion et n’est pas journalisée.
+- L’effacement envoie `null` ; la suppression du compte supprime aussi le nom côté backend.
+- La saisie inline valide au maximum 24 points de code Unicode après trim. La sauvegarde
+  échouée conserve le brouillon en mémoire ; Échap, le geste de retour ou le changement de
+  compte l’abandonnent. Les événements blur/✓ partagent un garde de requête synchrone.
+- Les réponses périmées du hook sont ignorées après changement de compte ou déconnexion ;
+  le renouvellement du JWT du même compte conserve sa sauvegarde en cours. La saisie
+  disparaît au changement de compte ; la validation serveur reste l’autorité.
+- Après un PATCH Apple réussi, un compteur de révision en mémoire déclenche la relecture du
+  profil courant. Ce signal ne contient ni nom, ni token, et n’est ni persisté ni journalisé.
+
+## 2026-09-29 Story 4.3 — Achat Premium StoreKit 2
+
+### 🔵 INFO
+
+- **[SubscriptionContext]** Le client ne considère jamais un achat comme Premium sur la seule réponse StoreKit : son JWS part au backend, et `finishTransaction` n'est appelé qu'après la validation serveur. Une erreur de vérification laisse un état récupérable sans droit local.
+- **[Compte permanent]** `appAccountToken` reçoit l'UUID Supabase uniquement au lancement du paiement après conversion du visiteur. Le replay du mur compte relit une session fraîche ; aucun token anonyme capturé avant navigation n'est réutilisé.
+- **[Affichage]** Le prix et l'essai viennent du produit StoreKit chargé. Le badge n'affirme pas d'essai gratuit lorsque l'offre Apple est absente/non éligible. Les erreurs natives ne sont pas affichées ni journalisées telles quelles.
+- **[Restauration]** Seuls les droits actifs StoreKit sont envoyés au serveur. La liaison Apple ID → compte Cloudbreak est décidée côté serveur ; l'app ne peut pas déplacer une lignée d'achat.
+
+### Verdict
+
+SECURE SOUS RÉSERVE DE LA VALIDATION SANDBOX — aucun secret Apple n'est embarqué dans l'app. Le test réel achat/restauration et notification backend reste requis avant release.
+
+## 2026-09-29 — Signal d'installation pour quota invité
+
+### 🔵 INFO
+
+- **[src/services/installationId.ts]** Un UUID v4 est généré avec `expo-crypto` au premier
+  lancement puis conservé dans Keychain via `expo-secure-store`. Il n'est ni loggé ni stocké dans
+  AsyncStorage ; une recréation de session Supabase ne le remplace pas.
+- **[src/services/fetchService.ts]** L'identifiant est envoyé dans
+  `X-Cloudbreak-Installation-Id` uniquement avec un JWT, jamais sur les requêtes publiques. Le
+  token reste exclusivement dans le header `Authorization`.
+- Ce signal est une mesure de coût contre le contournement du quota, pas une attestation de
+  terminal : un client modifié peut toujours forger un UUID. App Attest/DeviceCheck reste le
+  chantier ultérieur de device-binding.
+
+### Verdict
+
+SECURE DANS LE PÉRIMÈTRE — aucune PII ajoutée ; le signal opaque est persisté dans le stockage
+sécurisé de l'OS.
+
+Ce fichier est maintenu automatiquement par l'agent `cloudbreak-security`.
+Chaque entrée est horodatée et liée à la story qui l'a générée.
+
+---
+
+## 2026-09-27 Config Supabase — Secure email change durci
+
+### 🟢 RÉSOLU
+- **[Dashboard Supabase]** Réglage `Secure email change` passé de OFF à **ON** (dette P0 trackée
+  dans `TODO.md` depuis les stories 2.5/2.6/2.8 — contournable hors UI mobile tant qu'il était
+  désactivé). Vérifié que ça ne casse pas le parcours invité → compte (`AuthContext.tsx`,
+  `beginEmailUpgrade`) : `supabase.auth.updateUser({ email })` y est appelé sur une session
+  anonyme qui n'a jamais eu d'e-mail confirmé — c'est un premier réglage, pas un changement
+  d'adresse existante, donc la double-confirmation ancien/nouveau e-mail qu'active ce réglage
+  ne s'applique pas à ce flux (elle ne concerne que le changement d'un e-mail déjà confirmé).
+
+### Verdict
+SECURE — la surface de contournement identifiée (changer l'e-mail d'un compte permanent hors de
+l'UI mobile, sans reconfirmation) est fermée. Aucune régression attendue sur la conversion
+invité → compte.
+
+---
+
+## 2026-09-15 Story 2.2 — Préférences de notifications (mobile)
+
+### 🔵 INFO
+
+- **[notifications.tsx]** Aucune donnée sensible affichée ou transmise : les trois préférences
+  sont des booléens et utilisent le même JWT que le reste du parcours compte.
+- **[notifications.tsx]** Le verrouillage GPS lit uniquement `locationPermission`, déjà géré par
+  `AuthContext`. La fonctionnalité n'ajoute aucune lecture ni transmission de position.
+- **[useNotificationPreferences / api/user.ts]** La mise à jour partielle transmet uniquement le
+  champ de préférence modifié via HTTPS ; aucune préférence ni aucun token n'est journalisé.
+
+### Verdict
+
+SECURE.
+
+---
+
+## 2026-09-11 Story 2-5/2-6/2-8 — Retrait du blocage client sur la force du mot de passe
+
+Commits `0668abb..ac2c21b` — `isPasswordEligible` (4 critères) remplacé par `isPasswordLongEnough`
+(plancher 6 caractères) dans `PasswordField.tsx`, `AccountForm.tsx`, `reset-confirm.tsx`.
+
+### 🔵 INFO
+- **[PasswordField.tsx]** La modification est strictement côté client. La politique de mot de passe
+  réelle est appliquée par Supabase Auth côté serveur (minimum 6 caractères, non configurable en
+  dessous). Un attaquant contournant l'app mobile atteignait déjà Supabase directement — le gate
+  client n'a jamais été une barrière de sécurité, seulement un filtre UX. Aucune régression de
+  sécurité réelle.
+- **[reset-confirm.tsx:53-61]** Le handler d'erreur de `completePasswordReset` intercepte
+  correctement un refus de Supabase sur la politique de mot de passe :
+  `message.includes('weak') || message.includes('password') || message.includes('at least')` →
+  `i18n.t('reset.errorPassword')`. Conforme pour le flux de réinitialisation.
+- **[Pas de log sensible]** Le seul `console.debug` ajouté dans `reset-confirm.tsx` loggue
+  `{ codeLength: code.length }` — jamais la valeur du mot de passe, du code OTP, ni du token.
+
+### 🟢 RÉSOLU
+- **[verify.tsx]** Le handler d'erreur de `completeEmailUpgrade(email, password, code)` distingue
+  désormais un refus Supabase sur la politique de mot de passe (`message.includes('weak') ||
+  message.includes('password') || message.includes('at least')` → `passwordError` /
+  `verify.errorWeakPassword`) d'un code OTP invalide (`codeError` / `verify.error`), sur le même
+  modèle que `reset-confirm.tsx`. Plus de risque d'afficher "code incorrect" pour un mot de passe
+  refusé.
+
+### Verdict
+SECURE — plus de blocage ni de correction en attente sur ce point.
+
+---
+
+## 2026-03-20 Story 2-1 — Auth Supabase
+
+### 🔵 INFO
+- **[Supabase session]** Le JWT Supabase est actuellement stocké via `AsyncStorage` (non chiffré) — migration vers `expo-secure-store` toujours requise avant release 1.0.0
+- **[AuthContext]** Token jamais loggé en clair — seul le `sub` (user_id) est utilisé dans l'app
+- **[AuthGuard]** Redirection via `useSegments` + `useRouter` — pas de `<Redirect>` dans le layout racine (évite les boucles infinies)
+
+### 🟡 WARNING
+- **[Supabase]** "Confirm email" désactivé en dev → réactiver avant release 1.0.0
+- **[AsyncStorage]** Le cache score ne contient pas de données sensibles ; la session Supabase fait encore exception et constitue une dette suivie ci-dessous
+- **[supabaseClient.ts]** CORRECTION DOCUMENTATION : le client Supabase utilise `storage: AsyncStorage` (non chiffré), pas `expo-secure-store`. Le JWT et le refresh token Supabase sont donc stockés en clair dans AsyncStorage. Migrer vers `expo-secure-store` avant release 1.0.0 pour aligner l'implémentation avec la politique de sécurité déclarée dans ce fichier et dans `mobile/CLAUDE.md`.
+
+---
+
+## 2026-09-06 Stories 2.5/2.6/2.8 — Parcours compte : Keychain + consentement newsletter
+
+### 🟢 RÉSOLU
+- **[supabaseClient.ts]** La session Supabase (access + refresh token) est désormais rangée
+  dans le **Keychain iOS** via `expo-secure-store`, plus dans AsyncStorage en clair.
+  L'adaptateur [`secureSessionStorage`](../src/services/secureSessionStorage.ts) fragmente la
+  valeur (limite ~2048 octets de SecureStore) et **migre** une session héritée d'AsyncStorage
+  au premier accès (recopie dans le Keychain puis suppression du token en clair) — aucune
+  reconnexion forcée. Plugin `expo-secure-store` ajouté à `app.config.ts` → **rebuild natif
+  requis** (`npx expo run:ios`). Clôt la dette ouverte depuis la story 2-1
+  (`security_jwt_asyncstorage_debt`).
+
+### 🟢 RÉSOLU (dans la même branche)
+- **[secureSessionStorage.ts]** `setItem` purge désormais AsyncStorage (`await AsyncStorage.removeItem(key)`) après `writeChunked`, en plus du chemin de migration de `getItem`. Un résidu de token en clair laissé par un crash pendant la migration est effacé au prochain rafraîchissement de session, plus seulement à la déconnexion.
+
+### 🔵 INFO
+- **[useNewsletterConsent / api/user.ts]** Le consentement newsletter est lu via
+  `GET /api/v1/user/me` et modifié via `PATCH /api/v1/user/preferences` (compte permanent
+  requis, `403 ACCOUNT_REQUIRED` sinon). Aucune donnée personnelle nouvelle stockée sur
+  l'appareil ; le booléen transite en HTTPS, jamais loggé (seul `if (DEBUG) console.debug`).
+- **[RGPD]** Le retrait de consentement est aussi simple que l'octroi (une bascule dans
+  Profil → Compte → Newsletter), conforme à l'art. 7-3.
+- **[secureSessionStorage.ts — migration path]** La logique de migration lit d'abord le Keychain (`readChunked`), puis AsyncStorage seulement si le Keychain est vide. Un crash après `writeChunked` mais avant `AsyncStorage.removeItem` laisse le Keychain valide : au redémarrage, `readChunked` retourne les données du Keychain et la migration n'est pas ré-exécutée — pas de boucle, pas de perte de session. La purge d'un résidu AsyncStorage est garantie par `setItem` (voir RÉSOLU ci-dessus).
+- **[supabaseClient.ts:8]** `detectSessionInUrl: false` — désactivé, conforme à un contexte mobile sans deep-link auth. Aucune session ne peut être injectée via URL.
+
+---
+
+## 2026-09-09 Story 2.7 — Récupération du mot de passe par OTP
+
+### 🟢 PROTECTIONS EN PLACE
+
+- **[Anti-énumération]** Après une demande acceptée, `/reset-confirm` affiche uniquement « Si un
+  compte existe pour cette adresse… ». La route ne reçoit `sent=1` qu'après la réussite de
+  `resetPasswordForEmail`; les échecs réseau et rate-limit utilisent une copie générique.
+- **[Secrets et logs]** L'adresse complète, l'OTP, le nouveau mot de passe, l'access token et le
+  refresh token ne sont jamais loggés. Les traces DEBUG se limitent à `hasEmail`, `codeLength` et
+  aux étapes/résultats catégorisés. Aucun de ces secrets ne transite par le backend Cloudbreak.
+- **[Doubles taps]** `submitInFlight` et `resendInFlight` verrouillent synchroniquement les appels,
+  en complément des boutons désactivés. Deux taps immédiats ne lancent qu'une opération.
+- **[Transport et stockage]** Les appels recovery vont directement à Supabase Auth en HTTPS. La
+  session issue de `verifyOtp(type: 'recovery')` utilise l'adaptateur SecureStore/Keychain existant.
+- **[Pas de deep link recovery]** `detectSessionInUrl: false` reste actif. Le template doit exposer
+  `{{ .Token }}` ; aucune session n'est injectée depuis un lien entrant.
+
+### 🟡 RISQUES À TRAITER / VALIDER AVANT PRODUCTION
+
+- **[Rate-limit]** Supabase documente pour `/recover` une fenêtre personnalisable de 60 secondes
+  par défaut. La décision Cloudbreak est de régler **Authentication → Rate Limits → Password reset
+  request** à 30 secondes maximum, en cohérence avec le cooldown initial et les cooldowns de renvoi
+  de l'app. Cette protection UX se contourne avec un client modifié ou un nouvel appareil : tester
+  la limite serveur, surveiller les abus et évaluer un CAPTCHA.
+- **[Anti-énumération côté fournisseur]** La copie mobile est neutre, mais il reste à mesurer les
+  réponses et timings Supabase pour adresses connues/inconnues. Les journaux opérateur peuvent
+  distinguer la livraison, mais ne doivent pas exposer d'OTP ni être accessibles au client.
+- **[Session recovery]** `verifyOtp` établit et persiste une session authentifiée avant
+  `updateUser({ password })`. Si l'écriture du mot de passe ou le provisioning échoue, la session
+  peut déjà exister dans le Keychain tandis que l'écran reste ouvert. Tester interruption,
+  redémarrage et retry ; confirmer les droits RLS/backend de cette session et décider si un échec
+  terminal doit forcer une déconnexion avant la release.
+- **[Template et locale]** Configurer dans le Dashboard Supabase le template **Reset Password**
+  avec `{{ .Token }}`, variantes FR/EN via `.Data.locale` et branche française par défaut. Cette
+  valeur vient des `user_metadata` du compte destinataire : la locale courante du client pré-auth
+  ne garantit pas la langue du message. Les preuves exigent des comptes contrôlés préconfigurés
+  `fr`, `en`, puis absent/invalide pour le fallback FR. Une correspondance exacte avec la locale
+  pré-auth demanderait plus tard un mécanisme d'e-mail transactionnel dédié.
+- **[Politique mot de passe]** (mise à jour 2026-09-11) L'app ne bloque plus que les valeurs sous
+  **six** caractères — le blocage client sur les 4 critères de force (majuscule+minuscule, chiffre,
+  caractère spécial) a été retiré ; la jauge de force (`passwordStrength`) reste affichée mais est
+  purement informative, sans conséquence sur le submit. Le plancher de 6 caractères est aligné sur
+  le minimum dur de Supabase Auth (non configurable en dessous) : Supabase reste l'autorité finale.
+  Vérifier que sa politique de complexité (Dashboard → Authentication → Policies) et les messages
+  d'erreur retournés correspondent à la copie produit, sans relâcher la règle côté fournisseur.
+
+### Verdict
+
+CODE MOBILE PRÊT POUR VALIDATION RÉELLE — aucun secret ajouté et aucune surface backend
+Cloudbreak créée. Le merge production reste conditionné par le template hébergé, les tests de
+livraison/anti-énumération, les limites Supabase et le comportement d'une session recovery
+interrompue.
+
+---
+
+## 2026-07-17 Story 7-2 — Mode Offline-Light & Cache TTL
+
+### 🔵 INFO
+- **[AsyncStorage cache]** Payload du cache `useWeekData` inspecté : contient uniquement `ScoreResponse` (score, verdict, cloud_base, conditions météo, nom/altitude du sommet). Aucun token, user_id, email, ou donnée personnelle identifiante. Conforme.
+- **[Cache key]** Clé `cache:weekdata:v4:{peakId}:{today}` — préfixe `cache:` respecté, `peakId` est un UUID sommet (pas un user_id). Aucune PII dans la clé.
+- **[Token]** Le paramètre `token` dans `useWeekData` est transmis uniquement en header HTTP à `fetchScore()` — jamais écrit dans AsyncStorage. Conforme.
+- **[NetInfo]** `@react-native-community/netinfo` utilisé en lecture seule (`NetInfo.fetch()` retourne l'état réseau). Aucune donnée sensible impliquée. Pas de nouvelle surface d'attaque.
+
+### Verdict
+SECURE — aucune donnée sensible exposée par la story 7.2.
+
+---
+
+## 2026-07-21 Story 1-7 — Taxonomie & instrumentation events (mobile)
+
+`track()` (stub DEBUG-only, `src/services/analytics.ts`) câblé sur ~20 points (onboarding, auth, home, recherche, favoris, paywall, profil, session).
+
+### 🔵 INFO
+- **[usePeakSearch.ts:47]** `search_performed` ne loggue que `query_length` et `results_count` — jamais le texte brut de la recherche. Conforme.
+- **[useLegalLinks.ts:23]** `legal_link_opened` ne loggue que `link_type` (catégorisé via `getLinkType()`) — jamais l'URL complète. Conforme.
+- Tous les autres events audités (`peak_selected`, `paywall_opened`, `plan_selected`, `score_hour_changed`, `offline_mode_shown`, `app_backgrounded`, etc.) ne transportent que des IDs (`peak_id`), enums (`period`, `scheme`, `locale`) ou métriques numériques (`session_duration_ms`, `cached_minutes_ago`) — aucune PII
+- Pas de duplication détectée avec les events backend pour une même action : `delete_account_initiated` (mobile, intention côté profil) vs `account_deleted` (backend, confirmation après suppression effective) couvrent deux étapes distinctes du même flux — un seul propriétaire par étape
+
+### 🟡 WARNING
+- **[useAuthForm.ts:36]** `auth_submitted` envoie `error_code: error.message` — c'est le message d'erreur brut retourné par Supabase (`AuthError.message`, texte libre, ex: "Invalid login credentials"), pas un code catégorisé stable comme le nom de la property le laisse penser. Risque : texte libre non maîtrisé par Cloudbreak, sujet à changer de format côté Supabase, et incohérent avec la convention appliquée ailleurs (`search_performed`, `legal_link_opened` qui catégorisent strictement). Pas de PII confirmée dans les messages Supabase actuels (aucun ne contient email/mot de passe), mais recommandation : mapper `error.message`/`error.status` vers un enum stable (`invalid_credentials`, `email_taken`, `weak_password`, `rate_limited`, `unknown`) avant le branchement PostHog réel, pour éviter d'envoyer du texte libre non contrôlé à un tiers.
+
+### Verdict
+CORRECTIONS RECOMMANDÉES AVANT BRANCHEMENT POSTHOG — aucun blocage pour le merge de la story 1.7 (stub sans réseau), mais `useAuthForm.ts:36` à corriger avant que `track()` envoie réellement vers PostHog.
+
+---
+
+## 2026-07-22 Story 2-3 — Permission Géolocalisation (Opt-in sans Blocage)
+
+### 🔵 INFO
+- **[app.config.ts]** Permission foreground uniquement (`NSLocationWhenInUseUsageDescription` via le plugin `expo-location` avec `locationWhenInUsePermission`) — jamais "Always"/background.
+- **[AuthContext]** Aucune coordonnée GPS n'est lue, stockée ou transmise par cette story : seul le statut de permission (`granted`/`denied`/`undetermined`) est gardé en mémoire dans `AuthContext`, jamais persisté sur disque (ni AsyncStorage, ni SecureStore).
+- **[useLocationPermission / useLocationSettingsLink]** Aucun appel réseau, aucune donnée transmise au backend.
+
+### Verdict
+SECURE — aucune donnée sensible supplémentaire exposée par la story 2.3. La consommation réelle de la position est désormais couverte par la story 6.1 ; la rétention/anonymisation des coordonnées reste à réévaluer avant release 1.0.0.
+
+---
+
+## 2026-07-24 Story 6-1 — Validation Terrain (Confirmation/Infirmation)
+
+### 🔵 INFO
+- **[useTerrainValidation.ts / useTerrainAutoDetect.ts]** Première utilisation réelle de `getCurrentPositionAsync` / `watchPositionAsync` dans le projet. Jusqu'à la story 2.3, seul le **statut** de permission (`granted`/`denied`/`undetermined`) était lu via `getForegroundPermissionsAsync` — aucune coordonnée réelle n'était jamais lue. Cette story change ça : des coordonnées GPS réelles sont désormais lues sur l'appareil, transitent en mémoire (`useState` dans le hook), puis quittent l'appareil au moment de `answer()` (`postTerrainValidation` → `POST /api/v1/validations`, `lat`/`lng` dans le body).
+- **[useTerrainAutoDetect.ts]** Le watcher de position (`watchPositionAsync`) n'est actif que pendant que l'app est **au premier plan** et qu'un sommet/score est activement affiché (dépendances `useEffect` : `locationPermission`, `target`, `onNear` — l'abonnement est nettoyé via `subscription.remove()` au démontage ou changement de sommet). Aucun mode "Always"/background n'est demandé (`app.config.ts` inchangé depuis la story 2.3 : `locationWhenInUsePermission` uniquement). Choix de conception délibéré, conforme à la politique "pas de tracking en arrière-plan" — pas de collecte de position hors du contexte explicite "l'utilisateur regarde une prévision".
+- **[validations.ts]** Les coordonnées ne sont jamais persistées sur l'appareil (ni AsyncStorage ni SecureStore) — elles restent en `useState` le temps du flux de validation, puis sont envoyées une seule fois au backend via HTTPS, jamais loggées en clair (seul `if (DEBUG) console.debug` en dev, désactivé en prod).
+- **[validations.ts]** Bug corrigé cette story : le payload n'était auparavant pas construit (l'appel API n'envoyait rien) — c'est un fix de fonctionnalité, pas une régression de sécurité introduite (aucune donnée n'était envoyée avant, donc aucune fuite antérieure liée à ce bug).
+- **[permission refusée]** Si la permission de localisation est refusée, le flux `validateManually()` permet de valider sans position (`lat`/`lng` non envoyés, `undefined`) — aucune donnée de géolocalisation n'est requise pour utiliser la fonctionnalité, conforme au principe "opt-in sans blocage" posé en story 2.3.
+
+### 🟡 WARNING
+- **[Dette pré-existante, non aggravée par cette story]** Le JWT Supabase reste stocké en clair dans AsyncStorage (`supabaseClient.ts` utilise `storage: AsyncStorage`, pas `expo-secure-store`) — dette déjà tracée depuis la story 2-1 et en mémoire projet (`security_jwt_asyncstorage_debt`). Cette story n'introduit aucun nouvel usage de `SecureStore` ni de nouvelle exposition du token ; le `token` transite comme avant, uniquement en header HTTP.
+
+### Verdict
+SECURE — les coordonnées GPS réelles introduites par cette story ne quittent l'appareil que sur action explicite de l'utilisateur (réponse Oui/Non dans le sheet), ne sont jamais persistées localement, et le watcher d'auto-détection est strictement scopé au foreground avec un sommet actif. Réévaluer côté backend, comme noté en story 2.3, si une politique de rétention/anonymisation de `terrain_validations.lat/lng` est nécessaire avant release 1.0.0.
+
+---
+
+## 2026-09-12 Durcissement post-merge auth
+
+### 🟢 RÉSOLU (WARNING 2026-09-11 — verify.tsx détection erreur mot de passe)
+- **[src/app/verify.tsx:53-55]** La branche `else if (message.includes('weak') || message.includes('password') || message.includes('at least'))` est désormais présente dans `verify.tsx`, identique au modèle déjà en place dans `reset-confirm.tsx`. Un refus Supabase pour politique de mot de passe (ex : complexité renforcée dans le Dashboard) affiche maintenant `setPasswordError(true)` au lieu de tomber dans `setCodeError(true)`. La WARNING ouverte le 2026-09-11 est soldée.
+
+### 🔵 INFO
+- **[src/services/fetchService.ts]** Le timeout HTTP (`Promise.race` entre `fetch()` et un timer 10s) n'abortait pas réellement la requête sous-jacente si le timer gagnait la course — le `fetch()` continuait en arrière-plan. Corrigé : un `AbortController` interne est créé à chaque appel, écoute un `signal` externe optionnel (annulation propagée), et `controller.abort()` est appelé dans le callback du timeout avant de rejeter. Le listener externe est retiré (`removeEventListener`) dans le `finally` pour éviter toute fuite si un signal est réutilisé.
+- **[src/services/supabaseClient.ts]** Le client Supabase lisait `Constants.expoConfig?.extra?.{supabaseUrl,supabaseKey}` sans vérification (`as string`). Un profil de build EAS mal configuré aurait échoué de façon opaque plus tard (dans `createClient()` ou au premier appel réseau). Corrigé : `throw` explicite au chargement du module si l'une des deux valeurs est absente, avec un message pointant vers la cause probable (profil EAS).
+- **[src/app/verify.tsx, src/app/account.tsx, src/contexts/AuthContext.tsx]** Si `signIn()`/`signInWithApple()`/`completeEmailUpgrade()` réussissait côté Supabase mais que le provisioning backend échouait, l'utilisateur était déjà authentifié mais pas provisionné en DB — `account.tsx` affichait un message générique sans retry. Ajout d'un état `provisioningError` distinct + bouton retry sur les deux écrans (login e-mail, Apple, création e-mail), réutilisant `AuthContext.retryProvisioning()` (renommé depuis `retryEmailUpgradeProvisioning`, la fonction étant déjà générique). Détection factorisée dans `isProvisioningError()` exportée par `AuthContext.tsx`, utilisée identiquement par les deux écrans. `verify.tsx` redirige désormais vers `/account` si l'écran est ouvert sans email/password en mémoire (ex : app tuée en plein flow).
+- **[src/contexts/AuthContext.tsx — isProvisioningError]** La détection repose sur une `Set` à correspondance exacte après `.trim().toLowerCase()`, pas une sous-chaîne ni un regex. Les deux codes internes (`PROVISIONING_FAILED`, `EMAIL_UPGRADE_PROVISIONING_FAILED`) sont les seuls à entrer dans le Set ; aucun message d'erreur Supabase standard ne correspond à ces chaînes — pas de risque de faux positif qui classerait une erreur d'auth réelle comme une erreur de provisioning.
+- **[src/contexts/AuthContext.tsx — logAuthOperation]** Commentaire explicite ligne 137 confirmé à la lecture : `logAuthOperation` ne contient aucune adresse e-mail, OTP, access token ni message d'erreur Supabase brut — uniquement `stage` (enum interne) et `outcome` (enum à 4 valeurs). Pattern conforme.
+- **[src/services/fetchService.ts:45-46]** Le `console.debug` de requête loggue `method` et `url` (jamais le token — celui-ci est dans le header `Authorization`, hors portée de l'URL et des logs). Les query params éventuels (`peak_id`, `date`, `hour`) ne sont pas sensibles. Conforme.
+
+### Verdict
+SECURE — aucune nouvelle surface de données exposée. Ces corrections sont de la robustesse réseau/UX et une garde de configuration, pas des changements de flux d'authentification. Le retry provisioning ne contourne aucune vérification serveur : il rappelle exactement le même provisioning que le chemin nominal. La WARNING 2026-09-11 sur `verify.tsx` est soldée dans cette branche.
+
+---
+
+## 2026-10-09 Story 5-1 — Infrastructure push (token Expo Push)
+
+### 🔵 INFO
+- **[usePushToken.ts]** Le token Expo Push est envoyé uniquement au backend (`POST /api/v1/user/push-token`, JWT en header). Il n'est jamais stocké localement (ni AsyncStorage ni SecureStore ; seule une référence mémoire `useRef` évite les renvois) et jamais loggué : le `console.debug` en échec n'est actif qu'en DEBUG et ne contient que l'erreur.
+- **[usePushToken.ts]** Aucun envoi pour un compte anonyme ou sans session ; le hook ne demande jamais la permission iOS (lecture seule de `getPermissionsAsync`), la demande reste à l'onboarding.
+- **[AuthContext.tsx]** Au logout (`signOut`, `signOutToAnonymous`), le token est libéré (`DELETE /api/v1/user/push-token`) avant la perte du JWT, en best-effort : une erreur réseau n'empêche pas la déconnexion. Aucun appel dans `deleteAccount` (la ligne utilisateur est supprimée côté serveur).
+- **[usePushToken.ts]** L'enregistrement est retenté à chaque retour de l'app au premier plan (permission accordée après coup, échec réseau), avec garde « en cours » et déduplication par clé `userId:pushToken`.
+- **[usePushToken.ts / AuthContext.tsx — limite connue]** Un POST déjà parti ne peut pas être annulé : s'il arrive côté serveur après le DELETE du logout, l'ancien compte garde le token jusqu'à ce qu'un autre compte l'enregistre. Fenêtre étroite, non corrigée côté mobile (seul l'état local est protégé).
+- **[usePushToken.ts]** L'enregistrement est indexé sur l'id utilisateur (clé `userId:pushToken`) : un renouvellement du JWT ne renvoie pas le token, et un refresh tombant pendant un logout ne peut pas le ré-attacher.
+- **[AuthContext.tsx]** Le DELETE du logout est best-effort et borné à 2,5 s (course avec un délai) pour ne pas bloquer la déconnexion hors ligne. Si le DELETE échoue ou expire, l'ancien compte garde potentiellement le token jusqu'à ce qu'un autre compte l'enregistre côté serveur.
+
+### Verdict
+SECURE — le token push ne quitte l'appareil que vers le backend authentifié, n'est pas persisté localement et est détaché du compte à la déconnexion.
+
+---
+
+## 2026-10-09 Story 5.3 — Notification GPS validation terrain (révisée 2026-11-01 : géorepérage retiré)
+
+- **Décision produit 2026-11-01 (1.0.0)** : plus aucune localisation en arrière-plan. Le géorepérage (`startGeofencingAsync`, tâche `expo-task-manager`, notification locale « Tu es au sommet ») est supprimé, ainsi que la dépendance `expo-task-manager`. L'arrivée au sommet n'est détectée que **app ouverte** (`useTerrainAutoDetect`, `watchPositionAsync`), avec la permission « Pendant l'utilisation » uniquement.
+- **Configuration iOS** (`app.config.ts`, plugin `expo-location`) : `isIosBackgroundLocationEnabled: false`, `locationAlwaysAndWhenInUsePermission: false`, `locationAlwaysPermission: false`. L'Info.plist ne contient plus `UIBackgroundModes = location` ni `NSLocationAlwaysAndWhenInUseUsageDescription` / `NSLocationAlwaysUsageDescription` (cohérent avec la politique de confidentialité). Aucune justification App Review du mode background `location` n'est plus nécessaire. `UIBackgroundModes = fetch` (ajouté par `expo-notifications`) n'a pas de lien avec la localisation et reste inchangé.
+- **Données stockées (AsyncStorage, non sensibles)** : uniquement une copie locale de la préférence `notif_terrain` et une demande d'ouverture en attente (slug, TTL 10 min). Les anciennes clés `terrainWatchedPeaks` / `terrainNotifiedAt` sont purgées par `clearTerrainState`. **Aucune position GPS de l'utilisateur n'est enregistrée.**

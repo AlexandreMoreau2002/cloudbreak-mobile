@@ -1,0 +1,34 @@
+{
+  "cli": {
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "staging": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://dev-api.cloudbreak-app.com",
+        "EXPO_PUBLIC_LEGAL_BASE_URL": "https://dev-ops.cloudbreak-app.com",
+        "EXPO_PUBLIC_MOCK_API": "false",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "contact@cloudbreak-app.com"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.cloudbreak-app.com",
+        "EXPO_PUBLIC_LEGAL_BASE_URL": "https://ops.cloudbreak-app.com",
+        "EXPO_PUBLIC_MOCK_API": "false",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "contact@cloudbreak-app.com"
+      }
+    }
+  }
+}

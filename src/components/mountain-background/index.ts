@@ -1,0 +1,1 @@
+export { MountainBackground } from './MountainBackground';
