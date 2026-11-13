@@ -50,6 +50,7 @@ interface SubscriptionContextValue {
   purchase: (productId: SubscriptionProductId) => Promise<void>;
   restore: () => Promise<void>;
   refresh: () => Promise<void>;
+  reloadProducts: () => Promise<void>;
   waitForProduct: (productId: SubscriptionProductId) => Promise<boolean>;
 }
 
@@ -100,6 +101,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const requestGenerationRef = useRef(0);
   const productsRef = useRef<StoreKitProduct[]>([]);
   const storeInitialisationRef = useRef<Promise<void> | null>(null);
+  const mountedRef = useRef(false);
   const isPermanent = Boolean(session && !isAnonymous);
   const userId = isPermanent ? session?.user?.id ?? null : null;
 
@@ -166,8 +168,46 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
+  /** Ouvre la connexion StoreKit et charge les deux offres ; pose `store_unavailable` en cas d'échec. */
+  const loadProducts = useCallback(async (): Promise<void> => {
+    try {
+      const connected = await initConnection();
+      if (DEBUG) console.debug('[subscription] initConnection', { connected });
+      if (!connected || !mountedRef.current) throw new Error('StoreKit unavailable');
+      if (DEBUG) console.debug('[subscription] fetchProducts call', { skus: [...PRODUCT_IDS] });
+      const nativeProducts = await fetchProducts({ skus: [...PRODUCT_IDS], type: 'subs' });
+      if (DEBUG) console.debug('[subscription] fetchProducts raw', { count: nativeProducts?.length ?? 0, isArray: Array.isArray(nativeProducts) });
+      if (DEBUG) (nativeProducts ?? []).forEach((product) => console.debug('[subscription] product raw', {
+        id: product.id,
+        platform: (product as ProductSubscription).platform,
+        displayPrice: (product as ProductSubscription).displayPrice,
+      }));
+      if (!mountedRef.current) return;
+      const mappedProducts = (nativeProducts ?? []).flatMap((product) => {
+        const mapped = mapProduct(product as ProductSubscription);
+        return mapped ? [mapped] : [];
+      });
+      if (DEBUG) console.debug('[subscription] products mapped', { count: mappedProducts.length, ids: mappedProducts.map((product) => product.id) });
+      productsRef.current = mappedProducts;
+      setProducts(mappedProducts);
+    } catch (error) {
+      if (DEBUG) console.debug('[subscription] store unavailable', { message: error instanceof Error ? error.message : String(error) });
+      if (mountedRef.current) setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
+    }
+  }, []);
+
+  /** Relance le chargement des offres (bouton « Réessayer » du paywall). */
+  const reloadProducts = useCallback((): Promise<void> => {
+    setState((current) => ({ ...current, loading: true, error: null }));
+    const request = loadProducts().then(() => {
+      if (mountedRef.current) setState((current) => ({ ...current, loading: false }));
+    });
+    storeInitialisationRef.current = request;
+    return request;
+  }, [loadProducts]);
+
   useEffect(() => {
-    let active = true;
+    mountedRef.current = true;
     const purchaseSubscription = purchaseUpdatedListener((purchase) => { void verifyAndFinish(purchase); });
     const errorSubscription = purchaseErrorListener((error) => {
       setState((current) => ({
@@ -177,40 +217,15 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       }));
     });
 
-    async function initialiseStore(): Promise<void> {
-      try {
-        const connected = await initConnection();
-        if (DEBUG) console.debug('[subscription] initConnection', { connected });
-        if (!connected || !active) throw new Error('StoreKit unavailable');
-        if (DEBUG) console.debug('[subscription] fetchProducts call', { skus: [...PRODUCT_IDS] });
-        const nativeProducts = await fetchProducts({ skus: [...PRODUCT_IDS], type: 'subs' });
-        if (DEBUG) console.debug('[subscription] fetchProducts raw', { count: nativeProducts?.length ?? 0, isArray: Array.isArray(nativeProducts) });
-        if (DEBUG) (nativeProducts ?? []).forEach((product) => console.debug('[subscription] product raw', {
-          id: product.id,
-          platform: (product as ProductSubscription).platform,
-          displayPrice: (product as ProductSubscription).displayPrice,
-        }));
-        if (!active) return;
-        const mappedProducts = (nativeProducts ?? []).flatMap((product) => {
-          const mapped = mapProduct(product as ProductSubscription);
-          return mapped ? [mapped] : [];
-        });
-        if (DEBUG) console.debug('[subscription] products mapped', { count: mappedProducts.length, ids: mappedProducts.map((product) => product.id) });
-        setProducts(mappedProducts);
-      } catch (error) {
-        if (DEBUG) console.debug('[subscription] store unavailable', { message: error instanceof Error ? error.message : String(error) });
-        if (active) setState((current) => ({ ...current, loading: false, error: 'store_unavailable' }));
-      }
-    }
-
-    storeInitialisationRef.current = initialiseStore();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement asynchrone des offres au montage : l'état n'est posé qu'après les appels StoreKit, jamais de façon synchrone
+    storeInitialisationRef.current = loadProducts();
     return () => {
-      active = false;
+      mountedRef.current = false;
       purchaseSubscription.remove();
       errorSubscription.remove();
       void endConnection();
     };
-  }, [verifyAndFinish]);
+  }, [loadProducts, verifyAndFinish]);
 
   useEffect(() => {
     requestGenerationRef.current += 1;
@@ -296,11 +311,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     purchase,
     restore,
     refresh,
+    reloadProducts,
     waitForProduct,
     isPremium: state.plan === 'premium'
       && (state.status === 'trial' || state.status === 'active')
       && hasFutureExpiry(state.expires_at),
-  }), [products, purchase, refresh, restore, state, waitForProduct]);
+  }), [products, purchase, refresh, reloadProducts, restore, state, waitForProduct]);
 
   return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;
 }

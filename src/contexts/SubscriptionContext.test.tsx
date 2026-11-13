@@ -126,6 +126,38 @@ describe('SubscriptionProvider', () => {
     expect(latest?.products[0]).toMatchObject({ displayPrice: '5,00 €', period: 'month', hasFreeTrial: true });
   });
 
+  it('recharge les offres StoreKit à la demande quand le premier chargement est revenu vide', async () => {
+    iap.fetchProducts.mockResolvedValueOnce([]);
+    renderProvider();
+    await waitFor(() => expect(iap.fetchProducts).toHaveBeenCalledTimes(1));
+    expect(latest?.products).toHaveLength(0);
+
+    await act(async () => { await latest?.reloadProducts(); });
+
+    expect(iap.fetchProducts).toHaveBeenCalledTimes(2);
+    expect(latest?.products).toHaveLength(2);
+    expect(latest?.state).toMatchObject({ loading: false, error: null });
+    await expect(latest?.waitForProduct('com.alexandremoreau.cloudbreak.premium.annual')).resolves.toBe(true);
+  });
+
+  it('efface l’erreur boutique pendant le rechargement puis la repose si StoreKit échoue encore', async () => {
+    iap.fetchProducts.mockRejectedValueOnce(new Error('offline'));
+    renderProvider();
+    await waitFor(() => expect(latest?.state.error).toBe('store_unavailable'));
+    const pending = deferred<Iap.ProductSubscription[]>();
+    iap.fetchProducts.mockReturnValueOnce(pending.promise as ReturnType<typeof iap.fetchProducts>);
+
+    let reload: Promise<void> | undefined;
+    act(() => { reload = latest?.reloadProducts(); });
+    await waitFor(() => expect(latest?.state).toMatchObject({ loading: true, error: null }));
+
+    iap.initConnection.mockResolvedValueOnce(false);
+    await act(async () => { pending.resolve([]); await reload; });
+    await act(async () => { await latest?.reloadProducts(); });
+    expect(latest?.state).toMatchObject({ loading: false, error: 'store_unavailable' });
+    expect(latest?.products).toHaveLength(0);
+  });
+
   it.each(['active', 'trial'] as const)('treats %s premium states as entitled', async (status) => {
     mockFetchSubscription.mockResolvedValueOnce({ plan: 'premium', status, expires_at: '2099-01-01T00:00:00Z' });
     renderProvider();
