@@ -10,6 +10,7 @@ import { isRateLimitError, useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { useAccountGate } from '@/contexts/AccountGateContext';
 import { AuthBackdrop, CodeInput, isPasswordLongEnough, PasswordField } from '@/components/account';
+import { KeyboardDismissView } from '@/components/account/KeyboardDismissView';
 
 const CODE_LENGTH = 6;
 const RESEND_DELAY_SECONDS = 30;
@@ -96,7 +97,7 @@ export default function ResetConfirmScreen() {
   }
 
   return (
-    <View
+    <KeyboardDismissView
       testID="reset-confirm-screen"
       style={[
         styles.container,
@@ -171,7 +172,7 @@ export default function ResetConfirmScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardDismissView>
   );
 }
 
