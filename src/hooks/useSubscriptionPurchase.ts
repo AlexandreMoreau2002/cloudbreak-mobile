@@ -17,7 +17,7 @@ function billingPeriodForProduct(productId: SubscriptionProductId): BillingPerio
 export function useSubscriptionPurchase() {
   const { isAnonymous } = useAuth();
   const { requireAccount } = useAccountGate();
-  const { isPremium, products, purchase, refresh, restore, state, waitForProduct } = useSubscription();
+  const { isPremium, products, purchase, refresh, reloadProducts, restore, state, waitForProduct } = useSubscription();
 
   const paywallProducts = useMemo<PaywallProduct[]>(() => products.map((product) => ({
     billingPeriod: billingPeriodForProduct(product.id),
@@ -58,6 +58,12 @@ export function useSubscriptionPurchase() {
     await restore();
   }, [isAnonymous, requireAccount, restore]);
 
+  /** « Réessayer » du paywall : recharge les offres Apple, puis l'abonnement côté serveur. */
+  const retryProducts = useCallback(async (): Promise<void> => {
+    await reloadProducts();
+    await refresh();
+  }, [refresh, reloadProducts]);
+
   return {
     error: state.error,
     isLoading: state.loading,
@@ -65,6 +71,7 @@ export function useSubscriptionPurchase() {
     products: paywallProducts,
     refresh,
     restore: restorePurchases,
+    retryProducts,
     selectPlan,
   };
 }

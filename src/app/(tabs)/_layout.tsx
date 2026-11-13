@@ -32,7 +32,7 @@ function GlobalPaywall() {
       error={subscriptionPurchase.error}
       onSelectPlan={subscriptionPurchase.selectPlan}
       onRestore={subscriptionPurchase.restore}
-      onRetryProducts={subscriptionPurchase.refresh}
+      onRetryProducts={subscriptionPurchase.retryProducts}
     />
   );
 }

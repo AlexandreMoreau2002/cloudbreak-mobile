@@ -76,4 +76,26 @@ describe('useSubscriptionPurchase', () => {
     await requireAccount.mock.calls[0][0].retry();
     expect(restore).toHaveBeenCalledTimes(1);
   });
+
+  it('recharge les offres StoreKit puis l’abonnement quand on réessaie', async () => {
+    const calls: string[] = [];
+    const reloadProducts = jest.fn(async () => { calls.push('products'); });
+    const refresh = jest.fn(async () => { calls.push('subscription'); });
+    mockUseSubscription.mockReturnValue({
+      isPremium: false,
+      products: [],
+      purchase,
+      refresh,
+      reloadProducts,
+      restore: jest.fn(),
+      waitForProduct,
+      state: { loading: false, error: 'store_unavailable' },
+    } as unknown as ReturnType<typeof useSubscription>);
+    mockUseAuth.mockReturnValue({ isAnonymous: false } as ReturnType<typeof useAuth>);
+    const { result } = renderHook(() => useSubscriptionPurchase());
+
+    await act(async () => result.current.retryProducts());
+
+    expect(calls).toEqual(['products', 'subscription']);
+  });
 });
