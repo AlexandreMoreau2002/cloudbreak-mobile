@@ -27,7 +27,6 @@ export function initializeSentry(): boolean {
     attachViewHierarchy: false,
     enableAutoPerformanceTracing: false,
     enableAutoSessionTracking: false,
-    enablePreWarmedAppStartTracing: false,
     enableLogs: false,
     maxBreadcrumbs: 0,
     sendDefaultPii: false,
