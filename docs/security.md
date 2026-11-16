@@ -388,8 +388,9 @@ APPROUVÉ POUR LE CODE — attendre les variables EAS et la validation TestFligh
   inconnus sont rejetés ; `auth_submitted` reste exclu tant que son `error_code` n'est pas un enum
   stable.
 - **[Fonctions désactivées]** Autocapture, replay, erreurs, logs, feature flags, surveys,
-  configuration distante, person profiles et rage clicks sont explicitement désactivés ou non
-  configurés. Sentry reste le seul collecteur d'erreurs de l'app.
+  person profiles et rage clicks sont explicitement désactivés ou non configurés. L'option SDK
+  `disableRemoteConfig` a été retirée car c'était un no-op déprécié : la configuration distante
+  n'est pas consommée par cette intégration. Sentry reste le seul collecteur d'erreurs de l'app.
 - **[Build]** Le projet actuel est réservé au dev/TestFlight. Il ne faut poser que ses variables
   EAS sur la build de test, sans les écrire dans Git ni les recopier dans les logs.
 
