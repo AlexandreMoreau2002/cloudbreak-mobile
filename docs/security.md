@@ -375,3 +375,26 @@ SECURE — le token push ne quitte l'appareil que vers le backend authentifié, 
 ### Verdict
 
 APPROUVÉ POUR LE CODE — attendre les variables EAS et la validation TestFlight pour confirmer le transport réel et les source maps.
+
+---
+
+## 2026-11-16 — PostHog mobile, analytics explicite seulement
+
+- **[src/services/analytics.ts]** Le client natif ne s'initialise que si
+  `EXPO_PUBLIC_POSTHOG_KEY` et `EXPO_PUBLIC_POSTHOG_HOST` sont présents au build EAS. Sans ces
+  variables, `track()` est un no-op et l'application démarre sans trafic PostHog.
+- **[Données]** La capture applique une liste blanche d'événements et de propriétés primitives
+  prévues. Les textes libres, PII, jetons, messages d'erreur, coordonnées précises et événements
+  inconnus sont rejetés ; `auth_submitted` reste exclu tant que son `error_code` n'est pas un enum
+  stable.
+- **[Fonctions désactivées]** Autocapture, replay, erreurs, logs, feature flags, surveys,
+  configuration distante, person profiles et rage clicks sont explicitement désactivés ou non
+  configurés. Sentry reste le seul collecteur d'erreurs de l'app.
+- **[Build]** Le projet actuel est réservé au dev/TestFlight. Il ne faut poser que ses variables
+  EAS sur la build de test, sans les écrire dans Git ni les recopier dans les logs.
+
+### Verdict
+
+APPROUVÉ POUR LE CODE — confirmer la capture filtrée et l'absence de produits automatiques dans une
+build native dev/TestFlight. Un projet et une clé PostHog de production séparés sont obligatoires
+avant toute activation publique.
