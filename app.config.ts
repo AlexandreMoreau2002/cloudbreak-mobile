@@ -1,5 +1,5 @@
-import { withSentry } from '@sentry/react-native/expo';
 import { ExpoConfig, ConfigContext } from 'expo/config';
+import { withSentry } from '@sentry/react-native/expo';
 
 const { getAssociatedDomains } = require('./plugins/associatedDomains');
 

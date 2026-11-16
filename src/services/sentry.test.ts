@@ -37,6 +37,8 @@ describe('initializeSentry', () => {
       expect.objectContaining({
         dsn: 'https://public@example.invalid/42',
         enableAutoSessionTracking: false,
+        enableAutoPerformanceTracing: false,
+        enablePreWarmedAppStartTracing: false,
         enableLogs: false,
         maxBreadcrumbs: 0,
         sendDefaultPii: false,
