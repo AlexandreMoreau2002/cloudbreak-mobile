@@ -1,8 +1,9 @@
 const mockInit = jest.fn();
 
+jest.mock('@sentry/react-native', () => ({ init: (...args: unknown[]) => mockInit(...args) }));
+
 function loadSentryService() {
   jest.resetModules();
-  jest.doMock('@sentry/react-native', () => ({ init: mockInit }), { virtual: true });
   return require('./sentry') as typeof import('./sentry');
 }
 
