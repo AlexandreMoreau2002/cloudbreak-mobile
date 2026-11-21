@@ -1,16 +1,15 @@
 const capture = jest.fn();
-const PostHog = jest.fn(() => ({ capture }));
+const mockPostHog = jest.fn((..._args: unknown[]) => ({ capture }));
+
+jest.mock('posthog-react-native', () => ({
+  __esModule: true,
+  default: function PostHogMock(...args: unknown[]) {
+    return mockPostHog(...args);
+  },
+}));
 
 function loadAnalytics() {
   jest.resetModules();
-  jest.doMock(
-    'posthog-react-native',
-    () => ({
-      __esModule: true,
-      default: PostHog,
-    }),
-    { virtual: true },
-  );
 
   return require('@/services/analytics') as typeof import('@/services/analytics');
 }
@@ -20,7 +19,7 @@ describe('analytics', () => {
     delete process.env.EXPO_PUBLIC_POSTHOG_HOST;
     delete process.env.EXPO_PUBLIC_POSTHOG_KEY;
     capture.mockClear();
-    PostHog.mockClear();
+    mockPostHog.mockClear();
   });
 
   it('does not initialize or capture without a PostHog key', () => {
@@ -28,7 +27,7 @@ describe('analytics', () => {
 
     track('onboarding_complete');
 
-    expect(PostHog).not.toHaveBeenCalled();
+    expect(mockPostHog).not.toHaveBeenCalled();
     expect(capture).not.toHaveBeenCalled();
   });
 
@@ -40,8 +39,8 @@ describe('analytics', () => {
     track('onboarding_step_viewed', { step: 1 });
     track('onboarding_step_viewed', { step: 2 });
 
-    expect(PostHog).toHaveBeenCalledTimes(1);
-    expect(PostHog).toHaveBeenCalledWith('public-test-key', {
+    expect(mockPostHog).toHaveBeenCalledTimes(1);
+    expect(mockPostHog).toHaveBeenCalledWith('public-test-key', {
       addTracingHeaders: [],
       captureAppLifecycleEvents: false,
       capturePushNotificationOpened: false,
