@@ -8,6 +8,7 @@ import {
 } from '@expo-google-fonts/josefin-sans';
 import { useEffect, useRef } from 'react';
 import '@/services/notificationHandler';
+import { initializeSentry } from '@/services/sentry';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useNotificationTap } from '@/hooks/useNotificationTap';
@@ -23,6 +24,8 @@ import { AccountGateProvider } from '@/contexts/AccountGateContext';
 import { FavoritesProvider } from '@/contexts/FavoritesContext';
 import i18n from '@/utils/i18n';
 import { useRouter, useSegments, SplashScreen, Stack, type Href } from 'expo-router';
+
+initializeSentry();
 
 SplashScreen.preventAutoHideAsync();
 

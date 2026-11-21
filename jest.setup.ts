@@ -1,5 +1,7 @@
 global.console.debug = () => {};
 
+jest.mock('@sentry/react-native', () => ({ init: jest.fn() }));
+
 jest.mock('react-native-worklets', () => require('react-native-worklets/lib/module/mock'));
 
 jest.mock('expo-notifications', () => ({

@@ -1,4 +1,5 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
+import { withSentry } from '@sentry/react-native/expo';
 
 const { getAssociatedDomains } = require('./plugins/associatedDomains');
 
@@ -27,7 +28,7 @@ function getSupabaseConfig() {
   return { supabaseUrl: url || DEV_SUPABASE_URL, supabaseKey: key || DEV_SUPABASE_KEY };
 }
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
+const createExpoConfig = ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Cloudbreak – Mer de nuage',
   slug: 'cloudbreak',
@@ -89,4 +90,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.extra,
     ...getSupabaseConfig(),
   },
+});
+
+export default (context: ConfigContext): ExpoConfig => withSentry(createExpoConfig(context), {
+  organization: 'self-oaq',
+  project: 'cloudbreak-mobile',
 });
