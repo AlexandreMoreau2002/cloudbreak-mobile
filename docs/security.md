@@ -362,3 +362,40 @@ SECURE — le token push ne quitte l'appareil que vers le backend authentifié, 
 - **Décision produit 2026-11-01 (1.0.0)** : plus aucune localisation en arrière-plan. Le géorepérage (`startGeofencingAsync`, tâche `expo-task-manager`, notification locale « Tu es au sommet ») est supprimé, ainsi que la dépendance `expo-task-manager`. L'arrivée au sommet n'est détectée que **app ouverte** (`useTerrainAutoDetect`, `watchPositionAsync`), avec la permission « Pendant l'utilisation » uniquement.
 - **Configuration iOS** (`app.config.ts`, plugin `expo-location`) : `isIosBackgroundLocationEnabled: false`, `locationAlwaysAndWhenInUsePermission: false`, `locationAlwaysPermission: false`. L'Info.plist ne contient plus `UIBackgroundModes = location` ni `NSLocationAlwaysAndWhenInUseUsageDescription` / `NSLocationAlwaysUsageDescription` (cohérent avec la politique de confidentialité). Aucune justification App Review du mode background `location` n'est plus nécessaire. `UIBackgroundModes = fetch` (ajouté par `expo-notifications`) n'a pas de lien avec la localisation et reste inchangé.
 - **Données stockées (AsyncStorage, non sensibles)** : uniquement une copie locale de la préférence `notif_terrain` et une demande d'ouverture en attente (slug, TTL 10 min). Les anciennes clés `terrainWatchedPeaks` / `terrainNotifiedAt` sont purgées par `clearTerrainState`. **Aucune position GPS de l'utilisateur n'est enregistrée.**
+
+---
+
+## 2026-11-16 — Sentry mobile, erreurs seulement
+
+- **[src/services/sentry.ts]** L'initialisation est un no-op si `EXPO_PUBLIC_SENTRY_DSN` est absent. Le DSN d'ingestion public est fourni par EAS au build et n'est pas écrit dans le dépôt ; le jeton de téléversement des source maps est le secret EAS distinct `SENTRY_AUTH_TOKEN`.
+- **[Données]** `beforeSend` retire utilisateur, requête, tags, extras, contexts, breadcrumbs et valeurs d'exception. Les captures d'écran et hiérarchies de vue sont désactivées ; aucune coordonnée ni identité n'est volontairement envoyée.
+- **[Fonctions désactivées]** logs, auto-session tracking, tracing de performance, démarrage préchauffé, propagation de trace HTTP et breadcrumbs sont explicitement désactivés. Replay, profiling et feedback ne sont pas configurés.
+- **[Build]** le SDK étant natif, la vérification réelle nécessite une nouvelle build iOS dev/TestFlight. Elle doit être contrôlée avant toute soumission App Store et dans la même version que le futur branchement PostHog.
+
+### Verdict
+
+APPROUVÉ POUR LE CODE — attendre les variables EAS et la validation TestFlight pour confirmer le transport réel et les source maps.
+
+---
+
+## 2026-11-16 — PostHog mobile, analytics explicite seulement
+
+- **[src/services/analytics.ts]** Le client natif ne s'initialise que si
+  `EXPO_PUBLIC_POSTHOG_KEY` et `EXPO_PUBLIC_POSTHOG_HOST` sont présents au build EAS. Sans ces
+  variables, `track()` est un no-op et l'application démarre sans trafic PostHog.
+- **[Données]** La capture applique une liste blanche d'événements et de propriétés primitives
+  prévues. Les textes libres, PII, jetons, messages d'erreur, coordonnées précises et événements
+  inconnus sont rejetés ; `auth_submitted` reste exclu tant que son `error_code` n'est pas un enum
+  stable.
+- **[Fonctions désactivées]** Autocapture, replay, erreurs, logs, feature flags, surveys,
+  person profiles et rage clicks sont explicitement désactivés ou non configurés. L'option SDK
+  `disableRemoteConfig` a été retirée car c'était un no-op déprécié : la configuration distante
+  n'est pas consommée par cette intégration. Sentry reste le seul collecteur d'erreurs de l'app.
+- **[Build]** Le projet actuel est réservé au dev/TestFlight. Il ne faut poser que ses variables
+  EAS sur la build de test, sans les écrire dans Git ni les recopier dans les logs.
+
+### Verdict
+
+APPROUVÉ POUR LE CODE — confirmer la capture filtrée et l'absence de produits automatiques dans une
+build native dev/TestFlight. Un projet et une clé PostHog de production séparés sont obligatoires
+avant toute activation publique.
